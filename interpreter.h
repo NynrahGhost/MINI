@@ -7,8 +7,10 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+//#include "caller.asm"
 
 
+//extern "C" int sayHello();
 
 enum class Status
 {
@@ -36,8 +38,8 @@ public:
     Module specification;
 
     std::vector<Instruction> stackInstructions;
-    std::vector<Instruction> stackArrays;
     std::vector<Instruction> stackCalls;
+    std::vector<std::vector<Instruction>> stackArrays;
     ValueLocation context;
     struct {
         uint8* data = 0;
@@ -59,7 +61,7 @@ int main();
 
 void print(ValueType* memory);
 
-uint32 test0(uint16 arg0);
+uint32 test0(uint16 arg0, uint32 arg1, uint16 arg2, float32 arg3, float64 arg4);
 
 
 class StringDictionary {

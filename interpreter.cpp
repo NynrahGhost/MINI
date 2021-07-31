@@ -31,10 +31,11 @@
 		else																	\
 			goto error_memory_allocation	// TODO: error stack memory allocation.
 
-
 int main()
-{
-	const charT* script = T("msg%");
+{		
+	//int res = sayHello();
+
+	const charT* script = T("[123;name;\"str\"]%");
 
 	uint8* allocator;
 
@@ -69,7 +70,7 @@ int main()
 	std::vector<std::unordered_map<String, ValueType*>> namespaces = std::vector<std::unordered_map<String, ValueType*>>();
 	namespaces.push_back(mry);
 
-	
+	/*
 	struct tmp0 {
 		int64 _0 = 56;
 		int64 _1 = 1;
@@ -80,16 +81,22 @@ int main()
 		int64 _1;
 		int32 _2;
 	} tmp1;
-
+	*/
 	void* address = test0;
 
 	//reinterpret_cast<void (*)(int64)>(address) ((int64)(uintptr_t)memory[T("string")]);
 
-	int32 result = reinterpret_cast<uint16 (*)(uint16, uint16)>(address) (65535,1);
+	//int32 result = reinterpret_cast<uint16 (*)(uint16, uint16)>(address) (65535,1);
 	//int32 result = reinterpret_cast<int32(*)(struct alignas(2) {}) > (address)(123);		//	So, if you pass a bigger type as an argument
 	//																						//	then it's possible to correctly call the function
 
 	//print(mry[T("config")]);
+
+	uint32 result = reinterpret_cast<uint32 (*)(uint16, uint32, uint16, float32, float64)>(address) (0, 1, 2, 3, 4);
+	//*(float64*)(_alloca(8)) = 4.0;
+	//uint32 result = reinterpret_cast<uint32(*)(uint16, uint32, uint16, float32)>(address) (0, 1, 2, 3);
+
+	result = test0(0, 1, 2, 3, 4);
 
 	auto mem = std::vector<std::unordered_map<String, ValueType*>>();
 	mem.push_back(mry);
@@ -99,9 +106,9 @@ int main()
 	return (int)program.run(script); /**/
 }
 
-uint32 test0(uint16 arg0)
+uint32 test0(uint16 arg0, uint32 arg1, uint16 arg2, float32 arg3, float64 arg4)
 {
-	return (uint32)arg0 + 14;
+	return arg0 + arg1 + arg2 + arg3 + arg4;
 }
 
 
@@ -351,9 +358,25 @@ Status Program::run (const charT* script)
         switch (stackInstructions[iterator - 1].instr) {
         case InstructionType::start: goto parse;                              //   |   |   |s t| :parse
         case InstructionType::op: goto parse;                                 //   |   |   |o p| :parse
+		case InstructionType::separator:
+			switch (stackInstructions[iterator - 2].instr) {                  //   |   | x | ; |
+			case InstructionType::separator: goto eval_array_add_empty;       //   |   | ; | ; | :eval_array_add_empty
+			case InstructionType::op: goto eval_postfix;                      //   |   |o p| ; | :eval_postfix		//TODO: Better to do another level to check for val
+			case InstructionType::value:                                      
+				switch (stackInstructions[iterator - 3].instr) {              //   | x |val| ; |
+				case InstructionType::op: goto eval_prefix;                   //   |o p|val| ; | :eval_prefix
+				case InstructionType::start_array: goto eval_array_add;       //   | [ |val| ; | :eval_array_add
+				default: goto error_syntax; }
+			default: goto error_syntax; }
         case InstructionType::start_group: goto parse;                        //   |   |   | ( | :parse
-        case InstructionType::start_context:                                  //   |   | x | { |
-            switch (stackInstructions[iterator - 2].instr) {
+		case InstructionType::start_array: goto eval_array_start;             //   |   |   | [ | :eval_array_start
+		case InstructionType::end_array:                                      
+			switch (stackInstructions[iterator - 2].instr) {                  //   |   | x | ] |
+			case InstructionType::start_array: goto eval_array_empty;         //   |   | [ | ] | :eval_array_empty
+			case InstructionType::value: goto eval_array_end;                 //   |   |val| ] | :eval_array_end
+			default: goto error_syntax;}
+		case InstructionType::start_context:                                  
+            switch (stackInstructions[iterator - 2].instr) {                  //   |   | x | { |
             case InstructionType::spacing: goto eval_context_new;             //   |   | _ | { | :eval_context_new
             case InstructionType::value: goto eval_context_of;                //   |   |val| { | :eval_context_of
 			case InstructionType::context: goto parse;                        //   |   |ctx| { | :parse
@@ -388,6 +411,7 @@ Status Program::run (const charT* script)
         case InstructionType::value:                                          //   |   | x |val|
             switch (stackInstructions[iterator - 2].instr) {
 			case InstructionType::start_context: goto parse;                  //   |   | { |val| :parse
+			case InstructionType::start_array: goto parse;                    //   |   | [ |val| :parse
             case InstructionType::start: goto parse;                          //   |   |s t|val| :parse
             case InstructionType::value: goto eval_binary_coalescing_short;   //   |   |val|val| :eval_binary_coalescing_short
             case InstructionType::spacing:                                    //   | x | _ |val|
@@ -438,6 +462,41 @@ Status Program::run (const charT* script)
 			context = stackInstructions[iterator - 4].location;
 			stackInstructions[iterator - 4] = stackInstructions[iterator - 2];
 			stackInstructions.resize(iterator - 4);
+			goto parse;
+		}
+
+		eval_array_start: {
+			stackArrays.push_back(std::vector<Instruction>());
+			stackArrays.back().reserve(16);
+			stackInstructions.back().modifier = stackArrays.size() - 1;
+			goto parse;
+		}
+
+		eval_array_add: {
+			stackArrays[stackInstructions[iterator - 3].modifier].push_back(stackInstructions[iterator - 2]);
+			stackInstructions.pop_back();
+			stackInstructions.pop_back();
+			goto parse;
+		}
+
+		eval_array_add_empty: {
+			stackArrays[stackInstructions[iterator - 3].modifier].push_back(Instruction::val(ValueType::arr, 0));
+			stackInstructions.pop_back();
+			goto parse;
+		}
+
+		eval_array_empty: {
+			stackInstructions.pop_back();
+			stackInstructions.back().instr = InstructionType::value;
+			goto parse;
+		}
+
+		eval_array_end: {
+			stackArrays[stackInstructions[iterator - 3].modifier].push_back(stackInstructions[iterator - 2]);
+			stackInstructions.pop_back();
+			stackInstructions.pop_back();
+			stackInstructions.back().instr = InstructionType::value;
+			stackInstructions.back().value = ValueType::arr;
 			goto parse;
 		}
 

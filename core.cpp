@@ -29,6 +29,7 @@ namespace Core {
 			{T("float32"), ValueType::float32},
 			{T("string"), ValueType::string},
 			{T("name"), ValueType::name},
+			{T("array"), ValueType::arr},
 		});
 		core.typeName = std::unordered_map<ValueType, String>({	//typeID : typeName
 			{ValueType::int64, T("int64")},
@@ -44,6 +45,7 @@ namespace Core {
 			{ValueType::float32, T("float32")},
 			{ValueType::string, T("string")},
 			{ValueType::name, T("name")},
+			{ValueType::arr, T("array")},
 		});
 		core.typeSize = std::unordered_map<ValueType, int>({	//typeID : typeSize
 			{ValueType::int64, 8},
@@ -59,6 +61,7 @@ namespace Core {
 			{ValueType::float32, 4},
 			{ValueType::string, sizeof(void*)},
 			{ValueType::name, sizeof(void*)},
+			{ValueType::arr, 0},
 		});
 		core.prefix = std::unordered_map<String, SubroutinePatternMatching*>();
 		{
@@ -147,10 +150,14 @@ namespace Core {
 
 	void test(Program& program) {
 		program.stackInstructions.erase(program.stackInstructions.cend() - 2);
-		if (program.stackInstructions[program.stackInstructions.size() - 2].value == ValueType::string)
+		switch (program.stackInstructions[program.stackInstructions.size() - 2].value)
+		{
+		case ValueType::string:
 			std::cout << (**(String**)(program.memory.data + program.stackInstructions[program.stackInstructions.size() - 2].shift)).c_str() << std::endl;
-		else
-			std::cout << "Test! " << (int32)program.context.value << "\n";
+		default:
+			//std::cout << "Test! " << (int32)program.context.value << "\n";
+			std::cout << program.specification.typeName.at(program.stackInstructions[program.stackInstructions.size() - 2].value) << std::endl;
+		}
 	}
 
 	void getValueProcedure(Program& program) { // Unordered map saves keys by address
