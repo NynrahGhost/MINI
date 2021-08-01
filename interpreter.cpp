@@ -32,14 +32,12 @@
 			goto error_memory_allocation	// TODO: error stack memory allocation.
 
 int main()
-{		
-	//int res = sayHello();
-
+{	
 	const charT* script = T("[123;name;\"str\"]%;");
-
+	/*
 	uint8* allocator;
 
-	std::unordered_map<String, ValueType*>* memory = new std::unordered_map<String, ValueType*>();
+	Table<String, ValueType*>* memory = new Table<String, ValueType*>();
 
 	allocator = (uint8*)malloc(sizeof(long long) + sizeof(ValueType));
 	*(ValueType*)allocator = ValueType::int64;
@@ -57,20 +55,35 @@ int main()
 	*((String**)(allocator + sizeof(ValueType))) = new String(T("Hello, World!"));
 	memory->insert_or_assign(String(T("msg")), (ValueType*)allocator);
 
-	std::unordered_map<String, ValueType*> mry = std::unordered_map<String, ValueType*>();
+	Table<String, ValueType*> mry = Table<String, ValueType*>();
 
 	allocator = (uint8*)malloc(sizeof(void*) + sizeof(ValueType));
 	*(ValueType*)allocator = ValueType::dict;
-	*(std::unordered_map<String, ValueType*>**)(allocator+1) = memory;
+	*(Table<String, ValueType*>**)(allocator+1) = memory;
 
-	auto val = **(std::unordered_map<String, ValueType*>**)(allocator+1);
+	auto val = **(Table<String, ValueType*>**)(allocator+1);
 
 	mry.insert_or_assign(String(T("config")), (ValueType*)allocator);//(ValueType*)(new containerPtr(ValueType::dict, (void*)memory)));
 
-	std::vector<std::unordered_map<String, ValueType*>> namespaces = std::vector<std::unordered_map<String, ValueType*>>();
-	namespaces.push_back(mry);
+	Array<Table<String, ValueType*>> namespaces = Array<Table<String, ValueType*>>();
+	namespaces.add(mry);
 
-	/*
+	auto mem = Array<Table<String, ValueType*>>();
+	mem.add(mry);
+	*/
+	Program program = Program();
+
+	int result = (int)program.run(script);
+	return result;
+	/**/
+}
+
+uint32 test0(uint16 arg0, uint32 arg1, uint16 arg2, float32 arg3, float64 arg4)
+{
+	return arg0 + arg1 + arg2 + arg3 + arg4;
+}
+
+/*
 	struct tmp0 {
 		int64 _0 = 56;
 		int64 _1 = 1;
@@ -81,7 +94,6 @@ int main()
 		int64 _1;
 		int32 _2;
 	} tmp1;
-	*/
 	void* address = test0;
 
 	//reinterpret_cast<void (*)(int64)>(address) ((int64)(uintptr_t)memory[T("string")]);
@@ -96,36 +108,22 @@ int main()
 	//*(float64*)(_alloca(8)) = 4.0;
 	//uint32 result = reinterpret_cast<uint32(*)(uint16, uint32, uint16, float32)>(address) (0, 1, 2, 3);
 
-	result = test0(0, 1, 2, 3, 4);
-
-	auto mem = std::vector<std::unordered_map<String, ValueType*>>();
-	mem.push_back(mry);
-
-	Program program = Program(mem);
-
-	return (int)program.run(script); /**/
-}
-
-uint32 test0(uint16 arg0, uint32 arg1, uint16 arg2, float32 arg3, float64 arg4)
-{
-	return arg0 + arg1 + arg2 + arg3 + arg4;
-}
-
+	result = test0(0, 1, 2, 3, 4);*/
 
 
 Program::Program() {
-	data = std::vector<std::unordered_map<String, ValueType*>>();
-	data[0] = std::unordered_map<String, ValueType*>();
-	stackInstructions = std::vector<Instruction>();
-	stackInstructions.push_back(Instruction::atom(InstructionType::start));
+	data.init();// = *(new Array<Table<String, ValueType*>>());
+	data[0] = Table<String, ValueType*>();
+	stackInstructions.init();// = *(new Array<Instruction>());
+	stackInstructions.add(Instruction::atom(InstructionType::start));
 	context = ValueLocation{ 0, ValueType::none };
 	specification = Core::getCore();
 };
 
-Program::Program(std::vector<std::unordered_map<String, ValueType*>> data) {
+Program::Program(Array<Table<String, ValueType*>> data) {
 	this->data = data;
-	stackInstructions = std::vector<Instruction>();
-	stackInstructions.push_back(Instruction::atom(InstructionType::start));
+	stackInstructions = Array<Instruction>();
+	stackInstructions.add(Instruction::atom(InstructionType::start));
 	context = ValueLocation{ 0, ValueType::none };
 	specification = Core::getCore();
 };
@@ -151,10 +149,10 @@ Status Program::run (const charT* script)
 	parse: {
 		if (script[++scriptIndex] == 0)
 		{
-			if (stackInstructions.back().instr != InstructionType::end)
+			if (stackInstructions.get_r(0).instr != InstructionType::end)
 			{
 				--scriptIndex;
-				stackInstructions.push_back(Instruction::atom(InstructionType::end));
+				stackInstructions.add(Instruction::atom(InstructionType::end));
 				goto evaluate;
 			}
 			else
@@ -164,31 +162,31 @@ Status Program::run (const charT* script)
 		switch (script[scriptIndex])
 		{
 		case T(';'):
-			stackInstructions.push_back(Instruction::atom(InstructionType::separator));
+			stackInstructions.add(Instruction::atom(InstructionType::separator));
 			goto evaluate;
 
 		case T('('):
-			stackInstructions.push_back(Instruction::atom(InstructionType::start_group));
+			stackInstructions.add(Instruction::atom(InstructionType::start_group));
 			goto evaluate;
 
 		case T('['):
-			stackInstructions.push_back(Instruction::atom(InstructionType::start_array));
+			stackInstructions.add(Instruction::atom(InstructionType::start_array));
 			goto evaluate;
 
 		case T('{'):
-			stackInstructions.push_back(Instruction::atom(InstructionType::start_context));
+			stackInstructions.add(Instruction::atom(InstructionType::start_context));
 			goto evaluate;
 
 		case T(')'):
-			stackInstructions.push_back(Instruction::atom(InstructionType::end_group));
+			stackInstructions.add(Instruction::atom(InstructionType::end_group));
 			goto evaluate;
 
 		case T(']'):
-			stackInstructions.push_back(Instruction::atom(InstructionType::end_array));
+			stackInstructions.add(Instruction::atom(InstructionType::end_array));
 			goto evaluate;
 
 		case T('}'):
-			stackInstructions.push_back(Instruction::atom(InstructionType::end_context));
+			stackInstructions.add(Instruction::atom(InstructionType::end_context));
 			goto evaluate;
 
 		case char_space_character:
@@ -230,7 +228,7 @@ Status Program::run (const charT* script)
 
 			default:
 				--scriptIndex;
-				stackInstructions.push_back(Instruction::atom(InstructionType::spacing));
+				stackInstructions.add(Instruction::atom(InstructionType::spacing));
 
 				goto evaluate;
 			}
@@ -249,7 +247,7 @@ Status Program::run (const charT* script)
 
 				alloc_guard(sizeof(void*));
 
-				stackInstructions.push_back(Instruction::pos(InstructionType::op, memory.currentSize));
+				stackInstructions.add(Instruction::pos(InstructionType::op, memory.currentSize));
 
 				*(uintptr_t*)(memory.data + memory.currentSize) = (uintptr_t)buffer;
 				memory.currentSize += sizeof(void*);
@@ -271,7 +269,7 @@ Status Program::run (const charT* script)
 
 				alloc_guard(sizeof(void*));
 
-				stackInstructions.push_back(Instruction::val(ValueType::name, memory.currentSize));
+				stackInstructions.add(Instruction::val(ValueType::name, memory.currentSize));
 
 				*(uintptr_t*)(memory.data + memory.currentSize) = (uintptr_t)buffer;
 				memory.currentSize += sizeof(void*);
@@ -299,7 +297,7 @@ Status Program::run (const charT* script)
 
 				alloc_guard(sizeof(int64));
 
-				stackInstructions.push_back(Instruction::val(ValueType::int64, memory.currentSize));
+				stackInstructions.add(Instruction::val(ValueType::int64, memory.currentSize));
 
 				//*(int*)(memory.data + memory.currentSize) = 5;// = std::stoi(*buffer);
 
@@ -329,7 +327,7 @@ Status Program::run (const charT* script)
 
 				alloc_guard(sizeof(void*));
 
-				stackInstructions.push_back(Instruction::val(ValueType::string, memory.currentSize));// (ValueType::string, memory.currentSize));
+				stackInstructions.add(Instruction::val(ValueType::string, memory.currentSize));// (ValueType::string, memory.currentSize));
 
 				*(uintptr_t*)(memory.data + memory.currentSize) = (uintptr_t)buffer;
 				memory.currentSize += sizeof(void*);
@@ -353,7 +351,7 @@ Status Program::run (const charT* script)
 	}
 
     evaluate: {
-        iterator = stackInstructions.size();						          
+        iterator = stackInstructions.max_index + 1; //TODO: tmp solution, for compatibility with 'size'	of std::vector					          
                                                                               //   Decision tree 
         switch (stackInstructions[iterator - 1].instr) {                      //    ___________
         case InstructionType::start: goto parse;                              //   |   |   |s t| :parse
@@ -434,23 +432,23 @@ Status Program::run (const charT* script)
 
 
 		eval_context_new: {
-			stackInstructions.push_back(Instruction::context(context.value, context.shift));
+			stackInstructions.add(Instruction::context(context.value, context.shift));
 
-			*(void**)(memory.data + memory.currentSize) = new std::unordered_map<String, ValueType*>();
+			*(void**)(memory.data + memory.currentSize) = new Table<String, ValueType*>();
 			memory.currentSize += sizeof(void*);
 
-			stackInstructions.push_back(Instruction::atom(InstructionType::start_context));
+			stackInstructions.add(Instruction::atom(InstructionType::start_context));
 
 			goto parse;
 		}
 
 		eval_context_of: {
-			stackInstructions.back() = Instruction::context(context.value, context.shift);
+			stackInstructions.at_r(0) = Instruction::context(context.value, context.shift);
 
 			context.shift = stackInstructions[iterator - 2].shift;
 			context.value = stackInstructions[iterator - 2].value;
 
-			stackInstructions.push_back(Instruction::atom(InstructionType::start_context));
+			stackInstructions.add(Instruction::atom(InstructionType::start_context));
 
 			goto parse;
 		}
@@ -461,42 +459,42 @@ Status Program::run (const charT* script)
 			stack.pop_back();*/
 			context = stackInstructions[iterator - 4].location;
 			stackInstructions[iterator - 4] = stackInstructions[iterator - 2];
-			stackInstructions.resize(iterator - 4);
+
+			stackInstructions.max_index -= 3;// resize(iterator - 4);
 			goto parse;
 		}
 
 		eval_array_start: {
-			stackArrays.push_back(std::vector<Instruction>());
-			stackArrays.back().reserve(16);
-			stackInstructions.back().modifier = stackArrays.size() - 1;
+			++stackArrays.max_index;
+			stackArrays.at_r(0).init();//.add(*(new Array<Instruction>()));
+			//stackArrays.getr_u(0).reserve(16); //TODO: initial capacity
+			stackInstructions.at_r(0).modifier = stackArrays.max_index;
 			goto parse;
 		}
 
 		eval_array_add: {
-			stackArrays[stackInstructions[iterator - 3].modifier].push_back(stackInstructions[iterator - 2]);
-			stackInstructions.pop_back();
-			stackInstructions.pop_back();
+			stackArrays[stackInstructions[iterator - 3].modifier].add(stackInstructions[iterator - 2]);
+			stackInstructions.max_index -= 2;
 			goto parse;
 		}
 
 		eval_array_add_empty: {
-			stackArrays[stackInstructions[iterator - 3].modifier].push_back(Instruction::val(ValueType::arr, 0));
-			stackInstructions.pop_back();
+			stackArrays[stackInstructions[iterator - 3].modifier].add(Instruction::val(ValueType::arr, 0));
+			stackInstructions.max_index -= 1;
 			goto parse;
 		}
 
 		eval_array_empty: {
-			stackInstructions.pop_back();
-			stackInstructions.back().instr = InstructionType::value;
+			stackInstructions.max_index -= 1;
+			stackInstructions.at_r(0).instr = InstructionType::value;
 			goto parse;
 		}
 
 		eval_array_end: {
-			stackArrays[stackInstructions[iterator - 3].modifier].push_back(stackInstructions[iterator - 2]);
-			stackInstructions.pop_back();
-			stackInstructions.pop_back();
-			stackInstructions.back().instr = InstructionType::value;
-			stackInstructions.back().value = ValueType::arr;
+			stackArrays[stackInstructions[iterator - 3].modifier].add(stackInstructions[iterator - 2]);
+			stackInstructions.max_index -= 2;
+			stackInstructions.at_r(0).instr = InstructionType::value;
+			stackInstructions.at_r(0).value = ValueType::arr;
 			goto parse;
 		}
 
@@ -709,7 +707,7 @@ void print(ValueType* memory)
 		//std::unordered_map<String, ValueType*> dict = **((std::unordered_map<String, ValueType*>**)(memory + 1));
 		std::cout << T("{ ");
 		//for (auto var = dict.begin(); var != dict.end(); ++var)
-		for(auto var: **((std::unordered_map<String, ValueType*>**)(memory + 1)))
+		for(auto var: **((Table<String, ValueType*>**)(memory + 1)))
 		{
 			std::cout << var.first.c_str() << T(": ");
 			print(var.second);

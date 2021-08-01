@@ -22,24 +22,24 @@ enum class Status
 };
 
 struct Module {
-    std::unordered_map<String, ValueType> typeId;
-    std::unordered_map<ValueType, String> typeName;
-    std::unordered_map<ValueType, int> typeSize;
+    Table<String, ValueType> typeId;
+    Table<ValueType, String> typeName;
+    Table<ValueType, int> typeSize;
 
-    std::unordered_map<String, SubroutinePatternMatching*> prefix;
-    std::unordered_map<String, SubroutinePatternMatching*> postfix;
-    std::unordered_map<String, SubroutinePatternMatching*> binary;
+    Table<String, SubroutinePatternMatching*> prefix;
+    Table<String, SubroutinePatternMatching*> postfix;
+    Table<String, SubroutinePatternMatching*> binary;
 };
 
 class Program {
 public:
-    std::vector<std::unordered_map<String, ValueType*>> data;
-    std::vector<std::unordered_map<String, ValueType*>> namespaces;
+    Array<Table<String, ValueType*>> data;
+    Array<Table<String, ValueType*>> namespaces;
     Module specification;
 
-    std::vector<Instruction> stackInstructions;
-    std::vector<Instruction> stackCalls;
-    std::vector<std::vector<Instruction>> stackArrays;
+    Array<Instruction> stackInstructions;
+    Array<Instruction> stackCalls;
+    Array<Array<Instruction>> stackArrays;
     ValueLocation context;
     struct {
         uint8* data = 0;
@@ -49,7 +49,17 @@ public:
 
 
     Program();
-    Program(std::vector<std::unordered_map<String, ValueType*>> data);
+    Program(Array<Table<String, ValueType*>> data);
+
+    /*~Program() {
+        data.~Array();
+        namespaces.~Array();
+
+        stackInstructions.~Array();
+        stackCalls.~Array();
+        stackArrays.~Array();
+    }*/
+
     Status run(const charT* script);
 
     //template<typename T> T pop();
@@ -64,14 +74,10 @@ void print(ValueType* memory);
 uint32 test0(uint16 arg0, uint32 arg1, uint16 arg2, float32 arg3, float64 arg4);
 
 
-class StringDictionary {
-    void* _arr;
-
-};
-
-
 
 // Involuntary contributors:
 
 // Thanks for compile-time char/wchar conversion, SOLON7! https://habr.com/ru/post/164193/
 // Thanks for a tip on "|" overloading to use enums as bitflags, eidolon! https://stackoverflow.com/a/1448478/13975990
+// Thanks for 'typedef' for unordered_map, Philipp! https://stackoverflow.com/a/9576473/13975990  
+        //Temporary renaming of type, for readability and possible replacement in future.

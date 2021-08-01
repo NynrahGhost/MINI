@@ -15,7 +15,7 @@ namespace Core {
 		//if (Core::core != 0)
 		//	return *Core::core;
 		Module core;
-		core.typeId = std::unordered_map<String, ValueType>({	//typeName : typeID
+		core.typeId = Table<String, ValueType>({	//typeName : typeID
 			{T("int64"), ValueType::int64},
 			{T("int32"), ValueType::int32},
 			{T("int16"), ValueType::int16},
@@ -32,7 +32,7 @@ namespace Core {
 			{T("array"), ValueType::arr},
 			{T("expression"), ValueType::expression},
 		});
-		core.typeName = std::unordered_map<ValueType, String>({	//typeID : typeName
+		core.typeName = Table<ValueType, String>({	//typeID : typeName
 			{ValueType::int64, T("int64")},
 			{ValueType::int32, T("int32")},
 			{ValueType::int16, T("int16")},
@@ -49,7 +49,7 @@ namespace Core {
 			{ValueType::arr, T("array")},
 			{ValueType::expression, T("expression")},
 		});
-		core.typeSize = std::unordered_map<ValueType, int>({	//typeID : typeSize
+		core.typeSize = Table<ValueType, int>({	//typeID : typeSize
 			{ValueType::int64, 8},
 			{ValueType::int32, 4},
 			{ValueType::int16, 2},
@@ -158,17 +158,17 @@ namespace Core {
 	}
 
 	void test(Program& program) {
-		if (program.stackInstructions[program.stackInstructions.size() - 1].instr == InstructionType::value) {
-			std::cout << program.specification.typeName.at(program.stackInstructions[program.stackInstructions.size() - 1].value) << std::endl;
-			program.stackInstructions.erase(program.stackInstructions.cend() - 2);
+		if (program.stackInstructions[program.stackInstructions.max_index].instr == InstructionType::value) {
+			std::cout << program.specification.typeName.at(program.stackInstructions[program.stackInstructions.max_index].value) << std::endl;
+			//program.stackInstructions.erase(program.stackInstructions.cend() - 2);
 		}
 
-		if (program.stackInstructions[program.stackInstructions.size() - 3].instr == InstructionType::value) {
-			std::cout << program.specification.typeName.at(program.stackInstructions[program.stackInstructions.size() - 3].value) << std::endl;
-			program.stackInstructions.erase(program.stackInstructions.cend() - 2);
+		if (program.stackInstructions[program.stackInstructions.max_index - 2].instr == InstructionType::value) {
+			std::cout << program.specification.typeName.at(program.stackInstructions[program.stackInstructions.max_index - 2].value) << std::endl;
+			//program.stackInstructions.erase(program.stackInstructions.cend() - 2);
 		} else {
-			std::cout << program.specification.typeName.at(program.stackInstructions[program.stackInstructions.size() - 2].value) << std::endl;
-			program.stackInstructions.erase(program.stackInstructions.cend() - 2);
+			std::cout << program.specification.typeName.at(program.stackInstructions[program.stackInstructions.max_index - 1].value) << std::endl;
+			//program.stackInstructions.erase(program.stackInstructions.cend() - 2);
 		}
 		/*
 		program.stackInstructions.erase(program.stackInstructions.cend() - 2);
@@ -183,14 +183,13 @@ namespace Core {
 	}
 
 	void invokeFunction(Program& program) {
-		Instruction parameter = program.stackInstructions.back();
-		program.stackInstructions.pop_back();
-		Instruction function = program.stackInstructions.back();
-		program.stackInstructions.pop_back();
+		Instruction parameter = program.stackInstructions.get_r(0);
+		Instruction function = program.stackInstructions.get_r(1);
+		program.stackInstructions.max_index -= 2;
 
 																									//TODO: add a function to add value
-		program.stackInstructions.push_back(Instruction::call(parameter.value, parameter.shift));	//TODO: make a 'call' instruction that specifies change of executable string
-		program.stackInstructions.push_back(Instruction::context(parameter.value, parameter.shift));
+		program.stackInstructions.add(Instruction::call(parameter.value, parameter.shift));	//TODO: make a 'call' instruction that specifies change of executable string
+		program.stackInstructions.add(Instruction::context(parameter.value, parameter.shift));
 
 
 	}
@@ -200,12 +199,12 @@ namespace Core {
 	}
 
 	void getValueProcedure(Program& program) { // Unordered map saves keys by address
-		uint8* memory = program.memory.data + program.stackInstructions[program.stackInstructions.size() - 1].shift;
-		uint8* value = (uint8*)(program.data.back()[**(String**)(memory)]);
+		uint8* memory = program.memory.data + program.stackInstructions[program.stackInstructions.max_index].shift;
+		uint8* value = (uint8*)(program.data.at_r(0)[**(String**)(memory)]);
 
 		int l = program.specification.typeSize[*(ValueType*)value];
 
-		program.stackInstructions[program.stackInstructions.size() - 1].value = *(ValueType*)value;
+		program.stackInstructions[program.stackInstructions.max_index].value = *(ValueType*)value;
 
 		value = (uint8*)((ValueType*)value + 1);
 
@@ -215,7 +214,8 @@ namespace Core {
 		program.memory.currentSize -= sizeof(void*);
 		program.memory.currentSize += l;
 
-		program.stackInstructions.erase(program.stackInstructions.cend() - 2);
+		program.stackInstructions.at_r(1) = program.stackInstructions.at_r(0);
+		program.stackInstructions.max_index -= 1;
 	}
 
 	void allArrayInclusive(Program& program) {
@@ -244,12 +244,11 @@ namespace Core {
 
 
 	void getChild(Program& program) {
-		String* right = *(String**)(program.memory.data + program.stackInstructions.back().shift);
-		program.stackInstructions.pop_back();
-		program.stackInstructions.pop_back();
-		String* left = *(String**)(program.memory.data + program.stackInstructions.back().shift);
+		String* right = *(String**)(program.memory.data + program.stackInstructions.at_r(0).shift);
+		program.stackInstructions.max_index -= 2;
+		String* left = *(String**)(program.memory.data + program.stackInstructions.at_r(0).shift);
 
-		auto ptr = program.data.back()[*left];
+		auto ptr = program.data.at_r(0)[*left];
 
 		if (*ptr == ValueType::dict)
 		{
@@ -258,7 +257,7 @@ namespace Core {
 			//std::unordered_map<String, ValueType*>* map = *(std::unordered_map<String, ValueType*>**)ptr;
 			//ptr = (*map)[*right];
 
-			program.stackInstructions.back().value = *ptr;
+			program.stackInstructions.at_r(0).value = *ptr;
 
 			program.memory.currentSize -= sizeof(void*) + sizeof(void*) + sizeof(void*);
 			for (int i = 0; i < program.specification.typeSize[*ptr]; ++i)
