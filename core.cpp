@@ -30,6 +30,7 @@ namespace Core {
 			{T("string"), ValueType::string},
 			{T("name"), ValueType::name},
 			{T("array"), ValueType::arr},
+			{T("expression"), ValueType::expression},
 		});
 		core.typeName = std::unordered_map<ValueType, String>({	//typeID : typeName
 			{ValueType::int64, T("int64")},
@@ -46,6 +47,7 @@ namespace Core {
 			{ValueType::string, T("string")},
 			{ValueType::name, T("name")},
 			{ValueType::arr, T("array")},
+			{ValueType::expression, T("expression")},
 		});
 		core.typeSize = std::unordered_map<ValueType, int>({	//typeID : typeSize
 			{ValueType::int64, 8},
@@ -62,6 +64,7 @@ namespace Core {
 			{ValueType::string, sizeof(void*)},
 			{ValueType::name, sizeof(void*)},
 			{ValueType::arr, 0},
+			{ValueType::expression, sizeof(void*)},
 		});
 		core.prefix = std::unordered_map<String, SubroutinePatternMatching*>();
 		{
@@ -122,6 +125,12 @@ namespace Core {
 		}
 		core.binary = std::unordered_map<String, SubroutinePatternMatching*>();
 		{
+			core.binary[T("")] = [] {
+				SubroutinePatternMatching* arr = new SubroutinePatternMatching[2];
+				arr[0] = SubroutinePatternMatching(SubroutinePatternMatchingType::ProcNative, invokeFunction);
+				arr[1] = SubroutinePatternMatching();
+				return arr;
+			} ();
 			core.binary[T("+")] = [] {
 				SubroutinePatternMatching* arr = new SubroutinePatternMatching[2];
 				//arr[0] = Binary(BinaryType::TypeTypeType | BinaryType::funcNative, &([](int64 l, int64 r) {return l + r;}), ValueType::int64, 0, ValueType::int64, 0, ValueType::int64);
@@ -149,6 +158,19 @@ namespace Core {
 	}
 
 	void test(Program& program) {
+		if (program.stackInstructions[program.stackInstructions.size() - 1].instr == InstructionType::value) {
+			std::cout << program.specification.typeName.at(program.stackInstructions[program.stackInstructions.size() - 1].value) << std::endl;
+			program.stackInstructions.erase(program.stackInstructions.cend() - 2);
+		}
+
+		if (program.stackInstructions[program.stackInstructions.size() - 3].instr == InstructionType::value) {
+			std::cout << program.specification.typeName.at(program.stackInstructions[program.stackInstructions.size() - 3].value) << std::endl;
+			program.stackInstructions.erase(program.stackInstructions.cend() - 2);
+		} else {
+			std::cout << program.specification.typeName.at(program.stackInstructions[program.stackInstructions.size() - 2].value) << std::endl;
+			program.stackInstructions.erase(program.stackInstructions.cend() - 2);
+		}
+		/*
 		program.stackInstructions.erase(program.stackInstructions.cend() - 2);
 		switch (program.stackInstructions[program.stackInstructions.size() - 2].value)
 		{
@@ -157,7 +179,24 @@ namespace Core {
 		default:
 			//std::cout << "Test! " << (int32)program.context.value << "\n";
 			std::cout << program.specification.typeName.at(program.stackInstructions[program.stackInstructions.size() - 2].value) << std::endl;
-		}
+		}*/
+	}
+
+	void invokeFunction(Program& program) {
+		Instruction parameter = program.stackInstructions.back();
+		program.stackInstructions.pop_back();
+		Instruction function = program.stackInstructions.back();
+		program.stackInstructions.pop_back();
+
+																									//TODO: add a function to add value
+		program.stackInstructions.push_back(Instruction::call(parameter.value, parameter.shift));	//TODO: make a 'call' instruction that specifies change of executable string
+		program.stackInstructions.push_back(Instruction::context(parameter.value, parameter.shift));
+
+
+	}
+
+	void invokeNativeProcedure(Program& program) {
+
 	}
 
 	void getValueProcedure(Program& program) { // Unordered map saves keys by address

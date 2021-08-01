@@ -35,7 +35,7 @@ int main()
 {		
 	//int res = sayHello();
 
-	const charT* script = T("[123;name;\"str\"]%");
+	const charT* script = T("[123;name;\"str\"]%;");
 
 	uint8* allocator;
 
@@ -353,9 +353,9 @@ Status Program::run (const charT* script)
 	}
 
     evaluate: {
-        iterator = stackInstructions.size();						          //    ___________
-                                                                              //   |   |   |   |
-        switch (stackInstructions[iterator - 1].instr) {
+        iterator = stackInstructions.size();						          
+                                                                              //   Decision tree 
+        switch (stackInstructions[iterator - 1].instr) {                      //    ___________
         case InstructionType::start: goto parse;                              //   |   |   |s t| :parse
         case InstructionType::op: goto parse;                                 //   |   |   |o p| :parse
 		case InstructionType::separator:
@@ -406,7 +406,7 @@ Status Program::run (const charT* script)
                 switch (stackInstructions[iterator - 3].instr) {
                 case InstructionType::start: goto parse;                      //   |s t|val| _ | :parse
                 case InstructionType::spacing: goto eval_binary_check;        //   | _ |val| _ | :eval_binary_check
-                case InstructionType::op: goto eval_prefix; }                 //   |o p|val| _ | :eval_prefix
+                case InstructionType::op: goto eval_prefix; }                 //   |o p|val| _ | :eval_prefix	//Possibly unreachable
                 default: goto error_syntax; }
         case InstructionType::value:                                          //   |   | x |val|
             switch (stackInstructions[iterator - 2].instr) {
@@ -427,7 +427,7 @@ Status Program::run (const charT* script)
                 case InstructionType::start_array:                            //   | [ |o p|val| :eval_prefix
                 case InstructionType::start_context:                          //   | { |o p|val| :eval_prefix
                 case InstructionType::spacing:                                //   | { |o p|val| :eval_prefix
-                case InstructionType::separator: goto eval_prefix;            //   | ; |o p|val| :eval_prefix
+                case InstructionType::separator: goto eval_prefix;            //   | ; |o p|val| :eval_prefix   //Possible unreachable
                 default: goto error_syntax; }
             default: goto error_syntax; }
         default: goto error_syntax; }
@@ -507,10 +507,13 @@ Status Program::run (const charT* script)
 				SubroutinePatternMatching* arr = this->specification.prefix[**(String**)tmpPtr];
 				eval_prefix_loop:
 					switch (arr->patternType) {
-					case SubroutinePatternMatchingType::None:
-						goto error_syntax; // TODO: error can't match function
+					case SubroutinePatternMatchingType::ProcNative:
+						reinterpret_cast<void (*) (Program&)>(arr->pointer)(*this);
+						goto parse;
 					case SubroutinePatternMatchingType::Argument:
 						break;
+					case SubroutinePatternMatchingType::None:
+						goto error_syntax; // TODO: error can't match function
 					}
 				goto eval_prefix_loop;
 			pref:
@@ -652,7 +655,22 @@ Status Program::run (const charT* script)
 			else goto error_syntax; //operator not found.*/
 		}
 
-		eval_binary_coalescing_short: {}
+		eval_binary_coalescing_short: {
+			tmpPtr = memory.data + stackInstructions[iterator - 2].shift;
+
+			if (this->specification.binary.count(**(String**)tmpPtr)) {
+				SubroutinePatternMatching* arr = this->specification.postfix[**(String**)tmpPtr];
+				switch (arr->patternType) {
+				case SubroutinePatternMatchingType::ProcNative:
+					reinterpret_cast<void (*) (Program&)>(arr->pointer)(*this);
+					goto parse;
+				case SubroutinePatternMatchingType::None:
+					goto error_syntax;
+				}
+			}
+
+			goto error_syntax;
+		}
 
 		eval_binary_coalescing: {}
 	}

@@ -112,4 +112,12 @@ struct Instruction {
             value
         };
     }
+
+    static Instruction call(ValueType value, int shift) {
+        return Instruction{
+            InstructionType::call,
+            shift,
+            value
+        };
+    }
 };
