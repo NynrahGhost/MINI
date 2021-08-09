@@ -31,6 +31,7 @@ enum class SubroutinePatternMatchingType : uint8 {  //Type _t -> Type _res
 struct SubroutinePatternMatching {
     SubroutinePatternMatchingType patternType;
     union {
+        ValueType parameter;
         struct { //Range
             ValueType lessThen; //  (less - type) > more //  1 | 2 | 3 / 3 |  | 1
             ValueType moreThen;
@@ -60,3 +61,7 @@ struct SubroutinePatternMatching {
         moreThen(moreThen),
         skip(par) {}
 };
+
+//struct SubroutineParameterMatching //: std::unordered_map<
+
+using SubroutineParameterMatching = std::unordered_map<uint64, ValueType*>;

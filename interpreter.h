@@ -26,9 +26,9 @@ struct Module {
     Table<ValueType, String> typeName;
     Table<ValueType, int> typeSize;
 
-    Table<String, SubroutinePatternMatching*> prefix;
-    Table<String, SubroutinePatternMatching*> postfix;
-    Table<String, SubroutinePatternMatching*> binary;
+    Table<String, Table<ValueType, ValueType*>> prefix;
+    Table<String, Table<ValueType, ValueType*>> postfix;
+    Table<String, Table<ValueTypeBinary, ValueType*>> binary; //SubroutineParameterMatching
 };
 
 class Program {
@@ -41,11 +41,7 @@ public:
     Array<Instruction> stackCalls;
     Array<Array<Instruction>> stackArrays;
     ValueLocation context;
-    struct {
-        uint8* data = 0;
-        int currentSize = 0;
-        int maxSize = 0;
-    } memory;
+    Span memory;
 
 
     Program();

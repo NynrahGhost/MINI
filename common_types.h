@@ -2,6 +2,7 @@
 #include <string>
 #include <stdexcept>
 #include <unordered_map>
+#include "compile_options.h"
 
 typedef char int8;
 typedef short int int16;
@@ -37,6 +38,8 @@ typedef char32_t charT;
 #else
 #error Incorrect encoding size specified
 #endif
+
+uint64 murmurHash64(const void* key, int len, unsigned int seed);
 
 template <typename _T>
 struct Array {
@@ -74,6 +77,14 @@ struct Array {
 		capacity = initial_capacity;
 	}
 
+	inline Array* resize(size_t size) {
+		_T* ptr = new _T[size];
+		memcpy(ptr, content, sizeof(_T) * (max_index + 1));
+		delete[] content;
+		content = ptr;
+		return this;
+	}
+
 	inline Array* add(_T element) {
 		if (++max_index != capacity)
 		{
@@ -84,7 +95,7 @@ struct Array {
 		else
 		{
 			_T* ptr = new _T[capacity <<= 1];
-			memcpy(ptr, content, max_index + 1);
+			memcpy(ptr, content, sizeof(_T) * (max_index + 1));
 			delete[] content;
 			content = ptr;
 			content[max_index] = element;
@@ -142,5 +153,63 @@ struct Array {
 	}
 };
 
-template<typename Key, typename Value>
-using Table = std::unordered_map<Key, Value>;
+struct Span : Array<uint8> {
+
+	const static size_t INITIAL_CAPACITY = 1024;
+
+	Span() {
+		content = new uint8[INITIAL_CAPACITY];
+		max_index = 0;
+		capacity = INITIAL_CAPACITY;
+	}
+
+	Span(size_t initial_capacity) {
+		content = new uint8[initial_capacity];
+		max_index = 0;
+		capacity = initial_capacity;
+	}
+
+	inline bool probe_amount(size_t size) {
+		return capacity - max_index > size;
+	}
+
+	template<typename _V>
+	inline void add(_V element) {
+		if ((max_index + sizeof(_V)) < capacity)
+		{
+			*(_V*)(content+max_index) = element;
+			max_index += sizeof(_V);
+		}
+		else
+		{
+			uint8* ptr = new uint8[capacity <<= 1];
+			memcpy(ptr, content, sizeof(uint8) * (max_index + 1));
+			delete[] content;
+			content = ptr;
+
+			*(_V*)(content + max_index) = element;
+			max_index += sizeof(_V);
+		}
+	}
+
+	template<typename _V>
+	inline _V& at(size_t index) {
+		return (_V&)content[index];
+	}
+};
+
+template<typename _Key, typename _Value>
+using Table = std::unordered_map<_Key, _Value>;
+
+/*
+template<typename _Key, typename _Value>
+struct Dictionary {
+
+	Bucket<_Key, _Value>* buckets;
+	uint32(*) (_Key) hash_function;
+
+	template<typename _Key, typename _Value>
+	struct Bucket {
+
+	}
+};*/

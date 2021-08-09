@@ -1,3 +1,4 @@
+#include"common_types.h"
 #pragma once
 
 
@@ -68,6 +69,48 @@ enum class type : uint64
     object,                 // Starts with address of schema it uses.
 };
 
+struct ValueTypeBinary {
+    ValueType left;
+    ValueType right;
+
+    ValueTypeBinary(ValueType t_left, ValueType t_right) {
+        left = t_left;
+        right = t_right;
+    }
+
+    bool operator==(const ValueTypeBinary& t_values) {
+        return (this->left == t_values.left) && (this->right == t_values.right);
+    }
+
+    friend bool operator==(const ValueTypeBinary& t_left, const ValueTypeBinary& t_right)
+    {
+        return (t_left.left == t_right.left) && (t_left.right == t_right.right);
+    }
+};
+
+
+template <>
+class std::hash<ValueTypeBinary>
+{
+public:
+    size_t operator()(const ValueTypeBinary& t_types) const
+    {
+        return (uint64)t_types.left + ((uint64)t_types.right << sizeof(ValueType));
+    }
+    /*
+    size_t operator()(const ValueTypeBinary& t_left, const ValueTypeBinary& t_right) const
+    {
+        return (t_left.left == t_right.left) && (t_left.right == t_right.right);
+    }
+
+    friend bool operator==(const ValueTypeBinary& t_left, const ValueTypeBinary& t_right)
+    {
+        return (t_left.left == t_right.left) && (t_left.right == t_right.right);
+    }*/
+};
+
+
+
 struct ValueLocation {
     int shift;
     ValueType value;
@@ -119,5 +162,24 @@ struct Instruction {
             shift,
             value
         };
+    }
+
+    template<typename _Value>
+    static ValueType* newValue(ValueType t_type, _Value t_value) {
+        auto arr = (ValueType*)new uint8[sizeof(ValueType) + sizeof(_Value)];
+        arr[0] = t_type;
+        *(_Value*)(arr+1) = t_value;
+        return arr;
+    }
+};
+
+
+template <>
+class std::hash<Table<ValueType, ValueType*>>
+{
+public:
+    size_t operator()(const Table<ValueType, ValueType*>& t_table) const
+    {
+        return (size_t)(uintptr_t)&t_table;
     }
 };

@@ -1,0 +1,18 @@
+Structures/classes:
+	-UpperCamelCase, if contains array pointers, or in general has convoluted field structure.
+	-lowerCamelCase, if contains scalar data, or in general is not complex.
+
+Template types:
+	-_UpperCamelCase (with preceeding underscore)
+	
+Functions:
+	-lowerCamelCase
+	
+Fields:
+	-_lowerCamelCase (with preceeding underscore) if private
+	-lowerCamelCase
+	
+Macros:
+	-SCREAMING_SNAKE_CASE if constant or compilation parameter.
+	-any, if they function as replcament for language features (inline functions, switch ranges, type conversions, etc)
+		or meant to blend in with the code.

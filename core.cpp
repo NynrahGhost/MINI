@@ -2,12 +2,12 @@
 #include <iostream>
 
 // I don't trust inlines.
-#define alloc_guard(SIZE)														\
+/*#define alloc_guard(SIZE)														\
 	if (memory.maxSize - memory.currentSize < SIZE)								\
 		if (tmpPtr = (uint8*)realloc(memory.data, memory.maxSize <<= 1))		\
 			memory.data = tmpPtr;												\
 		else																	\
-			return;
+			return;*/
 
 
 namespace Core {
@@ -66,71 +66,57 @@ namespace Core {
 			{ValueType::arr, 0},
 			{ValueType::expression, sizeof(void*)},
 		});
-		core.prefix = std::unordered_map<String, SubroutinePatternMatching*>();
+		core.prefix = Table<String, Table<ValueType, ValueType*>>();
 		{
-			core.prefix[T("%")] = [] {
-				SubroutinePatternMatching* arr = new SubroutinePatternMatching[2];
-				arr[0] = SubroutinePatternMatching(SubroutinePatternMatchingType::ProcNative, test);
-				arr[1] = SubroutinePatternMatching();
-				return arr;
-			} ();
-			core.prefix[T("*")] = [] {
-				SubroutinePatternMatching* arr = new SubroutinePatternMatching[2];
-				arr[0] = SubroutinePatternMatching(SubroutinePatternMatchingType::ProcNative, getValueProcedure);
-				arr[1] = SubroutinePatternMatching();
-				return arr;
-			} ();
-			core.prefix[T(">")] = [] {
-				SubroutinePatternMatching* arr = new SubroutinePatternMatching[2];
-				arr[0] = SubroutinePatternMatching(SubroutinePatternMatchingType::ProcNative, allArrayInclusive);
-				arr[1] = SubroutinePatternMatching();
-				return arr;
-			} ();
-			core.prefix[T("^")] = [] {
-				SubroutinePatternMatching* arr = new SubroutinePatternMatching[2];
-				arr[0] = SubroutinePatternMatching(SubroutinePatternMatchingType::ProcNative, allGroupInclusive);
-				arr[1] = SubroutinePatternMatching();
-				return arr;
-			} ();
+			Table<ValueType, ValueType*>* table;
+
+			table = &core.prefix[T("%")];
+			(*table)[ValueType::all] = Instruction::newValue(ValueType::unprocedure, test);
+
+			table = &core.prefix[T("*")];
+			(*table)[ValueType::all] = Instruction::newValue(ValueType::unprocedure, getValueProcedure);
+
+			table = &core.prefix[T(">")];
+			(*table)[ValueType::all] = Instruction::newValue(ValueType::unprocedure, allArrayInclusive);
+
+			table = &core.prefix[T("^")];
+			(*table)[ValueType::all] = Instruction::newValue(ValueType::unprocedure, allGroupInclusive);
 		}
-		core.postfix = std::unordered_map<String, SubroutinePatternMatching*>();
+		core.postfix = Table<String, Table<ValueType, ValueType*>>();
 		{
-			core.postfix[T("%")] = [] {
-				SubroutinePatternMatching* arr = new SubroutinePatternMatching[2];
-				arr[0] = SubroutinePatternMatching(SubroutinePatternMatchingType::ProcNative, test);
-				arr[1] = SubroutinePatternMatching();
-				return arr;
-			} ();
-			core.postfix[T(">")] = [] {
-				SubroutinePatternMatching* arr = new SubroutinePatternMatching[2];
-				arr[0] = SubroutinePatternMatching(SubroutinePatternMatchingType::ProcNative, allArrayExclusive);
-				arr[1] = SubroutinePatternMatching();
-				return arr;
-			} ();
-			core.postfix[T("^")] = [] {
-				SubroutinePatternMatching* arr = new SubroutinePatternMatching[2];
-				arr[0] = SubroutinePatternMatching(SubroutinePatternMatchingType::ProcNative, allGroupExclusive);
-				arr[1] = SubroutinePatternMatching();
-				return arr;
-			} ();
-			core.postfix[T(":")] = [] {
-				SubroutinePatternMatching* arr = new SubroutinePatternMatching[5];
-				arr[0] = SubroutinePatternMatching(SubroutinePatternMatchingType::Parameter, ValueType::dict);
-				arr[1] = SubroutinePatternMatching(SubroutinePatternMatchingType::ProcNative, allContext);
-				arr[2] = SubroutinePatternMatching(SubroutinePatternMatchingType::Parameter, ValueType::name);
-				arr[3] = SubroutinePatternMatching(SubroutinePatternMatchingType::ProcNative, allContext);
-				arr[4] = SubroutinePatternMatching();
-				return arr;
-			} ();
+			Table<ValueType, ValueType*>* table;
+
+			table = &core.postfix[T("%")];
+			(*table)[ValueType::all] = Instruction::newValue(ValueType::unprocedure, test);
+			
+			table = &core.postfix[T("*")];
+			(*table)[ValueType::all] = Instruction::newValue(ValueType::unprocedure, getValueProcedure);
+
+			table = &core.postfix[T(">")];
+			(*table)[ValueType::all] = Instruction::newValue(ValueType::unprocedure, allArrayExclusive);
+
+			table = &core.postfix[T("^")];
+			(*table)[ValueType::all] = Instruction::newValue(ValueType::unprocedure, allGroupExclusive);
+
+			table = &core.postfix[T(":")];
+			(*table)[ValueType::dict] = Instruction::newValue(ValueType::unprocedure, allContext);
+			(*table)[ValueType::name] = Instruction::newValue(ValueType::unprocedure, allContext);
+
 		}
-		core.binary = std::unordered_map<String, SubroutinePatternMatching*>();
+		core.binary = Table<String, Table<ValueTypeBinary, ValueType*>>();
 		{
-			core.binary[T("")] = [] {
-				SubroutinePatternMatching* arr = new SubroutinePatternMatching[2];
-				arr[0] = SubroutinePatternMatching(SubroutinePatternMatchingType::ProcNative, invokeFunction);
-				arr[1] = SubroutinePatternMatching();
-				return arr;
-			} ();
+			Table<ValueTypeBinary, ValueType*>* table;
+
+			table = &core.binary[T("")];
+			(*table)[ValueTypeBinary(ValueType::uprocedure, ValueType::arr)] = Instruction::newValue(ValueType::uprocedure, invokeFunction);
+			(*table)[ValueTypeBinary(ValueType::ufunction, ValueType::arr)] = Instruction::newValue(ValueType::ufunction, invokeFunction);
+			(*table)[ValueTypeBinary(ValueType::umethod, ValueType::arr)] = Instruction::newValue(ValueType::umethod, invokeFunction);
+			(*table)[ValueTypeBinary(ValueType::unprocedure, ValueType::arr)] = Instruction::newValue(ValueType::unprocedure, invokeFunction);
+			(*table)[ValueTypeBinary(ValueType::unfunction, ValueType::arr)] = Instruction::newValue(ValueType::unfunction, invokeFunction);
+			(*table)[ValueTypeBinary(ValueType::unmethod, ValueType::arr)] = Instruction::newValue(ValueType::unmethod, invokeFunction);
+
+
+			/*
 			core.binary[T("+")] = [] {
 				SubroutinePatternMatching* arr = new SubroutinePatternMatching[2];
 				//arr[0] = Binary(BinaryType::TypeTypeType | BinaryType::funcNative, &([](int64 l, int64 r) {return l + r;}), ValueType::int64, 0, ValueType::int64, 0, ValueType::int64);
@@ -149,7 +135,7 @@ namespace Core {
 				//arr[0] = Binary(BinaryType::AllAllAll | BinaryType::procNative, comma, ValueType::all, 0, ValueType::all, 0, ValueType::all);
 				arr[1] = SubroutinePatternMatching();
 				return arr;
-			} ();
+			} ();*/
 		}
 
 		//Core::core = new Module(core);
@@ -182,6 +168,7 @@ namespace Core {
 		}*/
 	}
 
+
 	void invokeFunction(Program& program) {
 		Instruction parameter = program.stackInstructions.get_r(0);
 		Instruction function = program.stackInstructions.get_r(1);
@@ -198,8 +185,22 @@ namespace Core {
 
 	}
 
+
+	void add(Program& program) {
+
+	}
+	void sub(Program& program);
+	void mul(Program& program);
+	void div(Program& program);
+
+	void addf(Program& program);
+	void subf(Program& program);
+	void mulf(Program& program);
+	void divf(Program& program);
+
+
 	void getValueProcedure(Program& program) { // Unordered map saves keys by address
-		uint8* memory = program.memory.data + program.stackInstructions[program.stackInstructions.max_index].shift;
+		/*uint8* memory = program.memory.data + program.stackInstructions[program.stackInstructions.max_index].shift;
 		uint8* value = (uint8*)(program.data.at_r(0)[**(String**)(memory)]);
 
 		int l = program.specification.typeSize[*(ValueType*)value];
@@ -215,7 +216,7 @@ namespace Core {
 		program.memory.currentSize += l;
 
 		program.stackInstructions.at_r(1) = program.stackInstructions.at_r(0);
-		program.stackInstructions.max_index -= 1;
+		program.stackInstructions.max_index -= 1;*/
 	}
 
 	void allArrayInclusive(Program& program) {
@@ -244,7 +245,7 @@ namespace Core {
 
 
 	void getChild(Program& program) {
-		String* right = *(String**)(program.memory.data + program.stackInstructions.at_r(0).shift);
+		/*String* right = *(String**)(program.memory.data + program.stackInstructions.at_r(0).shift);
 		program.stackInstructions.max_index -= 2;
 		String* left = *(String**)(program.memory.data + program.stackInstructions.at_r(0).shift);
 
@@ -266,6 +267,6 @@ namespace Core {
 
 			delete left,
 			delete right;
-		}
+		}*/
 	}
 }

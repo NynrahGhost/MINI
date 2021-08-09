@@ -41,6 +41,9 @@
     <ClInclude Include="subroutine_matching_pattern.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="common_utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="test.mini" />

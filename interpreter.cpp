@@ -2,75 +2,19 @@
 #include "core.h"
 #include <iostream>
 #include <functional>
-
-#define char_number T('0'): case T('1'): case T('2'): case T('3'): case T('4'): case T('5'): case T('6'): case T('7'): case T('8'): case T('9')
-
-#define char_operator 										\
-	     T('<'): case T('>'): case T('='):					\
-	case T('@'): case T('?'): case T(','):					\
-	case T('-'): case T('+'): case T('*'): case T(':'):		\
-	case T('/'): case T('^'): case T('\\'): case T('%'):	\
-	case T('&'): case T('|'):								\
-	case T('.'): case T('~')								\
-
-
-#define char_space_character								\
-	     T('\n'): case T('\r'): case T('\t'): case T(' ')	\
-
-
-#define char_special_character								\
-		 T(';'):											\
-	case T('['): case T('{'): case T('('):					\
-	case T(']'): case T('}'): case T(')')					\
-
-// I don't trust inlines.
-#define alloc_guard(SIZE)														\
-	if (memory.maxSize - memory.currentSize < SIZE)								\
-		if (tmpPtr = (uint8*)realloc(memory.data, memory.maxSize <<= 1))		\
-			memory.data = tmpPtr;												\
-		else																	\
-			goto error_memory_allocation	// TODO: error stack memory allocation.
+#include "common_types.h"
+#include "common_utils.h"
 
 int main()
 {	
-	const charT* script = T("[123;name;\"str\"]%;");
-	/*
-	uint8* allocator;
+	//std::cout << murmurHash64(new uint8[7]{ 0,1,2,3,4,5 }, 7, 0);
+	
+	const charT* script;
 
-	Table<String, ValueType*>* memory = new Table<String, ValueType*>();
+	//script = T("%[123;name;\"str\"];");
+	script = T("%123;");
+	//script = T("123+133");
 
-	allocator = (uint8*)malloc(sizeof(long long) + sizeof(ValueType));
-	*(ValueType*)allocator = ValueType::int64;
-	*((long long*)(allocator + sizeof(ValueType))) = 1234l;
-	//memory.insert_or_assign(String(T("number")).substr(0,6), (ValueType*)allocator);
-	//memory.insert_or_assign(String(T("config")), (ValueType*)(uint8*)malloc(sizeof(void*) + 1));
-
-	allocator = (uint8*)malloc(sizeof(long long) + sizeof(ValueType));
-	*(ValueType*)allocator = ValueType::int64;
-	*((long long*)(allocator + sizeof(ValueType))) = 1234l;
-	memory->insert_or_assign(String(T("number")), (ValueType*)allocator);
-
-	allocator = (uint8*)malloc(sizeof(void*) + sizeof(ValueType));
-	*(ValueType*)allocator = ValueType::string;
-	*((String**)(allocator + sizeof(ValueType))) = new String(T("Hello, World!"));
-	memory->insert_or_assign(String(T("msg")), (ValueType*)allocator);
-
-	Table<String, ValueType*> mry = Table<String, ValueType*>();
-
-	allocator = (uint8*)malloc(sizeof(void*) + sizeof(ValueType));
-	*(ValueType*)allocator = ValueType::dict;
-	*(Table<String, ValueType*>**)(allocator+1) = memory;
-
-	auto val = **(Table<String, ValueType*>**)(allocator+1);
-
-	mry.insert_or_assign(String(T("config")), (ValueType*)allocator);//(ValueType*)(new containerPtr(ValueType::dict, (void*)memory)));
-
-	Array<Table<String, ValueType*>> namespaces = Array<Table<String, ValueType*>>();
-	namespaces.add(mry);
-
-	auto mem = Array<Table<String, ValueType*>>();
-	mem.add(mry);
-	*/
 	Program program = Program();
 
 	int result = (int)program.run(script);
@@ -82,6 +26,45 @@ uint32 test0(uint16 arg0, uint32 arg1, uint16 arg2, float32 arg3, float64 arg4)
 {
 	return arg0 + arg1 + arg2 + arg3 + arg4;
 }
+
+
+/*
+uint8* allocator;
+
+Table<String, ValueType*>* memory = new Table<String, ValueType*>();
+
+allocator = (uint8*)malloc(sizeof(long long) + sizeof(ValueType));
+*(ValueType*)allocator = ValueType::int64;
+*((long long*)(allocator + sizeof(ValueType))) = 1234l;
+//memory.insert_or_assign(String(T("number")).substr(0,6), (ValueType*)allocator);
+//memory.insert_or_assign(String(T("config")), (ValueType*)(uint8*)malloc(sizeof(void*) + 1));
+
+allocator = (uint8*)malloc(sizeof(long long) + sizeof(ValueType));
+*(ValueType*)allocator = ValueType::int64;
+*((long long*)(allocator + sizeof(ValueType))) = 1234l;
+memory->insert_or_assign(String(T("number")), (ValueType*)allocator);
+
+allocator = (uint8*)malloc(sizeof(void*) + sizeof(ValueType));
+*(ValueType*)allocator = ValueType::string;
+*((String**)(allocator + sizeof(ValueType))) = new String(T("Hello, World!"));
+memory->insert_or_assign(String(T("msg")), (ValueType*)allocator);
+
+Table<String, ValueType*> mry = Table<String, ValueType*>();
+
+allocator = (uint8*)malloc(sizeof(void*) + sizeof(ValueType));
+*(ValueType*)allocator = ValueType::dict;
+*(Table<String, ValueType*>**)(allocator+1) = memory;
+
+auto val = **(Table<String, ValueType*>**)(allocator+1);
+
+mry.insert_or_assign(String(T("config")), (ValueType*)allocator);//(ValueType*)(new containerPtr(ValueType::dict, (void*)memory)));
+
+Array<Table<String, ValueType*>> namespaces = Array<Table<String, ValueType*>>();
+namespaces.add(mry);
+
+auto mem = Array<Table<String, ValueType*>>();
+mem.add(mry);
+*/
 
 /*
 	struct tmp0 {
@@ -138,13 +121,20 @@ Status Program::run (const charT* script)
 	//temporary variables
 	uint8* tmpPtr;
 	uint8* findResult;
-	int iterator = 0;
 
-	if (!memory.data)
+	Instruction instruction_r0; //Top instruction
+	Instruction instruction_r1; //Pre-top instruction
+	Instruction instruction_r2; //Pre-pre-top instruction
+
+
+	if (!memory.content)
+		memory.init(256);
+
+	/*if (!memory.data)
 		if (!(memory.data = (uint8*)malloc(256)))
 			goto error_memory_allocation;
 		else
-			memory.maxSize = 256;
+			memory.maxSize = 256;*/
 
 	parse: {
 		if (script[++scriptIndex] == 0)
@@ -245,12 +235,14 @@ Status Program::run (const charT* script)
 			default:
 				--scriptIndex;
 
-				alloc_guard(sizeof(void*));
+				//alloc_guard(sizeof(void*));
 
-				stackInstructions.add(Instruction::pos(InstructionType::op, memory.currentSize));
+				stackInstructions.add(Instruction::pos(InstructionType::op, memory.max_index));
 
-				*(uintptr_t*)(memory.data + memory.currentSize) = (uintptr_t)buffer;
-				memory.currentSize += sizeof(void*);
+				memory.add<uintptr_t>((uintptr_t)buffer);
+
+				//*(uintptr_t*)(memory.data + memory.currentSize) = (uintptr_t)buffer;
+				//memory.currentSize += sizeof(void*);
 
 				buffer = new String();
 
@@ -267,12 +259,14 @@ Status Program::run (const charT* script)
 			case T('\0'):
 				--scriptIndex;
 
-				alloc_guard(sizeof(void*));
+				//alloc_guard(sizeof(void*));
 
-				stackInstructions.add(Instruction::val(ValueType::name, memory.currentSize));
+				stackInstructions.add(Instruction::val(ValueType::name, memory.max_index));
 
-				*(uintptr_t*)(memory.data + memory.currentSize) = (uintptr_t)buffer;
-				memory.currentSize += sizeof(void*);
+				memory.add<uintptr_t>((uintptr_t)buffer);
+
+				//*(uintptr_t*)(memory.data + memory.currentSize) = (uintptr_t)buffer;
+				//memory.currentSize += sizeof(void*);
 
 				buffer = new String();
 
@@ -295,9 +289,9 @@ Status Program::run (const charT* script)
 			default:
 				--scriptIndex;
 
-				alloc_guard(sizeof(int64));
+				//alloc_guard(sizeof(int64));
 
-				stackInstructions.add(Instruction::val(ValueType::int64, memory.currentSize));
+				stackInstructions.add(Instruction::val(ValueType::int64, memory.max_index));
 
 				//*(int*)(memory.data + memory.currentSize) = 5;// = std::stoi(*buffer);
 
@@ -306,9 +300,10 @@ Status Program::run (const charT* script)
 					number *= 10,
 					number += ((*buffer)[i] - T('0'));
 
-				*(int64*)(memory.data + memory.currentSize) = number;
+				memory.add<int64>(number);
 
-				memory.currentSize += sizeof(int64);
+				//*(int64*)(memory.data + memory.currentSize) = number;
+				//memory.currentSize += sizeof(int64);
 
 				buffer = new String();
 
@@ -325,12 +320,13 @@ Status Program::run (const charT* script)
 			{
 			case T('"'):
 
-				alloc_guard(sizeof(void*));
+				//alloc_guard(sizeof(void*));
 
-				stackInstructions.add(Instruction::val(ValueType::string, memory.currentSize));// (ValueType::string, memory.currentSize));
+				stackInstructions.add(Instruction::val(ValueType::string, memory.max_index));// (ValueType::string, memory.currentSize));
 
-				*(uintptr_t*)(memory.data + memory.currentSize) = (uintptr_t)buffer;
-				memory.currentSize += sizeof(void*);
+				memory.add<uintptr_t>((uintptr_t)buffer);
+				//*(uintptr_t*)(memory.data + memory.currentSize) = (uintptr_t)buffer;
+				//memory.currentSize += sizeof(void*);
 
 				buffer = new String();
 
@@ -351,17 +347,21 @@ Status Program::run (const charT* script)
 	}
 
     evaluate: {
-        iterator = stackInstructions.max_index + 1; //TODO: tmp solution, for compatibility with 'size'	of std::vector					          
+		instruction_r0 = *(stackInstructions.content + stackInstructions.max_index);
+		instruction_r1 = *(stackInstructions.content + stackInstructions.max_index - 1);
+		instruction_r2 = *(stackInstructions.content + stackInstructions.max_index - 2);
+
                                                                               //   Decision tree 
-        switch (stackInstructions[iterator - 1].instr) {                      //    ___________
+        switch (instruction_r0.instr) {                                       //    ___________
         case InstructionType::start: goto parse;                              //   |   |   |s t| :parse
         case InstructionType::op: goto parse;                                 //   |   |   |o p| :parse
 		case InstructionType::separator:
-			switch (stackInstructions[iterator - 2].instr) {                  //   |   | x | ; |
+			switch (instruction_r1.instr) {                                   //   |   | x | ; |
 			case InstructionType::separator: goto eval_array_add_empty;       //   |   | ; | ; | :eval_array_add_empty
+			case InstructionType::start_array: goto eval_array_add_empty;     //   |   | [ | ; | :eval_array_add_empty
 			case InstructionType::op: goto eval_postfix;                      //   |   |o p| ; | :eval_postfix		//TODO: Better to do another level to check for val
 			case InstructionType::value:                                      
-				switch (stackInstructions[iterator - 3].instr) {              //   | x |val| ; |
+				switch (instruction_r2.instr) {                               //   | x |val| ; |
 				case InstructionType::op: goto eval_prefix;                   //   |o p|val| ; | :eval_prefix
 				case InstructionType::start_array: goto eval_array_add;       //   | [ |val| ; | :eval_array_add
 				default: goto error_syntax; }
@@ -369,63 +369,63 @@ Status Program::run (const charT* script)
         case InstructionType::start_group: goto parse;                        //   |   |   | ( | :parse
 		case InstructionType::start_array: goto eval_array_start;             //   |   |   | [ | :eval_array_start
 		case InstructionType::end_array:                                      
-			switch (stackInstructions[iterator - 2].instr) {                  //   |   | x | ] |
+			switch (instruction_r1.instr) {                                   //   |   | x | ] |
 			case InstructionType::start_array: goto eval_array_empty;         //   |   | [ | ] | :eval_array_empty
 			case InstructionType::value: goto eval_array_end;                 //   |   |val| ] | :eval_array_end
 			default: goto error_syntax;}
 		case InstructionType::start_context:                                  
-            switch (stackInstructions[iterator - 2].instr) {                  //   |   | x | { |
+            switch (instruction_r1.instr) {                                   //   |   | x | { |
             case InstructionType::spacing: goto eval_context_new;             //   |   | _ | { | :eval_context_new
             case InstructionType::value: goto eval_context_of;                //   |   |val| { | :eval_context_of
 			case InstructionType::context: goto parse;                        //   |   |ctx| { | :parse
             default: goto error_syntax; }
         case InstructionType::end_context:                                    //   |   | x | } |
-            switch (stackInstructions[iterator - 2].instr) {
+            switch (instruction_r1.instr) {
             case InstructionType::value: goto eval_context_finish;            //   | x |val| } |
-                switch (stackInstructions[iterator - 3].instr) {
+                switch (instruction_r2.instr) {
                 case InstructionType::op: goto eval_prefix;                   //   |o p|val| } | :eval_prefix
                 case InstructionType::start_context: goto eval_context_finish;//   | { |val| } | :eval_context_finish
                 default: goto error_syntax; }
             case InstructionType::op:                                         //   | x |o p| } |
-                switch (stackInstructions[iterator - 3].instr) {
+                switch (instruction_r2.instr) {
                 case InstructionType::value: goto eval_postfix;               //   |val|o p| } | :eval_postfix
                 default: goto error_syntax; }
             default: goto error_syntax; }
         case InstructionType::end:                                            //   |   | x |end|  !!!
         case InstructionType::spacing:                                        //   |   | x | _ |
-            switch (stackInstructions[iterator - 2].instr) {
+            switch (instruction_r1.instr) {
             case InstructionType::start: goto parse;                          //   |   |s t| _ | :parse
             case InstructionType::op:                                         //   | x |o p| _ |
-                switch (stackInstructions[iterator - 3].instr) {
+                switch (instruction_r2.instr) {
                 case InstructionType::spacing: goto parse;                    //   | _ |o p| _ | :parse
                 case InstructionType::value: goto eval_postfix;               //   |val|o p| _ | :eval_postfix
                 default: goto error_syntax; }
             case InstructionType::value:                                      //   | x |val| _ | 
-                switch (stackInstructions[iterator - 3].instr) {
+                switch (instruction_r2.instr) {
                 case InstructionType::start: goto parse;                      //   |s t|val| _ | :parse
                 case InstructionType::spacing: goto eval_binary_check;        //   | _ |val| _ | :eval_binary_check
                 case InstructionType::op: goto eval_prefix; }                 //   |o p|val| _ | :eval_prefix	//Possibly unreachable
                 default: goto error_syntax; }
         case InstructionType::value:                                          //   |   | x |val|
-            switch (stackInstructions[iterator - 2].instr) {
+            switch (instruction_r1.instr) {
 			case InstructionType::start_context: goto parse;                  //   |   | { |val| :parse
 			case InstructionType::start_array: goto parse;                    //   |   | [ |val| :parse
             case InstructionType::start: goto parse;                          //   |   |s t|val| :parse
             case InstructionType::value: goto eval_binary_coalescing_short;   //   |   |val|val| :eval_binary_coalescing_short
             case InstructionType::spacing:                                    //   | x | _ |val|
-                switch (stackInstructions[iterator - 3].instr) {
+                switch (instruction_r2.instr) {
                 case InstructionType::value: goto eval_binary_coalescing;     //   |val| _ |val| :eval_binary_coalescing
                 case InstructionType::op: goto parse;                         //   |o p| _ |val| :parse
                 default: goto error_syntax; }
             case InstructionType::op:                                         //   | x |o p|val|
-                switch (stackInstructions[iterator - 3].instr) {
+                switch (instruction_r2.instr) {
                 case InstructionType::value: goto eval_binary_short;          //   |val|o p|val| :eval_binary_short
                 case InstructionType::start:                                  //   |s t|o p|val| :eval_prefix
                 case InstructionType::start_group:                            //   | ( |o p|val| :eval_prefix
                 case InstructionType::start_array:                            //   | [ |o p|val| :eval_prefix
                 case InstructionType::start_context:                          //   | { |o p|val| :eval_prefix
                 case InstructionType::spacing:                                //   | { |o p|val| :eval_prefix
-                case InstructionType::separator: goto eval_prefix;            //   | ; |o p|val| :eval_prefix   //Possible unreachable
+                case InstructionType::separator: goto eval_prefix;            //   | ; |o p|val| :eval_prefix   //Possibly unreachable
                 default: goto error_syntax; }
             default: goto error_syntax; }
         default: goto error_syntax; }
@@ -434,8 +434,9 @@ Status Program::run (const charT* script)
 		eval_context_new: {
 			stackInstructions.add(Instruction::context(context.value, context.shift));
 
-			*(void**)(memory.data + memory.currentSize) = new Table<String, ValueType*>();
-			memory.currentSize += sizeof(void*);
+			memory.add<void*>((void*)new Table<String, ValueType*>());
+			//*(void**)(memory.data + memory.currentSize) = new Table<String, ValueType*>();
+			//memory.currentSize += sizeof(void*);
 
 			stackInstructions.add(Instruction::atom(InstructionType::start_context));
 
@@ -445,8 +446,8 @@ Status Program::run (const charT* script)
 		eval_context_of: {
 			stackInstructions.at_r(0) = Instruction::context(context.value, context.shift);
 
-			context.shift = stackInstructions[iterator - 2].shift;
-			context.value = stackInstructions[iterator - 2].value;
+			context.shift = instruction_r1.shift;
+			context.value = instruction_r2.value;
 
 			stackInstructions.add(Instruction::atom(InstructionType::start_context));
 
@@ -457,8 +458,8 @@ Status Program::run (const charT* script)
 			/*context = stack[iterator - 2].location;
 			stack[iterator - 2] = stack[iterator - 1];
 			stack.pop_back();*/
-			context = stackInstructions[iterator - 4].location;
-			stackInstructions[iterator - 4] = stackInstructions[iterator - 2];
+			context = stackInstructions.get_r(3).location;
+			stackInstructions.get_r(3) = instruction_r1;
 
 			stackInstructions.max_index -= 3;// resize(iterator - 4);
 			goto parse;
@@ -468,18 +469,19 @@ Status Program::run (const charT* script)
 			++stackArrays.max_index;
 			stackArrays.at_r(0).init();//.add(*(new Array<Instruction>()));
 			//stackArrays.getr_u(0).reserve(16); //TODO: initial capacity
+			stackInstructions.add(Instruction::atom(InstructionType::start_array));
 			stackInstructions.at_r(0).modifier = stackArrays.max_index;
 			goto parse;
 		}
 
 		eval_array_add: {
-			stackArrays[stackInstructions[iterator - 3].modifier].add(stackInstructions[iterator - 2]);
+			stackArrays[instruction_r2.modifier].add(instruction_r1);
 			stackInstructions.max_index -= 2;
 			goto parse;
 		}
 
 		eval_array_add_empty: {
-			stackArrays[stackInstructions[iterator - 3].modifier].add(Instruction::val(ValueType::arr, 0));
+			stackArrays[instruction_r2.modifier].add(Instruction::val(ValueType::arr, 0));
 			stackInstructions.max_index -= 1;
 			goto parse;
 		}
@@ -491,7 +493,7 @@ Status Program::run (const charT* script)
 		}
 
 		eval_array_end: {
-			stackArrays[stackInstructions[iterator - 3].modifier].add(stackInstructions[iterator - 2]);
+			stackArrays[instruction_r2.modifier].add(instruction_r1);
 			stackInstructions.max_index -= 2;
 			stackInstructions.at_r(0).instr = InstructionType::value;
 			stackInstructions.at_r(0).value = ValueType::arr;
@@ -499,164 +501,98 @@ Status Program::run (const charT* script)
 		}
 
 		eval_prefix: {
-			tmpPtr = memory.data + stackInstructions[iterator - 2].shift;
+			tmpPtr = memory.at<uint8*>(instruction_r1.shift);
 
-			if (this->specification.prefix.count(**(String**)tmpPtr)) {
-				SubroutinePatternMatching* arr = this->specification.prefix[**(String**)tmpPtr];
-				eval_prefix_loop:
-					switch (arr->patternType) {
-					case SubroutinePatternMatchingType::ProcNative:
-						reinterpret_cast<void (*) (Program&)>(arr->pointer)(*this);
-						goto parse;
-					case SubroutinePatternMatchingType::Argument:
-						break;
-					case SubroutinePatternMatchingType::None:
-						goto error_syntax; // TODO: error can't match function
-					}
-				goto eval_prefix_loop;
-			pref:
+			if (!this->specification.prefix.count(*(String*)tmpPtr)) 
+				goto error_syntax;
+
+			ValueType* lc_value;
+
+			if (!this->specification.prefix[(*(String*)tmpPtr)].count(instruction_r0.value))
+				if (this->specification.prefix[(*(String*)tmpPtr)].count(ValueType::all))
+					lc_value = this->specification.prefix[(*(String*)tmpPtr)][ValueType::all];
+				else
+					goto error_syntax;
+			else
+				lc_value = this->specification.prefix[(*(String*)tmpPtr)][instruction_r0.value];
+
+
+			switch (*lc_value) {
+			case ValueType::unprocedure:
+				reinterpret_cast<void (*) (Program&)>(*(void**)(lc_value+1))(*this);
 				goto parse;
 			}
+
 			goto error_syntax;	// TODO: error operator was not found
 		}
 
 		eval_postfix: {
-			tmpPtr = memory.data + stackInstructions[iterator - 2].shift;
+			tmpPtr = memory.at<uint8*>(instruction_r1.shift);
 
-			if (this->specification.postfix.count(**(String**)tmpPtr)) {
-				SubroutinePatternMatching* arr = this->specification.postfix[**(String**)tmpPtr];
-				switch (arr->patternType) {
-				case SubroutinePatternMatchingType::ProcNative:
-					reinterpret_cast<void (*) (Program&)>(arr->pointer)(*this);
-					goto parse;
-				case SubroutinePatternMatchingType::None:
+			if (!this->specification.postfix.count(*(String*)tmpPtr))
+				goto error_syntax;
+
+			ValueType* lc_value;
+
+			if (!this->specification.postfix[(*(String*)tmpPtr)].count(instruction_r2.value))
+				if (this->specification.postfix[(*(String*)tmpPtr)].count(ValueType::all))
+					lc_value = this->specification.postfix[(*(String*)tmpPtr)][ValueType::all];
+				else
 					goto error_syntax;
-				}
+			else
+				lc_value = this->specification.postfix[(*(String*)tmpPtr)][instruction_r2.value];
+
+			switch (*lc_value) {
+			case ValueType::unprocedure:
+				reinterpret_cast<void (*) (Program&)>(*(void**)(lc_value + 1))(*this);
+				goto parse;
 			}
 
 			goto error_syntax;
-				/*for (; arr->patternType == UnaryType::None; ++arr) {
-					switch (arr->patternType & (UnaryType)0b11111000) {
-					case UnaryType::AllAll:
-						goto eval_post_loopbreaker;
-					case UnaryType::TypeAll:
-					case UnaryType::TypeType:
-						if (arr->parameterType == stack[iterator - 3].value)
-							goto eval_post_loopbreaker;
-						else continue;
-					case UnaryType::None: //means array reached its end.
-						goto error_syntax;
-					}
-				}*//*
-			eval_post_loopbreaker:
-				switch (arr->patternType & (UnaryType)0b00000111) {
-				case UnaryType::funcTarget:
-					stack.push_back(Instruction::pos(InstructionType::call, memory.currentSize));
-
-					*(uint64*)(memory.data + memory.currentSize) = scriptIndex;
-					memory.currentSize += sizeof(uint64);
-					*(const charT**)(memory.data + memory.currentSize) = script;
-					memory.currentSize += sizeof(void*);
-
-					stack.push_back(Instruction::context(context.value, context.shift));
-
-					script = (const charT*)arr->function;
-					scriptIndex = 0;
-
-					context = stack[iterator - 3].location;
-					break;
-				case (UnaryType::methTarget):
-					break;
-				case (UnaryType::procTarget):
-					break;
-				case (UnaryType::funcNative):
-					break;
-				case (UnaryType::methNative):
-					break;
-				case (UnaryType::procNative):
-					reinterpret_cast<void (*) (Program&)>(arr->function)(*this);
-					break;
-				}
-				goto evaluate; //in case end context (before was parse)
-			}
-			else goto error_syntax; //operator not found.*/
 		}
 
 		eval_binary_check: {}
 
-		eval_binary_short: {/*
-			tmpPtr = memory.data + stack[iterator - 2].shift;
+		eval_binary_short: {
 
-			if (this->specification.binary.count(**(String**)tmpPtr)) {
-				Binary* arr = this->specification.binary[**(String**)tmpPtr];
+			tmpPtr = memory.at<uint8*>(instruction_r1.shift);
 
-				for (; arr->patternType == BinaryType::None; ++arr) {
-					switch (arr->patternType & (BinaryType)0b11111000) {
-					case BinaryType::AllAllAll:
-					case BinaryType::AllAllType:
-						goto eval_binary_loopbreaker;
-					case BinaryType::TypeAllAll:
-					case BinaryType::TypeAllType:
-						if (arr->leftParameterType == stack[iterator - 3].value)
-							goto eval_binary_loopbreaker;
-						else continue;
-					case BinaryType::AllTypeAll:
-					case BinaryType::AllTypeType:
-						if (arr->rightParameterType == stack[iterator - 1].value)
-							goto eval_binary_loopbreaker;
-						else continue;
-					case BinaryType::TypeTypeAll:
-					case BinaryType::TypeTypeType:
-						if ((arr->leftParameterType == stack[iterator - 3].value) & (arr->rightParameterType == stack[iterator - 1].value))
-							goto eval_binary_loopbreaker;
-						else continue;
-					case BinaryType::None: //means array reached its end.
-						goto error_syntax;
-					}
+			if (!this->specification.binary.count(*(String*)tmpPtr))
+				goto error_syntax;
+
+			auto table = this->specification.binary[*(String*)tmpPtr];
+			
+			auto lc_binaryValueType = ValueTypeBinary(instruction_r2.value, instruction_r0.value);
+
+			if(!table.count(lc_binaryValueType))
+				goto error_syntax;
+			/*
+			SubroutineParameterMatching lc_subroutinePatternMatching = table[lc_binaryValueType];
+
+			uint64 hash = 
+
+			lc_subroutinePatternMatching.count(
+			*/
+
+			/*eval_binary_short_loop: {
+				switch (arr->patternType) {
+				//case SubroutinePatternMatchingType::Parameter:
+				//	if (arr->parameter)														// Contents of both left and right side must be extracted to
+				case SubroutinePatternMatchingType::ProcNative:								// same array, possibly separated by special ValueType,
+					reinterpret_cast<void (*) (Program&)>(arr->pointer)(*this);				// and then iterated until match.
+					goto parse;																// Also need to think how/whether context will be taken in account as well
+				case SubroutinePatternMatchingType::None:
+					goto error_syntax;
 				}
+			}*/
 
-			eval_binary_loopbreaker:
-				switch (arr->patternType & (BinaryType)0b00000111) {
-				case BinaryType::funcTarget:
-					stack.push_back(Instruction::pos(InstructionType::call, memory.currentSize));
-
-					*(uint64*)(memory.data + memory.currentSize) = scriptIndex;
-					memory.currentSize += sizeof(uint64);
-					*(const charT**)(memory.data + memory.currentSize) = script;
-					memory.currentSize += sizeof(void*);
-
-					stack.push_back(Instruction::context(context.value, context.shift));
-
-					script = (const charT*)arr->function;
-					scriptIndex = 0;
-
-					context = stack[iterator - 3].location;
-					break;
-				case (BinaryType::methTarget):
-					break;
-				case (BinaryType::procTarget):
-					break;
-				case (BinaryType::funcNative):
-
-					//reinterpret_cast<_s16(*)(_s64)>(memory.data)(*(_s64*)memory.data);
-					//std::function<void> f;
-
-					break;
-				case (SubroutinePatternMatchingType::MethNative):
-					break;
-				case (SubroutinePatternMatchingType::ProcNative):
-					reinterpret_cast<void (*) (Program&)>(arr->function)(*this);
-					break;
-				}
-				goto parse;
-			}
-			else goto error_syntax; //operator not found.*/
+			goto error_syntax;
 		}
 
 		eval_binary_coalescing_short: {
-			tmpPtr = memory.data + stackInstructions[iterator - 2].shift;
-
-			if (this->specification.binary.count(**(String**)tmpPtr)) {
+			tmpPtr = memory.at<uint8*>(instruction_r1.shift);
+			/*
+			if (this->specification.binary.count(*(String*)tmpPtr)) {
 				SubroutinePatternMatching* arr = this->specification.postfix[**(String**)tmpPtr];
 				switch (arr->patternType) {
 				case SubroutinePatternMatchingType::ProcNative:
@@ -665,7 +601,7 @@ Status Program::run (const charT* script)
 				case SubroutinePatternMatchingType::None:
 					goto error_syntax;
 				}
-			}
+			}*/
 
 			goto error_syntax;
 		}
@@ -690,11 +626,6 @@ Status Program::run (const charT* script)
 
 ending:
 	return Status::success;
-}
-
-void functionCall(Program& program, void* function, int32 argument) {
-
-	struct parameter {};
 }
 
 void print(ValueType* memory)
