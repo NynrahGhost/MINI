@@ -194,7 +194,41 @@ struct Span : Array<uint8> {
 
 	template<typename _V>
 	inline _V& at(size_t index) {
-		return (_V&)content[index];
+		return *(_V*)(content + index);
+	}
+
+	template<typename _V>
+	inline _V get(size_t index) {
+		return *(_V*)(content + index);
+	}
+
+	//Insertion within occupied memory
+	template<typename _V>
+	inline void insert(_V element, size_t position) {
+		if (max_index + sizeof(_V) < capacity) {
+			memcpy(content + position + sizeof(_V), content + position, max_index - position);
+			*(_V*)(content + position) = element;
+			max_index += sizeof(_V);
+		}
+		else
+		{
+			uint8* ptr = new uint8[capacity <<= 1];
+			memcpy(ptr, content, sizeof(uint8) * (position + 1));	//TODO: check why I put +1 here
+			memcpy(ptr+position+sizeof(_V), content+position+sizeof(_V), sizeof(uint8) * (max_index - position + 1));
+			delete[] content;
+			content = ptr;
+
+			*(_V*)(content + position) = element;
+			max_index += sizeof(_V);
+		}
+	}
+
+	inline void move_relative(size_t position, size_t size, size_t shift) {
+		memcpy(content + position + shift, content + position, size);
+	}
+
+	inline void move_absolute(size_t position, size_t size, size_t new_position) {
+		memcpy(content + new_position, content + position, size);
 	}
 };
 

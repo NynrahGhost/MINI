@@ -54,6 +54,7 @@ enum class type : uint64
     uint8, uint16, uint32, uint64,
     float16, float32, float64, float128,
     data0, data8, data16, data32,
+    parameter_pattern,
     ufunction, umethod, uprocedure,
     unfunction, unmethod, unprocedure,
     bfunction, bmethod, bprocedure,

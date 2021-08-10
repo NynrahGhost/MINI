@@ -115,6 +115,8 @@ namespace Core {
 			(*table)[ValueTypeBinary(ValueType::unfunction, ValueType::arr)] = Instruction::newValue(ValueType::unfunction, invokeFunction);
 			(*table)[ValueTypeBinary(ValueType::unmethod, ValueType::arr)] = Instruction::newValue(ValueType::unmethod, invokeFunction);
 
+			table = &core.binary[T("+")];
+			(*table)[ValueTypeBinary(ValueType::int64, ValueType::int64)] = Instruction::newValue(ValueType::unprocedure, add); //TODO: make a separate method for each case to save program size
 
 			/*
 			core.binary[T("+")] = [] {
@@ -185,9 +187,57 @@ namespace Core {
 
 	}
 
-
+#include <stdexcept>
 	void add(Program& program) {
+		int64 number = 0;
+		Instruction left = program.stackInstructions.get_r(2);
+		Instruction right = program.stackInstructions.get_r(0);
 
+		switch (right.value) {
+		case ValueType::int8:
+			number += program.memory.get<int8>(right.shift); program.memory.max_index -= sizeof(int8); break;
+		case ValueType::int16:
+			number += program.memory.get<int16>(right.shift); program.memory.max_index -= sizeof(int16); break;
+		case ValueType::int32:
+			number += program.memory.get<int32>(right.shift); program.memory.max_index -= sizeof(int32); break;
+		case ValueType::int64:
+			number += program.memory.get<int64>(right.shift); program.memory.max_index -= sizeof(int64); break;
+		case ValueType::uint8:
+			number += program.memory.get<uint8>(right.shift); program.memory.max_index -= sizeof(uint8); break;
+		case ValueType::uint16:
+			number += program.memory.get<uint16>(right.shift); program.memory.max_index -= sizeof(uint16); break;
+		case ValueType::uint32:
+			number += program.memory.get<uint32>(right.shift); program.memory.max_index -= sizeof(uint32); break;
+		case ValueType::uint64:
+			number += program.memory.get<uint64>(right.shift); program.memory.max_index -= sizeof(uint64); break;
+		default: throw std::invalid_argument("received negative value");
+		}
+
+		program.memory.max_index -= sizeof(void*);
+
+		switch (left.value) {
+		case ValueType::int8:
+			number += program.memory.get<int8>(left.shift); program.memory.max_index -= sizeof(int8); break;
+		case ValueType::int16:
+			number += program.memory.get<int16>(left.shift); program.memory.max_index -= sizeof(int16); break;
+		case ValueType::int32:
+			number += program.memory.get<int32>(left.shift); program.memory.max_index -= sizeof(int32); break;
+		case ValueType::int64:
+			number += program.memory.get<int64>(left.shift); program.memory.max_index -= sizeof(int64); break;
+		case ValueType::uint8:
+			number += program.memory.get<uint8>(left.shift); program.memory.max_index -= sizeof(uint8); break;
+		case ValueType::uint16:
+			number += program.memory.get<uint16>(left.shift); program.memory.max_index -= sizeof(uint16); break;
+		case ValueType::uint32:
+			number += program.memory.get<uint32>(left.shift); program.memory.max_index -= sizeof(uint32); break;
+		case ValueType::uint64:
+			number += program.memory.get<uint64>(left.shift); program.memory.max_index -= sizeof(uint64); break;
+		default: throw std::invalid_argument("received negative value");
+		}
+
+		program.stackInstructions.max_index -= 2;
+		program.stackInstructions.at_r(0).value = ValueType::int64;
+		program.memory.add<int64>(number);
 	}
 	void sub(Program& program);
 	void mul(Program& program);

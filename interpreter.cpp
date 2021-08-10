@@ -12,8 +12,8 @@ int main()
 	const charT* script;
 
 	//script = T("%[123;name;\"str\"];");
-	script = T("%123;");
-	//script = T("123+133");
+	//script = T("%123;");
+	script = T("1234+3210");
 
 	Program program = Program();
 
@@ -21,6 +21,8 @@ int main()
 	return result;
 	/**/
 }
+
+String* const Program::EMPTY_STRING = new String(T(""));
 
 uint32 test0(uint16 arg0, uint32 arg1, uint16 arg2, float32 arg3, float64 arg4)
 {
@@ -129,12 +131,6 @@ Status Program::run (const charT* script)
 
 	if (!memory.content)
 		memory.init(256);
-
-	/*if (!memory.data)
-		if (!(memory.data = (uint8*)malloc(256)))
-			goto error_memory_allocation;
-		else
-			memory.maxSize = 256;*/
 
 	parse: {
 		if (script[++scriptIndex] == 0)
@@ -319,17 +315,9 @@ Status Program::run (const charT* script)
 			switch (script[scriptIndex])
 			{
 			case T('"'):
-
-				//alloc_guard(sizeof(void*));
-
-				stackInstructions.add(Instruction::val(ValueType::string, memory.max_index));// (ValueType::string, memory.currentSize));
-
+				stackInstructions.add(Instruction::val(ValueType::string, memory.max_index));
 				memory.add<uintptr_t>((uintptr_t)buffer);
-				//*(uintptr_t*)(memory.data + memory.currentSize) = (uintptr_t)buffer;
-				//memory.currentSize += sizeof(void*);
-
 				buffer = new String();
-
 				goto evaluate;
 
 			case T('\0'):
@@ -341,9 +329,49 @@ Status Program::run (const charT* script)
 			}
 		}
 
-		link: {}
+		link: {
+			++scriptIndex;
+			if (script[scriptIndex] == 0)
+				goto error_string_missing_closing_quote;
 
-		expression: {}
+			switch (script[scriptIndex])
+			{
+			case T('\''):
+				stackInstructions.add(Instruction::val(ValueType::link, memory.max_index));
+				memory.add<uintptr_t>((uintptr_t)buffer);
+				buffer = new String();
+				goto evaluate;
+
+			case T('\0'):
+				goto error_syntax;
+
+			default:
+				buffer += script[scriptIndex];
+				goto string;
+			}
+		}
+
+		expression: {
+			++scriptIndex;
+			if (script[scriptIndex] == 0)
+				goto error_string_missing_closing_quote;
+
+			switch (script[scriptIndex])
+			{
+			case T('`'):
+				stackInstructions.add(Instruction::val(ValueType::expression, memory.max_index));
+				memory.add<uintptr_t>((uintptr_t)buffer);
+				buffer = new String();
+				goto evaluate;
+
+			case T('\0'):
+				goto error_syntax;
+
+			default:
+				buffer += script[scriptIndex];
+				goto string;
+			}
+		}
 	}
 
     evaluate: {
@@ -362,6 +390,7 @@ Status Program::run (const charT* script)
 			case InstructionType::op: goto eval_postfix;                      //   |   |o p| ; | :eval_postfix		//TODO: Better to do another level to check for val
 			case InstructionType::value:                                      
 				switch (instruction_r2.instr) {                               //   | x |val| ; |
+				case InstructionType::start: goto parse;                      //   |s t|val| ; | :parse
 				case InstructionType::op: goto eval_prefix;                   //   |o p|val| ; | :eval_prefix
 				case InstructionType::start_array: goto eval_array_add;       //   | [ |val| ; | :eval_array_add
 				default: goto error_syntax; }
@@ -391,7 +420,22 @@ Status Program::run (const charT* script)
                 case InstructionType::value: goto eval_postfix;               //   |val|o p| } | :eval_postfix
                 default: goto error_syntax; }
             default: goto error_syntax; }
-        case InstructionType::end:                                            //   |   | x |end|  !!!
+        case InstructionType::end:                                            //   |   | x |end|
+			switch (instruction_r1.instr) {
+			case InstructionType::start: goto parse;                          //   |   |s t|end| :eval_add_none
+			case InstructionType::spacing: goto parse;                        //   |   | ; |end| :eval_cleanup_separator //TODO: implement
+			case InstructionType::op:                                         //   | x |o p|end|
+				switch (instruction_r2.instr) {
+				case InstructionType::spacing: goto parse;                    //   | _ |o p|end| :parse
+				case InstructionType::value: goto eval_postfix;               //   |val|o p|end| :eval_postfix
+				default: goto error_syntax;	}
+			case InstructionType::value:                                      //   | x |val|end|
+				switch (instruction_r2.instr) {
+				case InstructionType::start: goto ending;                     //   |s t|val|end| :ending
+				case InstructionType::spacing: goto eval_binary_check;        //   | _ |val|end| :eval_binary_check
+				case InstructionType::op: goto eval_prefix;	}                 //   |o p|val|end| :eval_prefix	//Possibly unreachable
+			default: goto error_syntax;
+			}
         case InstructionType::spacing:                                        //   |   | x | _ |
             switch (instruction_r1.instr) {
             case InstructionType::start: goto parse;                          //   |   |s t| _ | :parse
@@ -419,7 +463,7 @@ Status Program::run (const charT* script)
                 default: goto error_syntax; }
             case InstructionType::op:                                         //   | x |o p|val|
                 switch (instruction_r2.instr) {
-                case InstructionType::value: goto eval_binary_short;          //   |val|o p|val| :eval_binary_short
+                case InstructionType::value: goto eval_binary;                //   |val|o p|val| :eval_binary_short
                 case InstructionType::start:                                  //   |s t|o p|val| :eval_prefix
                 case InstructionType::start_group:                            //   | ( |o p|val| :eval_prefix
                 case InstructionType::start_array:                            //   | [ |o p|val| :eval_prefix
@@ -469,7 +513,7 @@ Status Program::run (const charT* script)
 			++stackArrays.max_index;
 			stackArrays.at_r(0).init();//.add(*(new Array<Instruction>()));
 			//stackArrays.getr_u(0).reserve(16); //TODO: initial capacity
-			stackInstructions.add(Instruction::atom(InstructionType::start_array));
+			//stackInstructions.add(Instruction::atom(InstructionType::start_array));
 			stackInstructions.at_r(0).modifier = stackArrays.max_index;
 			goto parse;
 		}
@@ -553,60 +597,50 @@ Status Program::run (const charT* script)
 
 		eval_binary_check: {}
 
-		eval_binary_short: {
+		eval_binary: {
 
 			tmpPtr = memory.at<uint8*>(instruction_r1.shift);
+
 
 			if (!this->specification.binary.count(*(String*)tmpPtr))
 				goto error_syntax;
 
-			auto table = this->specification.binary[*(String*)tmpPtr];
-			
-			auto lc_binaryValueType = ValueTypeBinary(instruction_r2.value, instruction_r0.value);
-
-			if(!table.count(lc_binaryValueType))
+			if (!this->specification.binary[(*(String*)tmpPtr)].count(ValueTypeBinary(instruction_r2.value, instruction_r0.value)))
 				goto error_syntax;
-			/*
-			SubroutineParameterMatching lc_subroutinePatternMatching = table[lc_binaryValueType];
 
-			uint64 hash = 
+			ValueType* lc_value = this->specification.binary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
 
-			lc_subroutinePatternMatching.count(
-			*/
-
-			/*eval_binary_short_loop: {
-				switch (arr->patternType) {
-				//case SubroutinePatternMatchingType::Parameter:
-				//	if (arr->parameter)														// Contents of both left and right side must be extracted to
-				case SubroutinePatternMatchingType::ProcNative:								// same array, possibly separated by special ValueType,
-					reinterpret_cast<void (*) (Program&)>(arr->pointer)(*this);				// and then iterated until match.
-					goto parse;																// Also need to think how/whether context will be taken in account as well
-				case SubroutinePatternMatchingType::None:
-					goto error_syntax;
-				}
-			}*/
+			switch (*lc_value) {
+			case ValueType::unprocedure:
+				reinterpret_cast<void (*) (Program&)>(*(void**)(lc_value + 1))(*this);
+				goto parse;
+			}
 
 			goto error_syntax;
 		}
 
 		eval_binary_coalescing_short: {
-			tmpPtr = memory.at<uint8*>(instruction_r1.shift);
-			/*
-			if (this->specification.binary.count(*(String*)tmpPtr)) {
-				SubroutinePatternMatching* arr = this->specification.postfix[**(String**)tmpPtr];
-				switch (arr->patternType) {
-				case SubroutinePatternMatchingType::ProcNative:
-					reinterpret_cast<void (*) (Program&)>(arr->pointer)(*this);
-					goto parse;
-				case SubroutinePatternMatchingType::None:
-					goto error_syntax;
-				}
-			}*/
 
-			goto error_syntax;
+			this->memory.insert<String*>(Program::EMPTY_STRING, instruction_r0.shift);
+
+			instruction_r0.shift += sizeof(void*);
+
+			this->stackInstructions.add(instruction_r0);
+			this->stackInstructions.at_r(1) = Instruction::pos(InstructionType::op, instruction_r0.shift - sizeof(void*));
+
+			goto eval_binary;
 		}
 
-		eval_binary_coalescing: {}
+		eval_binary_coalescing: {
+			
+			this->memory.insert<String*>(Program::EMPTY_STRING, instruction_r0.shift);
+			instruction_r1.instr = InstructionType::op;
+			instruction_r1.shift = instruction_r0.shift;
+			this->stackInstructions.at_r(0).shift += sizeof(void*);
+			this->stackInstructions.at_r(1) = instruction_r1;
+
+			goto eval_binary;
+		}
 	}
 
 	//Errors

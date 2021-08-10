@@ -32,7 +32,11 @@ struct Module {
 };
 
 class Program {
+protected:
+    static String* const EMPTY_STRING;
+
 public:
+
     Array<Table<String, ValueType*>> data;
     Array<Table<String, ValueType*>> namespaces;
     Module specification;
