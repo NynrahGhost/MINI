@@ -1,13 +1,22 @@
 #include "core.h"
 #include <iostream>
+#include <libloaderapi.h>
 
-// I don't trust inlines.
-/*#define alloc_guard(SIZE)														\
-	if (memory.maxSize - memory.currentSize < SIZE)								\
-		if (tmpPtr = (uint8*)realloc(memory.data, memory.maxSize <<= 1))		\
-			memory.data = tmpPtr;												\
-		else																	\
-			return;*/
+//Unary function
+#define uFun(LEFT_TYPE, FUNCTION) \
+(*table)[ValueType::LEFT_TYPE] = Instruction::newValue(ValueType::unprocedure, FUNCTION);
+
+//Binary function
+#define bFun(LEFT_TYPE, RIGHT_TYPE, FUNCTION) \
+(*table)[ValueTypeBinary(ValueType::LEFT_TYPE, ValueType::RIGHT_TYPE)] = Instruction::newValue(ValueType::unprocedure, FUNCTION);
+
+///Binary function interface
+#define bFunInterface(LEFT_TYPE, LEFT_CLASS, RIGHT_TYPE, RIGHT_CLASS, RESULT_TYPE, RESULT_CLASS, FUNCTION) \
+(*table)[ValueTypeBinary(ValueType::LEFT_TYPE, ValueType::RIGHT_TYPE)] = Instruction::newValue(ValueType::unprocedure, binaryFunctionInterface<LEFT_CLASS, RIGHT_CLASS, RESULT_CLASS, ValueType::RESULT_TYPE, FUNCTION>);
+
+///Binary function interface with matching ValueType and typename
+#define bFunInterfaceMatch(LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNCTION) \
+(*table)[ValueTypeBinary(ValueType::LEFT_TYPE, ValueType::RIGHT_TYPE)] = Instruction::newValue(ValueType::unprocedure, binaryFunctionInterface<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, ValueType::RESULT_TYPE, FUNCTION>);
 
 
 namespace Core {
@@ -71,76 +80,90 @@ namespace Core {
 			Table<ValueType, ValueType*>* table;
 
 			table = &core.prefix[T("%")];
-			(*table)[ValueType::all] = Instruction::newValue(ValueType::unprocedure, test);
+			uFun(all, test);
 
 			table = &core.prefix[T("*")];
-			(*table)[ValueType::all] = Instruction::newValue(ValueType::unprocedure, getValueProcedure);
+			uFun(all, getValueProcedure);
 
 			table = &core.prefix[T(">")];
-			(*table)[ValueType::all] = Instruction::newValue(ValueType::unprocedure, allArrayInclusive);
+			uFun(all, allArrayInclusive);
 
 			table = &core.prefix[T("^")];
-			(*table)[ValueType::all] = Instruction::newValue(ValueType::unprocedure, allGroupInclusive);
+			uFun(all, allGroupInclusive);
 		}
 		core.postfix = Table<String, Table<ValueType, ValueType*>>();
 		{
 			Table<ValueType, ValueType*>* table;
 
 			table = &core.postfix[T("%")];
-			(*table)[ValueType::all] = Instruction::newValue(ValueType::unprocedure, test);
+			uFun(all, test);
 			
 			table = &core.postfix[T("*")];
-			(*table)[ValueType::all] = Instruction::newValue(ValueType::unprocedure, getValueProcedure);
+			uFun(all, getValueProcedure);
 
 			table = &core.postfix[T(">")];
-			(*table)[ValueType::all] = Instruction::newValue(ValueType::unprocedure, allArrayExclusive);
+			uFun(all, allArrayExclusive);
 
 			table = &core.postfix[T("^")];
-			(*table)[ValueType::all] = Instruction::newValue(ValueType::unprocedure, allGroupExclusive);
+			uFun(all, allGroupExclusive);
 
 			table = &core.postfix[T(":")];
-			(*table)[ValueType::dict] = Instruction::newValue(ValueType::unprocedure, allContext);
-			(*table)[ValueType::name] = Instruction::newValue(ValueType::unprocedure, allContext);
-
+			uFun(dict, allContext);
+			uFun(name, allContext);
 		}
 		core.binary = Table<String, Table<ValueTypeBinary, ValueType*>>();
 		{
 			Table<ValueTypeBinary, ValueType*>* table;
 
 			table = &core.binary[T("")];
-			(*table)[ValueTypeBinary(ValueType::uprocedure, ValueType::arr)] = Instruction::newValue(ValueType::uprocedure, invokeFunction);
+			bFun(parameter_pattern, arr, invokeFunction);
+			bFun(name, arr, invokeFunction);
+
+			/*(*table)[ValueTypeBinary(ValueType::uprocedure, ValueType::arr)] = Instruction::newValue(ValueType::uprocedure, invokeFunction);
 			(*table)[ValueTypeBinary(ValueType::ufunction, ValueType::arr)] = Instruction::newValue(ValueType::ufunction, invokeFunction);
 			(*table)[ValueTypeBinary(ValueType::umethod, ValueType::arr)] = Instruction::newValue(ValueType::umethod, invokeFunction);
 			(*table)[ValueTypeBinary(ValueType::unprocedure, ValueType::arr)] = Instruction::newValue(ValueType::unprocedure, invokeFunction);
 			(*table)[ValueTypeBinary(ValueType::unfunction, ValueType::arr)] = Instruction::newValue(ValueType::unfunction, invokeFunction);
-			(*table)[ValueTypeBinary(ValueType::unmethod, ValueType::arr)] = Instruction::newValue(ValueType::unmethod, invokeFunction);
+			(*table)[ValueTypeBinary(ValueType::unmethod, ValueType::arr)] = Instruction::newValue(ValueType::unmethod, invokeFunction);*/
 
 			table = &core.binary[T("+")];
-			(*table)[ValueTypeBinary(ValueType::int64, ValueType::int64)] = Instruction::newValue(ValueType::unprocedure, add); //TODO: make a separate method for each case to save program size
+			bFunInterfaceMatch(int64, int64, int64, add);
+			bFunInterfaceMatch(float64, int64, float64, add);
+			bFunInterfaceMatch(int64, float64, float64, add);
+			bFunInterfaceMatch(float64, float64, float64, add);
 
-			/*
-			core.binary[T("+")] = [] {
-				SubroutinePatternMatching* arr = new SubroutinePatternMatching[2];
-				//arr[0] = Binary(BinaryType::TypeTypeType | BinaryType::funcNative, &([](int64 l, int64 r) {return l + r;}), ValueType::int64, 0, ValueType::int64, 0, ValueType::int64);
-				arr[1] = SubroutinePatternMatching();
-				return arr;
-			} ();
-			core.binary[T(":")] = [] {
-				SubroutinePatternMatching* arr = new SubroutinePatternMatching[3];
-				//arr[0] = Binary(BinaryType::TypeTypeAll | BinaryType::procNative, getChild, ValueType::dict, 0, ValueType::name, 0, ValueType::all);
-				//arr[1] = Binary(BinaryType::TypeTypeAll | BinaryType::procNative, getChild, ValueType::name, 0, ValueType::name, 0, ValueType::all);
-				arr[2] = SubroutinePatternMatching();
-				return arr;
-			} ();
-			core.binary[T(",")] = [] {
-				SubroutinePatternMatching* arr = new SubroutinePatternMatching[2];
-				//arr[0] = Binary(BinaryType::AllAllAll | BinaryType::procNative, comma, ValueType::all, 0, ValueType::all, 0, ValueType::all);
-				arr[1] = SubroutinePatternMatching();
-				return arr;
-			} ();*/
+			table = &core.binary[T("-")];
+			bFunInterfaceMatch(int64, int64, int64, sub);
+			bFunInterfaceMatch(float64, int64, float64, sub);
+			bFunInterfaceMatch(int64, float64, float64, sub);
+			bFunInterfaceMatch(float64, float64, float64, sub);
+
+			table = &core.binary[T("*")];
+			bFunInterfaceMatch(int64, int64, int64, mul);
+			bFunInterfaceMatch(float64, int64, float64, mul);
+			bFunInterfaceMatch(int64, float64, float64, mul);
+			bFunInterfaceMatch(float64, float64, float64, mul);
+
+			table = &core.binary[T("/")];
+			bFunInterfaceMatch(int64, int64, int64, div);
+			bFunInterfaceMatch(float64, int64, float64, div);
+			bFunInterfaceMatch(int64, float64, float64, div);
+			bFunInterfaceMatch(float64, float64, float64, div);
+
+			table = &core.binary[T("=")];
+			bFun(name, all, assign);
+			bFun(pointer, all, assign);
+
+			table = &core.binary[T(".")];
+			bFun(int64, int64, (createFloat<int64, int64, float64, ValueType::float64>));
+
+			table = &core.binary[T(":")];
+			bFun(name, name, getChild);
+			bFun(dict, name, getChild);
+
+			table = &core.binary[T(",")];
+			bFun(all, all, comma);
 		}
-
-		//Core::core = new Module(core);
 
 		return core;
 	}
@@ -173,7 +196,14 @@ namespace Core {
 
 	void invokeFunction(Program& program) {
 		Instruction parameter = program.stackInstructions.get_r(0);
-		Instruction function = program.stackInstructions.get_r(1);
+		Instruction function = program.stackInstructions.get_r(2);
+
+		if (program.context.value == ValueType::dll)
+		{
+			GetProcAddress(program.memory.get<HMODULE>(program.context.shift), program.memory.get<String>(function.shift).c_str());
+			program.stackArrays.get_r(parameter.modifier).content;
+		}
+
 		program.stackInstructions.max_index -= 2;
 
 																									//TODO: add a function to add value
@@ -187,67 +217,52 @@ namespace Core {
 
 	}
 
-#include <stdexcept>
-	void add(Program& program) {
-		int64 number = 0;
-		Instruction left = program.stackInstructions.get_r(2);
-		Instruction right = program.stackInstructions.get_r(0);
 
-		switch (right.value) {
-		case ValueType::int8:
-			number += program.memory.get<int8>(right.shift); program.memory.max_index -= sizeof(int8); break;
-		case ValueType::int16:
-			number += program.memory.get<int16>(right.shift); program.memory.max_index -= sizeof(int16); break;
-		case ValueType::int32:
-			number += program.memory.get<int32>(right.shift); program.memory.max_index -= sizeof(int32); break;
-		case ValueType::int64:
-			number += program.memory.get<int64>(right.shift); program.memory.max_index -= sizeof(int64); break;
-		case ValueType::uint8:
-			number += program.memory.get<uint8>(right.shift); program.memory.max_index -= sizeof(uint8); break;
-		case ValueType::uint16:
-			number += program.memory.get<uint16>(right.shift); program.memory.max_index -= sizeof(uint16); break;
-		case ValueType::uint32:
-			number += program.memory.get<uint32>(right.shift); program.memory.max_index -= sizeof(uint32); break;
-		case ValueType::uint64:
-			number += program.memory.get<uint64>(right.shift); program.memory.max_index -= sizeof(uint64); break;
-		default: throw std::invalid_argument("received negative value");
-		}
+	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult, ValueType type, _TypeResult (*function) (_TypeLeft, _TypeRight)>
+	void binaryFunctionInterface(Program& program) {
+		_TypeLeft left = program.memory.get<_TypeLeft>(program.stackInstructions.get_r(2).shift);
+		_TypeRight right = program.memory.get<_TypeRight>(program.stackInstructions.get_r(0).shift);
 
+		program.memory.max_index -= sizeof(_TypeLeft);
 		program.memory.max_index -= sizeof(void*);
+		program.memory.max_index -= sizeof(_TypeRight);
 
-		switch (left.value) {
-		case ValueType::int8:
-			number += program.memory.get<int8>(left.shift); program.memory.max_index -= sizeof(int8); break;
-		case ValueType::int16:
-			number += program.memory.get<int16>(left.shift); program.memory.max_index -= sizeof(int16); break;
-		case ValueType::int32:
-			number += program.memory.get<int32>(left.shift); program.memory.max_index -= sizeof(int32); break;
-		case ValueType::int64:
-			number += program.memory.get<int64>(left.shift); program.memory.max_index -= sizeof(int64); break;
-		case ValueType::uint8:
-			number += program.memory.get<uint8>(left.shift); program.memory.max_index -= sizeof(uint8); break;
-		case ValueType::uint16:
-			number += program.memory.get<uint16>(left.shift); program.memory.max_index -= sizeof(uint16); break;
-		case ValueType::uint32:
-			number += program.memory.get<uint32>(left.shift); program.memory.max_index -= sizeof(uint32); break;
-		case ValueType::uint64:
-			number += program.memory.get<uint64>(left.shift); program.memory.max_index -= sizeof(uint64); break;
-		default: throw std::invalid_argument("received negative value");
-		}
+		program.memory.add<_TypeResult>(((_TypeResult(*) (_TypeLeft, _TypeRight))function)(left, right));
 
 		program.stackInstructions.max_index -= 2;
-		program.stackInstructions.at_r(0).value = ValueType::int64;
-		program.memory.add<int64>(number);
+		program.stackInstructions.at_r(0).value = type;
 	}
-	void sub(Program& program);
-	void mul(Program& program);
-	void div(Program& program);
 
-	void addf(Program& program);
-	void subf(Program& program);
-	void mulf(Program& program);
-	void divf(Program& program);
 
+	void assign(Program& program) {
+		auto left = program.stackInstructions.get_r(2);
+		auto right = program.stackInstructions.get_r(0);
+
+		ValueType* ptr = (ValueType*)malloc(sizeof(ValueType) + program.specification.typeSize[right.value]);
+		*ptr = right.value;
+		memcpy(ptr + 1, program.memory.content + right.shift, program.specification.typeSize[right.value]);
+
+		program.namespaces.get_r(0)[program.memory.get<String>(left.shift)] = ptr;
+	}
+
+
+	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult, ValueType _valueType>
+	void createFloat(Program& program) {
+		_TypeResult number = 0;
+		_TypeLeft left = program.memory.get<_TypeLeft>(program.stackInstructions.get_r(2).shift);
+		_TypeRight right = program.memory.get<_TypeLeft>(program.stackInstructions.get_r(0).shift);
+
+		if (right == 0)
+			number = left * 1.0;
+		else
+			number = left * 1.0 + ((right*1.0) / pow(10, floor(log10(right))+1));
+
+		program.memory.max_index -= sizeof(void*) + sizeof(_TypeLeft) + sizeof(_TypeRight);
+
+		program.stackInstructions.max_index -= 2;
+		program.stackInstructions.at_r(0).value = _valueType;
+		program.memory.add<_TypeResult>(number);
+	}
 
 	void getValueProcedure(Program& program) { // Unordered map saves keys by address
 		/*uint8* memory = program.memory.data + program.stackInstructions[program.stackInstructions.max_index].shift;
@@ -268,23 +283,18 @@ namespace Core {
 		program.stackInstructions.at_r(1) = program.stackInstructions.at_r(0);
 		program.stackInstructions.max_index -= 1;*/
 	}
-
 	void allArrayInclusive(Program& program) {
 
 	}
-
 	void allArrayExclusive(Program& program) {
 
 	}
-
 	void allGroupInclusive(Program& program) {
 
 	}
-
 	void allGroupExclusive(Program& program) {
 
 	}
-
 	void allContext(Program& program) {
 
 	}
@@ -292,7 +302,6 @@ namespace Core {
 	void comma(Program& program) {
 
 	}
-
 
 	void getChild(Program& program) {
 		/*String* right = *(String**)(program.memory.data + program.stackInstructions.at_r(0).shift);

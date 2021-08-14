@@ -18,7 +18,12 @@ enum class Status
     error_memory_allocation,
     error_string_missing_closing_quote,
     error_operator_name_exceeded,
-    error_syntax
+    error_syntax,
+};
+
+enum class ProcedureResult {
+    success,
+    repeat,
 };
 
 struct Module {
@@ -34,9 +39,7 @@ struct Module {
 class Program {
 protected:
     static String* const EMPTY_STRING;
-
 public:
-
     Array<Table<String, ValueType*>> data;
     Array<Table<String, ValueType*>> namespaces;
     Module specification;
