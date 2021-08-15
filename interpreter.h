@@ -26,14 +26,22 @@ enum class ProcedureResult {
     repeat,
 };
 
+class Program;  //Defined before Procedure, to break cyclic dependancy
+
+using Procedure = void (*) (Program&);
+using Destructor = void (*) (ValueType*);
+
 struct Module {
+    Table<String, String> metadata;
+
     Table<String, ValueType> typeId;
     Table<ValueType, String> typeName;
     Table<ValueType, int> typeSize;
+    Table<ValueType, Destructor> typeDestructor; //TODO: provide possibility to destroy with target function
 
-    Table<String, Table<ValueType, ValueType*>> prefix;
-    Table<String, Table<ValueType, ValueType*>> postfix;
-    Table<String, Table<ValueTypeBinary, ValueType*>> binary; //SubroutineParameterMatching
+    Table<String, Table<ValueType, Procedure>> prefix;
+    Table<String, Table<ValueType, Procedure>> postfix;
+    Table<String, Table<ValueTypeBinary, Procedure>> binary;
 };
 
 class Program {
@@ -69,14 +77,9 @@ public:
     //template<> int32 pop<int32>();
 };
 
-
 int main();
 
 void print(ValueType* memory);
-
-uint32 test0(uint16 arg0, uint32 arg1, uint16 arg2, float32 arg3, float64 arg4);
-
-
 
 // Involuntary contributors:
 

@@ -12,29 +12,26 @@ namespace Core
 	void test(Program& program);
 
 	void getValueProcedure(Program& program);
-	/* 
-	[123; "string"] -> function
-	{arg0: 123; arg1: "string"} -> function
-	@arg0 /= 2 , print @arg1
-	@arg0 <= @0 , @arg1 <= @1;
-	@[number;string];
-	@number
-	
-	dll::function[
 
-	function[arg0; arg1; arg2]
-	function@[arg1; arg2];
+	void getNamespace(Program& program);
+	void atContextByIndex(Program& program);
+	void atContextByName(Program& program);
 
-	*/
+	void callWithContext(Program& program);
+	void renameArrayContext(Program& program);
 
+
+	void invokeResolve(Program& program);
 	void invokeFunction(Program& program);
-	void invokeNativeProcedure(Program& program);
+	void invokeNativeFunction(Program& program);
 
 	void assign(Program& program);
 
-	void nameLookupR0(Program& program);
-	void nameLookupR1(Program& program);
-	void nameLookupR2(Program& program);
+	void getReferenceR0(Program& program);
+	void getReferenceR1(Program& program);
+	void getReferenceR2(Program& program);
+
+	void getReference(Program& program, Instruction name);
 
 
 	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult, ValueType type, _TypeResult(*function) (_TypeLeft, _TypeRight) >
@@ -52,12 +49,6 @@ namespace Core
 
 	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult>
 	_TypeResult div(_TypeLeft l, _TypeRight r) { return l / r; }
-
-
-
-	void add(Program& program);
-	//template<typename _TypeLeft, typename _TypeRight, typename _TypeResult>
-	//void sub(Program& program);
 
 	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult, ValueType _valueType>
 	void createFloat(Program& program);

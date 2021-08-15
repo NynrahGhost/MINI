@@ -22,12 +22,6 @@ int main()
 
 String* const Program::EMPTY_STRING = new String(T(""));
 
-uint32 test0(uint16 arg0, uint32 arg1, uint16 arg2, float32 arg3, float64 arg4)
-{
-	return arg0 + arg1 + arg2 + arg3 + arg4;
-}
-
-
 Program::Program() {
 	data.init();// = *(new Array<Table<String, ValueType*>>());
 	data[0] = Table<String, ValueType*>();
@@ -503,7 +497,7 @@ Status Program::run (const charT* script)
 			if (!this->specification.prefix.count(*(String*)tmpPtr)) 
 				goto error_syntax;
 
-			ValueType* lc_value;
+			Procedure lc_value;
 
 			if (!this->specification.prefix[(*(String*)tmpPtr)].count(instruction_r0.value))
 				if (this->specification.prefix[(*(String*)tmpPtr)].count(ValueType::all))
@@ -513,12 +507,7 @@ Status Program::run (const charT* script)
 			else
 				lc_value = this->specification.prefix[(*(String*)tmpPtr)][instruction_r0.value];
 
-
-			switch (*lc_value) {
-			case ValueType::unprocedure:
-				reinterpret_cast<void (*) (Program&)>(*(void**)(lc_value+1))(*this);
-				goto parse;
-			}
+			lc_value(*this);
 
 			goto error_syntax;	// TODO: error operator was not found
 		}
@@ -529,7 +518,7 @@ Status Program::run (const charT* script)
 			if (!this->specification.postfix.count(*(String*)tmpPtr))
 				goto error_syntax;
 
-			ValueType* lc_value;
+			Procedure lc_value;
 
 			if (!this->specification.postfix[(*(String*)tmpPtr)].count(instruction_r2.value))
 				if (!this->specification.postfix[(*(String*)tmpPtr)].count(ValueType::all))
@@ -539,19 +528,13 @@ Status Program::run (const charT* script)
 			else
 				lc_value = this->specification.postfix[(*(String*)tmpPtr)][instruction_r2.value];
 
-			switch (*lc_value) {
-			case ValueType::unprocedure:
-				reinterpret_cast<void (*) (Program&)>(*(void**)(lc_value + 1))(*this);
-				goto parse;
-			}
+			lc_value(*this);
 
-			goto error_syntax;
+			goto parse;
 		}
 
 		eval_binary: {
-			//TODO: instructions are being changed before jumping to eval_binary, so it's behavior is unpredictable. 
 			tmpPtr = memory.at<uint8*>(instruction_r1.shift);
-
 
 			if (!this->specification.binary.count(*(String*)tmpPtr))
 				goto error_syntax;
@@ -559,7 +542,7 @@ Status Program::run (const charT* script)
 			if (!this->specification.binary[(*(String*)tmpPtr)].count(ValueTypeBinary(instruction_r2.value, instruction_r0.value)))
 				goto error_syntax;
 
-			ValueType* lc_value = this->specification.binary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
+			Procedure lc_value = this->specification.binary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
 
 
 			if (!this->specification.binary[(*(String*)tmpPtr)].count(ValueTypeBinary(instruction_r2.value, instruction_r0.value)))
@@ -576,14 +559,9 @@ Status Program::run (const charT* script)
 			else
 				lc_value = this->specification.binary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
 
+			lc_value(*this);
 
-			switch (*lc_value) {
-			case ValueType::unprocedure:
-				reinterpret_cast<void (*) (Program&)>(*(void**)(lc_value + 1))(*this);
-				goto evaluate;
-			}
-
-			goto error_syntax;
+			goto evaluate;
 		}
 
 		eval_binary_long: {

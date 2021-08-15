@@ -1,22 +1,26 @@
 #include "core.h"
 #include <iostream>
-#include <libloaderapi.h>
+//#include <libloaderapi.h>
+
+//Destructor
+#define destr(TYPE, FUNCTION) \
+core.typeDestructor[ValueType::TYPE] = FUNCTION;
 
 //Unary function
 #define uFun(LEFT_TYPE, FUNCTION) \
-(*table)[ValueType::LEFT_TYPE] = Instruction::newValue(ValueType::unprocedure, FUNCTION);
+(*table)[ValueType::LEFT_TYPE] = FUNCTION;
 
 //Binary function
 #define bFun(LEFT_TYPE, RIGHT_TYPE, FUNCTION) \
-(*table)[ValueTypeBinary(ValueType::LEFT_TYPE, ValueType::RIGHT_TYPE)] = Instruction::newValue(ValueType::unprocedure, FUNCTION);
+(*table)[ValueTypeBinary(ValueType::LEFT_TYPE, ValueType::RIGHT_TYPE)] = FUNCTION;
 
-///Binary function interface
+//Binary function interface
 #define bFunInterface(LEFT_TYPE, LEFT_CLASS, RIGHT_TYPE, RIGHT_CLASS, RESULT_TYPE, RESULT_CLASS, FUNCTION) \
-(*table)[ValueTypeBinary(ValueType::LEFT_TYPE, ValueType::RIGHT_TYPE)] = Instruction::newValue(ValueType::unprocedure, binaryFunctionInterface<LEFT_CLASS, RIGHT_CLASS, RESULT_CLASS, ValueType::RESULT_TYPE, FUNCTION>);
+(*table)[ValueTypeBinary(ValueType::LEFT_TYPE, ValueType::RIGHT_TYPE)] = binaryFunctionInterface<LEFT_CLASS, RIGHT_CLASS, RESULT_CLASS, ValueType::RESULT_TYPE, FUNCTION>;
 
-///Binary function interface with matching ValueType and typename
+//Binary function interface with matching ValueType and typename
 #define bFunInterfaceMatch(LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNCTION) \
-(*table)[ValueTypeBinary(ValueType::LEFT_TYPE, ValueType::RIGHT_TYPE)] = Instruction::newValue(ValueType::unprocedure, binaryFunctionInterface<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, ValueType::RESULT_TYPE, FUNCTION>);
+(*table)[ValueTypeBinary(ValueType::LEFT_TYPE, ValueType::RIGHT_TYPE)] = binaryFunctionInterface<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, ValueType::RESULT_TYPE, FUNCTION>;
 
 
 namespace Core {
@@ -75,9 +79,13 @@ namespace Core {
 			{ValueType::arr, 0},
 			{ValueType::expression, sizeof(void*)},
 		});
-		core.prefix = Table<String, Table<ValueType, ValueType*>>();
+		core.typeDestructor = Table<ValueType, Destructor>();
 		{
-			Table<ValueType, ValueType*>* table;
+			destr(all, (Destructor)free); //TODO: Fill with string, table and stuff
+		}
+		core.prefix = Table<String, Table<ValueType, Procedure>>();
+		{
+			Table<ValueType, Procedure>* table;
 
 			table = &core.prefix[T("%")];
 			uFun(all, test);
@@ -88,12 +96,21 @@ namespace Core {
 			table = &core.prefix[T(">")];
 			uFun(all, allArrayInclusive);
 
+			//table = &core.prefix[T("^")];
+			//uFun(all, allGroupInclusive);
+
 			table = &core.prefix[T("^")];
-			uFun(all, allGroupInclusive);
+			uFun(int64, getNamespace);
+
+			table = &core.prefix[T("@")];
+			uFun(int64, atContextByIndex);
+			uFun(name, atContextByName);
+			uFun(string, atContextByName);
+			uFun(arr, renameArrayContext);
 		}
-		core.postfix = Table<String, Table<ValueType, ValueType*>>();
+		core.postfix = Table<String, Table<ValueType, Procedure>>();
 		{
-			Table<ValueType, ValueType*>* table;
+			Table<ValueType, Procedure>* table;
 
 			table = &core.postfix[T("%")];
 			uFun(all, test);
@@ -111,20 +128,18 @@ namespace Core {
 			uFun(dict, allContext);
 			uFun(name, allContext);
 		}
-		core.binary = Table<String, Table<ValueTypeBinary, ValueType*>>();
+
+		core.binary = Table<String, Table<ValueTypeBinary, Procedure>>();
 		{
-			Table<ValueTypeBinary, ValueType*>* table;
+			Table<ValueTypeBinary, Procedure>* table;
 
 			table = &core.binary[T("")];
+			//bFun(name, arr, invokeResolve);
 			bFun(parameter_pattern, arr, invokeFunction);
-			bFun(name, arr, invokeFunction);
+			bFun(unfunction, arr, invokeNativeFunction);
 
-			/*(*table)[ValueTypeBinary(ValueType::uprocedure, ValueType::arr)] = Instruction::newValue(ValueType::uprocedure, invokeFunction);
-			(*table)[ValueTypeBinary(ValueType::ufunction, ValueType::arr)] = Instruction::newValue(ValueType::ufunction, invokeFunction);
-			(*table)[ValueTypeBinary(ValueType::umethod, ValueType::arr)] = Instruction::newValue(ValueType::umethod, invokeFunction);
-			(*table)[ValueTypeBinary(ValueType::unprocedure, ValueType::arr)] = Instruction::newValue(ValueType::unprocedure, invokeFunction);
-			(*table)[ValueTypeBinary(ValueType::unfunction, ValueType::arr)] = Instruction::newValue(ValueType::unfunction, invokeFunction);
-			(*table)[ValueTypeBinary(ValueType::unmethod, ValueType::arr)] = Instruction::newValue(ValueType::unmethod, invokeFunction);*/
+			table = &core.binary[T("@")];
+			bFun(unfunction, arr, callWithContext);
 
 			table = &core.binary[T("+")];
 			bFunInterfaceMatch(int64, int64, int64, add);
@@ -193,16 +208,25 @@ namespace Core {
 		}*/
 	}
 
+	void getNamespace(Program& program) {}
+	void atContextByIndex(Program& program) {}
+	void atContextByName(Program& program) {}
+
+	void callWithContext(Program& program) {}
+	void renameArrayContext(Program& program) {}
+
+
+	void invokeResolve(Program& program) {}
 
 	void invokeFunction(Program& program) {
 		Instruction parameter = program.stackInstructions.get_r(0);
 		Instruction function = program.stackInstructions.get_r(2);
 
-		if (program.context.value == ValueType::dll)
+		/*if (program.context.value == ValueType::dll)
 		{
 			GetProcAddress(program.memory.get<HMODULE>(program.context.shift), program.memory.get<String>(function.shift).c_str());
 			program.stackArrays.get_r(parameter.modifier).content;
-		}
+		}*/
 
 		program.stackInstructions.max_index -= 2;
 
@@ -213,7 +237,7 @@ namespace Core {
 
 	}
 
-	void invokeNativeProcedure(Program& program) {
+	void invokeNativeFunction(Program& program) {
 
 	}
 
@@ -233,8 +257,54 @@ namespace Core {
 		program.stackInstructions.at_r(0).value = type;
 	}
 
+	void getReferenceR0(Program& program) {
+		getReference(program, program.stackInstructions.at_r(0));
+	}
+
+	void getReferenceR1(Program& program) {
+		getReference(program, program.stackInstructions.at_r(1));
+	}
+
+	void getReferenceR2(Program& program) {
+		getReference(program, program.stackInstructions.at_r(2));
+	}
+
+	void getReference(Program& program, Instruction name) {
+
+		if (program.data.at_r(0).count(*program.memory.at<String*>(name.shift)))
+		{
+			ValueType* ptr = program.data.at_r(0)[*program.memory.at<String*>(name.shift)];
+			
+			delete program.memory.at<String*>(name.shift);
+
+			program.memory.at<ValueType*>(name.shift) = ptr;
+		}
+		else
+		{
+			ValueType* ptr = (ValueType*)malloc(sizeof(ValueType));
+			*ptr = ValueType::none;
+			program.data.at_r(0)[*program.memory.at<String*>(name.shift)] = ptr;
+
+			delete program.memory.at<String*>(name.shift);
+
+			program.memory.at<ValueType*>(name.shift) = ptr;
+		}
+
+		name.value = ValueType::reference;
+	}
 
 	void assign(Program& program) {
+		auto left = program.stackInstructions.get_r(2);
+		auto right = program.stackInstructions.get_r(0);
+
+		ValueType* ptr = (ValueType*)malloc(sizeof(ValueType) + program.specification.typeSize[right.value]);
+		*ptr = right.value;
+		memcpy(ptr + 1, program.memory.content + right.shift, program.specification.typeSize[right.value]);
+
+		program.namespaces.get_r(0)[program.memory.get<String>(left.shift)] = ptr;
+	}
+
+	void assignToReference(Program& program) {
 		auto left = program.stackInstructions.get_r(2);
 		auto right = program.stackInstructions.get_r(0);
 

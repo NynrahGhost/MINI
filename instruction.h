@@ -32,14 +32,16 @@ enum class InstructionType : uint8 {
 };
 
 
+
+enum class ValueType : 
 #if TYPE_SYSTEM_SIZE == 8
-enum class ValueType : uint8
+    uint8
 #elif TYPE_SYSTEM_SIZE == 16
-enum class type : uint16
+    uint16
 #elif TYPE_SYSTEM_SIZE == 32
-enum class type : uint32
+    uint32
 #elif TYPE_SYSTEM_SIZE == 64
-enum class type : uint64
+    uint64
 #else
 #error Incorrect type system size specified
 #endif
@@ -65,9 +67,18 @@ enum class type : uint64
     link,
     arr,
     dict,
-    pointer,                // Address to existing node.
+    pointer,
+    reference,
     smartPointer,           // Data that gets destroyed when there are no more references pointing to it
     object,                 // Starts with address of schema it uses.
+};
+
+struct ValueTypeUnary {
+    ValueType type;
+
+    void* operator new(size_t size) {
+        return malloc(size);
+    }
 };
 
 struct ValueTypeBinary {
