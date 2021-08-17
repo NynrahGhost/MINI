@@ -10,8 +10,8 @@ int main()
 	const charT* script;
 
 	//script = T("%[123;name;\"str\"];");
-	//script = T("%123;");
-	script = T("2 + 4");
+	//script = T("2 + 4");
+	script = T("print[7;3];");
 
 	Program program = Program();
 
@@ -24,11 +24,11 @@ String* const Program::EMPTY_STRING = new String(T(""));
 
 Program::Program() {
 	data.init();// = *(new Array<Table<String, ValueType*>>());
-	data[0] = Table<String, ValueType*>();
+	data.add(Core::initCoreData());//Table<String, ValueType*>();
 	stackInstructions.init();// = *(new Array<Instruction>());
 	stackInstructions.add(Instruction::atom(InstructionType::start));
 	context = ValueLocation{ 0, ValueType::none };
-	specification = Core::getCore();
+	specification = Core::initCore();
 };
 
 Program::Program(Array<Table<String, ValueType*>> data) {
@@ -36,7 +36,7 @@ Program::Program(Array<Table<String, ValueType*>> data) {
 	stackInstructions = Array<Instruction>();
 	stackInstructions.add(Instruction::atom(InstructionType::start));
 	context = ValueLocation{ 0, ValueType::none };
-	specification = Core::getCore();
+	specification = Core::initCore();
 };
 
 Status Program::run (const charT* script)
@@ -454,18 +454,19 @@ Status Program::run (const charT* script)
 			stackArrays.at_r(0).init();//.add(*(new Array<Instruction>()));
 			//stackArrays.getr_u(0).reserve(16); //TODO: initial capacity
 			//stackInstructions.add(Instruction::atom(InstructionType::start_array));
-			stackInstructions.at_r(0).modifier = stackArrays.max_index;
+			stackInstructions.at_r(0).shift = stackArrays.max_index;
 			goto parse;
 		}
 
 		eval_array_add: {
-			stackArrays[instruction_r2.modifier].add(instruction_r1);
+			stackArrays[instruction_r2.shift].add(instruction_r1);
+			memory.max_index -= specification.typeSize[instruction_r1.value];
 			stackInstructions.max_index -= 2;
 			goto parse;
 		}
 
 		eval_array_add_empty: {
-			stackArrays[instruction_r2.modifier].add(Instruction::val(ValueType::arr, 0));
+			stackArrays[instruction_r2.shift].add(Instruction::val(ValueType::arr, 0));
 			stackInstructions.max_index -= 1;
 			goto parse;
 		}
@@ -477,11 +478,12 @@ Status Program::run (const charT* script)
 		}
 
 		eval_array_end: {
-			stackArrays[instruction_r2.modifier].add(instruction_r1);
+			stackArrays[instruction_r2.shift].add(instruction_r1);
+			memory.max_index -= specification.typeSize[instruction_r1.value];
 			stackInstructions.max_index -= 2;
 			stackInstructions.at_r(0).instr = InstructionType::value;
 			stackInstructions.at_r(0).value = ValueType::arr;
-			goto parse;
+			goto evaluate; //goto parse;
 		}
 
 		eval_group: {
@@ -534,7 +536,7 @@ Status Program::run (const charT* script)
 		}
 
 		eval_binary: {
-			tmpPtr = memory.at<uint8*>(instruction_r1.shift);
+			tmpPtr = memory.at<uint8*>(instruction_r1.shift); //Pointer to pointer
 
 			if (!this->specification.binary.count(*(String*)tmpPtr))
 				goto error_syntax;
@@ -602,12 +604,44 @@ Status Program::run (const charT* script)
 
 		eval_binary_coalescing_short: {
 
-			memory.insert<String*>(Program::EMPTY_STRING, instruction_r0.shift);
-
-			instruction_r0.shift += sizeof(void*);
+			//if(left == arr, right == arr)
+			//	max_index
+			//if(left == arr, right != arr)
+			//	max_index
+			//if(left != arr, right == arr)
+			//	right.shift
+			//if(left != arr, right != arr)
+			//	right.shift, right>>
+			
+			if (instruction_r0.value == ValueType::arr) 
+				if (instruction_r1.value == ValueType::arr)
+				{
+					stackInstructions.at_r(0) = Instruction::pos(InstructionType::op, memory.max_index); // +
+					memory.insert<String*>(Program::EMPTY_STRING, memory.max_index);
+				}
+				else 
+				{
+					stackInstructions.at_r(0) = Instruction::pos(InstructionType::op, memory.max_index); //+
+					memory.insert<String*>(Program::EMPTY_STRING, memory.max_index);
+				}
+			else
+				if (instruction_r1.value == ValueType::arr) 
+				{
+					memory.insert<String*>(Program::EMPTY_STRING, instruction_r0.shift);
+					stackInstructions.at_r(0) = Instruction::pos(InstructionType::op, instruction_r0.shift);
+					instruction_r0.shift += sizeof(String*);	// +
+				}
+				else
+				{
+					memory.insert<String*>(Program::EMPTY_STRING, instruction_r0.shift);
+					stackInstructions.at_r(0) = Instruction::pos(InstructionType::op, instruction_r0.shift);
+					instruction_r0.shift += sizeof(String*);	// +
+				}
 
 			stackInstructions.add(instruction_r0);
-			stackInstructions.at_r(1) = Instruction::pos(InstructionType::op, instruction_r0.shift - sizeof(void*));
+
+			instruction_r2 = instruction_r1;
+			instruction_r1 = stackInstructions.get_r(1);
 
 			goto eval_binary;
 		}

@@ -2,6 +2,14 @@
 #include <iostream>
 //#include <libloaderapi.h>
 
+//String representation of heap memory
+#define toStrGlobal(TYPE, FUNCTION) \
+core.typeStringGlobal[ValueType::TYPE] = FUNCTION;
+
+//String representation of stack memory
+#define toStrLocal(TYPE, FUNCTION) \
+core.typeStringLocal[ValueType::TYPE] = FUNCTION;
+
 //Destructor
 #define destr(TYPE, FUNCTION) \
 core.typeDestructor[ValueType::TYPE] = FUNCTION;
@@ -24,7 +32,7 @@ core.typeDestructor[ValueType::TYPE] = FUNCTION;
 
 
 namespace Core {
-	Module getCore() {
+	Module initCore() {
 		//if (Core::core != 0)
 		//	return *Core::core;
 		Module core;
@@ -62,7 +70,7 @@ namespace Core {
 			{ValueType::arr, T("array")},
 			{ValueType::expression, T("expression")},
 		});
-		core.typeSize = Table<ValueType, int>({	//typeID : typeSize
+		core.typeSize = Table<ValueType, size_t>({	//typeID : typeSize
 			{ValueType::int64, 8},
 			{ValueType::int32, 4},
 			{ValueType::int16, 2},
@@ -78,7 +86,17 @@ namespace Core {
 			{ValueType::name, sizeof(void*)},
 			{ValueType::arr, 0},
 			{ValueType::expression, sizeof(void*)},
+			{ValueType::unprocedure, sizeof(void*)}, //TODO: void* for 'all'
 		});
+		core.typeStringGlobal = Table<ValueType, ToStringGlobal>();
+		{
+			toStrGlobal(all, toStringGlobal);
+		}
+		core.typeStringLocal = Table<ValueType, ToStringLocal>();
+		{
+			toStrLocal(all, toStringLocal);
+			toStrLocal(arr, toStringLocalArray);
+		}
 		core.typeDestructor = Table<ValueType, Destructor>();
 		{
 			destr(all, (Destructor)free); //TODO: Fill with string, table and stuff
@@ -90,8 +108,14 @@ namespace Core {
 			table = &core.prefix[T("%")];
 			uFun(all, test);
 
+			table = &core.prefix[T("&")];
+			uFun(name, (getReference<1>));
+
 			table = &core.prefix[T("*")];
-			uFun(all, getValueProcedure);
+			uFun(name, (getValue<1>));
+
+			//table = &core.prefix[T("*")];
+			//uFun(all, getValueProcedure);
 
 			table = &core.prefix[T(">")];
 			uFun(all, allArrayInclusive);
@@ -134,7 +158,9 @@ namespace Core {
 			Table<ValueTypeBinary, Procedure>* table;
 
 			table = &core.binary[T("")];
-			//bFun(name, arr, invokeResolve);
+			bFun(name, arr, (getValue<2>));
+			bFun(reference, arr, (getValue<2>));
+			bFun(unprocedure, arr, invokeProcedure);
 			bFun(parameter_pattern, arr, invokeFunction);
 			bFun(unfunction, arr, invokeNativeFunction);
 
@@ -179,8 +205,174 @@ namespace Core {
 			table = &core.binary[T(",")];
 			bFun(all, all, comma);
 		}
-
+		
 		return core;
+	}
+
+	Table<String, ValueType*> initCoreData() {
+		Table<String, ValueType*> data = Table<String, ValueType*>();
+		ValueType* ptr;
+
+		ptr = (ValueType*)malloc(sizeof(ValueType) + sizeof(void*)); //TODO: memory check
+		*ptr = ValueType::unprocedure;
+		*(Procedure*)(ptr + 1) = print;
+		data[T("print")] = ptr;
+
+		return data;
+	}
+
+	String fromInt(int64 num) {
+		String result;
+		bool negative = num < 0;
+		while ((num / 10) != 0) {
+			result.push_back((charT)((num % 10) + T('0')));
+			num /= 10;
+		}
+		if (negative)
+			result.push_back('-');
+		std::reverse(result.rbegin(), result.rend());
+		return result;
+	}
+	String fromUint(uint64 num) {
+		String result;
+		while ((num / 10) != 0) {
+			result.push_back((charT)((num % 10) + T('0')));
+			num /= 10;
+		}
+		std::reverse(result.rbegin(), result.rend());
+		return result;
+	}
+
+	String toStringGlobal(Program& program, ValueType* value) {
+		String result = String();
+
+		void* tmp;
+
+		switch (*value) {
+		case ValueType::int8:
+			return fromInt(*(int8*)(value + 1));
+		case ValueType::int16:
+			return fromInt(*(int16*)(value + 1));
+		case ValueType::int32:
+			return fromInt(*(int32*)(value + 1));
+		case ValueType::int64:
+			return fromInt(*(int64*)(value + 1));
+		case ValueType::uint8:
+			return fromInt(*(uint8*)(value + 1));
+		case ValueType::uint16:
+			return fromInt(*(uint16*)(value + 1));
+		case ValueType::uint32:
+			return fromInt(*(uint32*)(value + 1));
+		case ValueType::uint64:
+			return fromInt(*(uint64*)(value + 1));
+		case ValueType::string:
+		case ValueType::name:
+		case ValueType::link:
+			return *(String*)(value + 1);
+		case ValueType::dict:
+			result.append(T("{\n"));
+			for (auto var : *(Table<String, ValueType*>*)(value + 1))
+			{
+				result.append(var.first);
+				result.append(T(" : "));
+				result.append(toStringGlobal(program, var.second));
+				result.append(T(", "));
+			}
+			result.append(T("}"));
+			return result;
+		case ValueType::arr:
+			result.append(T("["));
+			for (int i = 0; i < (*(Array<ValueType*>*)(value + 1)).max_index; ++i)
+			{
+				result.append(toStringGlobal(program, (*(Array<ValueType*>*)(value + 1)).get(i)));
+				result.append(T(", "));
+			}
+			result.append(T("]"));
+			return result;
+		default:
+			result.append((charT*)(value + 1), program.specification.typeSize[*value]);
+			return result;
+		}
+	}
+
+	String toStringLocal(Program& program, Instruction instruction) {
+		String result = String();
+
+		void* tmp;
+
+		switch (instruction.value) {
+		case ValueType::int8:
+			return fromInt(*(int8*)(program.memory.content + instruction.shift));
+		case ValueType::int16:
+			return fromInt(*(int16*)(program.memory.content + instruction.shift));
+		case ValueType::int32:
+			return fromInt(*(int32*)(program.memory.content + instruction.shift));
+		case ValueType::int64:
+			return fromInt(*(int64*)(program.memory.content + instruction.shift));
+		case ValueType::uint8:
+			return fromInt(*(uint8*)(program.memory.content + instruction.shift));
+		case ValueType::uint16:
+			return fromInt(*(uint16*)(program.memory.content + instruction.shift));
+		case ValueType::uint32:
+			return fromInt(*(uint32*)(program.memory.content + instruction.shift));
+		case ValueType::uint64:
+			return fromInt(*(uint64*)(program.memory.content + instruction.shift));
+		case ValueType::string:
+		case ValueType::name:
+		case ValueType::link:
+			return *(String*)(program.memory.content + instruction.shift);
+		case ValueType::dict:
+			result.append(T("{\n"));
+			for (auto var : *(Table<String, ValueType*>*)(program.memory.content + instruction.shift))
+			{
+				result.append(var.first);
+				result.append(T(" : "));
+				result.append(toStringGlobal(program, var.second));
+				result.append(T(", "));
+			}
+			result.append(T("}"));
+			return result;
+		case ValueType::arr:
+			result.append(T("["));
+			for (int i = 0; i < program.stackArrays.at(instruction.shift).max_index; ++i)
+			//for (int i = 0; i < (*(Array<ValueType*>*)(program.memory.content + instruction.shift)).max_index; ++i)
+			{
+				result.append(toStringLocal(program, program.stackArrays.at(instruction.shift).at(i)));
+				//result.append(toStringGlobal(program, (*(Array<ValueType*>*)(program.memory.content + instruction.shift)).get(i)));
+				result.append(T(", "));
+			}
+			result.append(T("]"));
+			return result;
+		default:
+			result.append((charT*)(program.memory.content + instruction.shift), program.specification.typeSize[instruction.value]);
+			return result;
+		}
+	}
+
+	String toStringLocalArray(Program& program, Instruction instruction) {
+		String result = String();
+		auto arr = program.stackArrays.get(instruction.shift);
+
+		result.append(T("[ "));
+		for (int i = 0; i < arr.max_index; ++i) {
+			instruction = arr.get(i);
+			result.append(program.specification.typeStringLocal[instruction.value](program, instruction));
+			result.append(T(", "));
+		}
+		result.append(T("] "));
+		return result;
+	}
+
+	void print(Program& program) {
+		Instruction instruction = program.stackInstructions.get_r(0);
+		ToStringLocal function = 0;
+		if (program.specification.typeStringLocal.count(instruction.value))
+			function = program.specification.typeStringLocal.at(instruction.value);
+		if (program.specification.typeStringLocal.count(ValueType::all))
+			function = program.specification.typeStringLocal.at(ValueType::all);
+		std::cout << function(program, instruction);
+
+		//TODO: leave only array
 	}
 
 	void test(Program& program) {
@@ -217,6 +409,10 @@ namespace Core {
 
 
 	void invokeResolve(Program& program) {}
+
+	void invokeProcedure(Program& program) {
+		program.memory.at<Procedure>(program.stackInstructions.at_r(2).shift)(program);
+	}
 
 	void invokeFunction(Program& program) {
 		Instruction parameter = program.stackInstructions.get_r(0);
@@ -257,6 +453,7 @@ namespace Core {
 		program.stackInstructions.at_r(0).value = type;
 	}
 
+	/*
 	void getReferenceR0(Program& program) {
 		getReference(program, program.stackInstructions.at_r(0));
 	}
@@ -267,17 +464,20 @@ namespace Core {
 
 	void getReferenceR2(Program& program) {
 		getReference(program, program.stackInstructions.at_r(2));
-	}
+	}*/
 
-	void getReference(Program& program, Instruction name) {
+	template<size_t _index_r>
+	void getReference(Program& program) {
+		Instruction& name = program.stackInstructions.at_r(_index_r);
+		auto table = program.data.at_r(0);
 
-		if (program.data.at_r(0).count(*program.memory.at<String*>(name.shift)))
+		if (table.count(*program.memory.at<String*>(name.shift)))
 		{
 			ValueType* ptr = program.data.at_r(0)[*program.memory.at<String*>(name.shift)];
 			
-			delete program.memory.at<String*>(name.shift);
+			delete (String**)program.memory.at<String*>(name.shift);
 
-			program.memory.at<ValueType*>(name.shift) = ptr;
+			program.memory.at<ValueType*>(name.shift) = (ValueType*&)ptr;
 		}
 		else
 		{
@@ -289,9 +489,32 @@ namespace Core {
 
 			program.memory.at<ValueType*>(name.shift) = ptr;
 		}
-
 		name.value = ValueType::reference;
 	}
+
+	template<size_t _index_r>
+	void getValue(Program& program) {
+		Instruction& name = program.stackInstructions.at_r(_index_r);
+		auto table = program.data.at_r(0);
+
+		if (table.count(*program.memory.at<String*>(name.shift)))
+		{
+			ValueType* ptr = program.data.at_r(0)[*program.memory.at<String*>(name.shift)];
+
+			delete (String**)program.memory.at<String*>(name.shift); //TODO: probably memory leak as ptr to ptr deleted
+
+			program.memory.replace(ptr + 1, program.specification.typeSize[*ptr], name.shift, sizeof(void*));
+
+			name.value = *ptr;
+		}
+		else
+		{
+			delete program.memory.at<String*>(name.shift);
+			program.memory.erase(name.shift, sizeof(void*));
+			name.value = ValueType::none;
+		}
+	}
+
 
 	void assign(Program& program) {
 		auto left = program.stackInstructions.get_r(2);

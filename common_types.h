@@ -204,7 +204,7 @@ struct Span : Array<uint8> {
 
 	//Insertion within occupied memory
 	template<typename _V>
-	inline void insert(_V element, size_t position) {
+	void insert(_V element, size_t position) {
 		if (max_index + sizeof(_V) < capacity) {
 			memcpy(content + position + sizeof(_V), content + position, max_index - position);
 			*(_V*)(content + position) = element;
@@ -221,6 +221,20 @@ struct Span : Array<uint8> {
 			*(_V*)(content + position) = element;
 			max_index += sizeof(_V);
 		}
+	}
+
+	inline void replace(void* source, size_t sourceSize, size_t destination, size_t destinationSize) {
+		//TODO: make safe
+
+
+		memcpy(content + destination, content + destination + (sourceSize - destinationSize), max_index - (destination + (sourceSize - destinationSize)));
+		memcpy(content + destination, source, sourceSize);
+		max_index += sourceSize - destinationSize;
+	}
+
+	inline void erase(size_t shift, size_t size) {
+		memcpy(content + shift, content + shift + size, max_index - (shift + size));
+		max_index -= shift;
 	}
 
 	inline void move_relative(size_t position, size_t size, size_t shift) {

@@ -3,11 +3,20 @@
 
 namespace Core
 {
-	Module getCore();
+	Module initCore();
+	Table<String, ValueType*> initCoreData();
 
 	extern "C" {
 		void call_function(void* function_pointer, Instruction* parameter_pointer, size_t parameter_size);
 	}
+
+	String fromInt(int64 num);
+	String fromUint(uint64 num);
+
+	String toStringGlobal(Program& program, ValueType* value);
+	String toStringLocal(Program& program, Instruction instruction);
+	String toStringLocalArray(Program& program, Instruction instruction);
+	void print(Program& program);
 
 	void test(Program& program);
 
@@ -22,6 +31,7 @@ namespace Core
 
 
 	void invokeResolve(Program& program);
+	void invokeProcedure(Program& program);
 	void invokeFunction(Program& program);
 	void invokeNativeFunction(Program& program);
 
@@ -31,7 +41,11 @@ namespace Core
 	void getReferenceR1(Program& program);
 	void getReferenceR2(Program& program);
 
-	void getReference(Program& program, Instruction name);
+	template<size_t _index_r>
+	void getReference(Program& program);
+
+	template<size_t _index_r>
+	void getValue(Program& program);
 
 
 	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult, ValueType type, _TypeResult(*function) (_TypeLeft, _TypeRight) >

@@ -30,13 +30,17 @@ class Program;  //Defined before Procedure, to break cyclic dependancy
 
 using Procedure = void (*) (Program&);
 using Destructor = void (*) (ValueType*);
+using ToStringGlobal = String (*) (Program&, ValueType*);
+using ToStringLocal = String (*) (Program&, Instruction);
 
 struct Module {
     Table<String, String> metadata;
 
-    Table<String, ValueType> typeId;
+    Table<String, ValueType> typeId; //void toString(ValueType* memory);
     Table<ValueType, String> typeName;
-    Table<ValueType, int> typeSize;
+    Table<ValueType, size_t> typeSize;
+    Table<ValueType, ToStringGlobal> typeStringGlobal;
+    Table<ValueType, ToStringLocal> typeStringLocal;
     Table<ValueType, Destructor> typeDestructor; //TODO: provide possibility to destroy with target function
 
     Table<String, Table<ValueType, Procedure>> prefix;
@@ -78,8 +82,6 @@ public:
 };
 
 int main();
-
-void print(ValueType* memory);
 
 // Involuntary contributors:
 
