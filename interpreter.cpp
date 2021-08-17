@@ -11,7 +11,7 @@ int main()
 
 	//script = T("%[123;name;\"str\"];");
 	//script = T("2 + 4");
-	script = T("print[7;3];");
+	script = T("print [3+4;'link'];");
 
 	Program program = Program();
 
@@ -39,7 +39,7 @@ Program::Program(Array<Table<String, ValueType*>> data) {
 	specification = Core::initCore();
 };
 
-Status Program::run (const charT* script)
+Status Program::run(const charT* script)
 {
 	String* buffer = new String();
 	buffer->reserve(256);
@@ -182,15 +182,8 @@ Status Program::run (const charT* script)
 			case T('\0'):
 				--scriptIndex;
 
-				//alloc_guard(sizeof(void*));
-
 				stackInstructions.add(Instruction::val(ValueType::name, memory.max_index));
-
 				memory.add<uintptr_t>((uintptr_t)buffer);
-
-				//*(uintptr_t*)(memory.data + memory.currentSize) = (uintptr_t)buffer;
-				//memory.currentSize += sizeof(void*);
-
 				buffer = new String();
 
 				goto evaluate;
@@ -251,7 +244,7 @@ Status Program::run (const charT* script)
 				goto error_syntax;
 
 			default:
-				buffer += script[scriptIndex];
+				*buffer += script[scriptIndex];
 				goto string;
 			}
 		}
@@ -273,8 +266,8 @@ Status Program::run (const charT* script)
 				goto error_syntax;
 
 			default:
-				buffer += script[scriptIndex];
-				goto string;
+				*buffer += script[scriptIndex];
+				goto link;
 			}
 		}
 
@@ -295,8 +288,8 @@ Status Program::run (const charT* script)
 				goto error_syntax;
 
 			default:
-				buffer += script[scriptIndex];
-				goto string;
+				*buffer += script[scriptIndex];
+				goto expression;
 			}
 		}
 	}
@@ -359,7 +352,7 @@ Status Program::run (const charT* script)
         case InstructionType::end:                                            //   |   | x |end|
 			switch (instruction_r1.instr) {
 			case InstructionType::start: goto parse;                          //   |   |s t|end| :eval_add_none
-			case InstructionType::spacing: goto parse;                        //   |   | ; |end| :eval_cleanup_separator //TODO: implement
+			case InstructionType::separator: goto eval_cleanup_separator;     //   |   | ; |end| :eval_cleanup_separator //TODO: implement
 			case InstructionType::op:                                         //   | x |o p|end|
 				switch (instruction_r2.instr) {
 				case InstructionType::spacing: goto parse;                    //   | _ |o p|end| :parse
@@ -395,7 +388,7 @@ Status Program::run (const charT* script)
 			case InstructionType::start_array: goto parse;                    //   |   | [ |val| :parse
 			case InstructionType::start_group: goto parse;                    //   |   | ( |val| :parse
             case InstructionType::start: goto parse;                          //   |   |s t|val| :parse
-            case InstructionType::value: goto eval_binary_coalescing_short;   //   |   |val|val| :eval_binary_coalescing_short
+            case InstructionType::value: goto eval_coalescing;                //   |   |val|val| :eval_coalescing
 			case InstructionType::spacing: goto parse;                        //   |   | _ |val| :parse
             //    switch (instruction_r2.instr) {
             //    case InstructionType::value: goto eval_binary_coalescing;     //   |val| _ |val| :eval_binary_coalescing //TODO: Priority at the right operand
@@ -460,7 +453,7 @@ Status Program::run (const charT* script)
 
 		eval_array_add: {
 			stackArrays[instruction_r2.shift].add(instruction_r1);
-			memory.max_index -= specification.typeSize[instruction_r1.value];
+			//memory.max_index -= specification.typeSize[instruction_r1.value];
 			stackInstructions.max_index -= 2;
 			goto parse;
 		}
@@ -479,7 +472,7 @@ Status Program::run (const charT* script)
 
 		eval_array_end: {
 			stackArrays[instruction_r2.shift].add(instruction_r1);
-			memory.max_index -= specification.typeSize[instruction_r1.value];
+			//memory.max_index -= specification.typeSize[instruction_r1.value];
 			stackInstructions.max_index -= 2;
 			stackInstructions.at_r(0).instr = InstructionType::value;
 			stackInstructions.at_r(0).value = ValueType::arr;
@@ -496,18 +489,18 @@ Status Program::run (const charT* script)
 		eval_prefix: {
 			tmpPtr = memory.at<uint8*>(instruction_r1.shift);
 
-			if (!this->specification.prefix.count(*(String*)tmpPtr)) 
+			if (!this->specification.opPrefix.count(*(String*)tmpPtr)) 
 				goto error_syntax;
 
 			Procedure lc_value;
 
-			if (!this->specification.prefix[(*(String*)tmpPtr)].count(instruction_r0.value))
-				if (this->specification.prefix[(*(String*)tmpPtr)].count(ValueType::all))
+			if (!this->specification.opPrefix[(*(String*)tmpPtr)].count(instruction_r0.value))
+				if (this->specification.opPrefix[(*(String*)tmpPtr)].count(ValueType::all))
 					goto error_syntax;
 				else
-					lc_value = this->specification.prefix[(*(String*)tmpPtr)][ValueType::all];
+					lc_value = this->specification.opPrefix[(*(String*)tmpPtr)][ValueType::all];
 			else
-				lc_value = this->specification.prefix[(*(String*)tmpPtr)][instruction_r0.value];
+				lc_value = this->specification.opPrefix[(*(String*)tmpPtr)][instruction_r0.value];
 
 			lc_value(*this);
 
@@ -517,18 +510,18 @@ Status Program::run (const charT* script)
 		eval_postfix: {
 			tmpPtr = memory.at<uint8*>(instruction_r1.shift);
 
-			if (!this->specification.postfix.count(*(String*)tmpPtr))
+			if (!this->specification.opPostfix.count(*(String*)tmpPtr))
 				goto error_syntax;
 
 			Procedure lc_value;
 
-			if (!this->specification.postfix[(*(String*)tmpPtr)].count(instruction_r2.value))
-				if (!this->specification.postfix[(*(String*)tmpPtr)].count(ValueType::all))
+			if (!this->specification.opPostfix[(*(String*)tmpPtr)].count(instruction_r2.value))
+				if (!this->specification.opPostfix[(*(String*)tmpPtr)].count(ValueType::all))
 					goto error_syntax;
 				else
-					lc_value = this->specification.postfix[(*(String*)tmpPtr)][ValueType::all];
+					lc_value = this->specification.opPostfix[(*(String*)tmpPtr)][ValueType::all];
 			else
-				lc_value = this->specification.postfix[(*(String*)tmpPtr)][instruction_r2.value];
+				lc_value = this->specification.opPostfix[(*(String*)tmpPtr)][instruction_r2.value];
 
 			lc_value(*this);
 
@@ -538,28 +531,28 @@ Status Program::run (const charT* script)
 		eval_binary: {
 			tmpPtr = memory.at<uint8*>(instruction_r1.shift); //Pointer to pointer
 
-			if (!this->specification.binary.count(*(String*)tmpPtr))
+			if (!this->specification.opBinary.count(*(String*)tmpPtr))
 				goto error_syntax;
 
-			if (!this->specification.binary[(*(String*)tmpPtr)].count(ValueTypeBinary(instruction_r2.value, instruction_r0.value)))
+			if (!this->specification.opBinary[(*(String*)tmpPtr)].count(ValueTypeBinary(instruction_r2.value, instruction_r0.value)))
 				goto error_syntax;
 
-			Procedure lc_value = this->specification.binary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
+			Procedure lc_value = this->specification.opBinary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
 
 
-			if (!this->specification.binary[(*(String*)tmpPtr)].count(ValueTypeBinary(instruction_r2.value, instruction_r0.value)))
-				if (!this->specification.binary[(*(String*)tmpPtr)].count(ValueTypeBinary(instruction_r2.value, ValueType::all)))
-					if (!this->specification.binary[(*(String*)tmpPtr)].count(ValueTypeBinary(ValueType::all, instruction_r0.value)))
-						if (!this->specification.binary[(*(String*)tmpPtr)].count(ValueTypeBinary(ValueType::all, ValueType::all)))
+			if (!this->specification.opBinary[(*(String*)tmpPtr)].count(ValueTypeBinary(instruction_r2.value, instruction_r0.value)))
+				if (!this->specification.opBinary[(*(String*)tmpPtr)].count(ValueTypeBinary(instruction_r2.value, ValueType::all)))
+					if (!this->specification.opBinary[(*(String*)tmpPtr)].count(ValueTypeBinary(ValueType::all, instruction_r0.value)))
+						if (!this->specification.opBinary[(*(String*)tmpPtr)].count(ValueTypeBinary(ValueType::all, ValueType::all)))
 							goto error_syntax;
 						else
-							lc_value = this->specification.binary[(*(String*)tmpPtr)][ValueTypeBinary(ValueType::all, ValueType::all)];
+							lc_value = this->specification.opBinary[(*(String*)tmpPtr)][ValueTypeBinary(ValueType::all, ValueType::all)];
 					else
-						lc_value = this->specification.binary[(*(String*)tmpPtr)][ValueTypeBinary(ValueType::all, instruction_r0.value)];
+						lc_value = this->specification.opBinary[(*(String*)tmpPtr)][ValueTypeBinary(ValueType::all, instruction_r0.value)];
 				else
-					lc_value = this->specification.binary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, ValueType::all)];
+					lc_value = this->specification.opBinary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, ValueType::all)];
 			else
-				lc_value = this->specification.binary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
+				lc_value = this->specification.opBinary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
 
 			lc_value(*this);
 
@@ -576,15 +569,13 @@ Status Program::run (const charT* script)
 			case InstructionType::value:
 
 				// val sp val x
-				--stackInstructions.max_index;
-				memory.insert<String*>(Program::EMPTY_STRING, instruction_r1.shift);
-				instruction_r2.instr = InstructionType::op;
-				instruction_r2.shift = instruction_r1.shift;
-				stackInstructions.at_r(0).shift += sizeof(void*);
-				stackInstructions.at_r(1) = instruction_r2;
+				stackInstructions.at_r(2) = instruction_r1;
+				stackInstructions.max_index -= 2;
 
+				instruction_r0 = instruction_r1;
+				instruction_r1 = instruction_r3;
 
-				goto eval_binary;
+				goto eval_coalescing;
 
 			case InstructionType::op:
 				// [val sp] op sp val x
@@ -602,7 +593,7 @@ Status Program::run (const charT* script)
 			}
 		}
 
-		eval_binary_coalescing_short: {
+		eval_coalescing: {
 
 			//if(left == arr, right == arr)
 			//	max_index
@@ -613,6 +604,27 @@ Status Program::run (const charT* script)
 			//if(left != arr, right != arr)
 			//	right.shift, right>>
 			
+			Procedure lc_value;// = this->specification.binary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
+
+			if (!this->specification.opCoalescing.count(ValueTypeBinary(instruction_r1.value, instruction_r0.value)))
+				if (!this->specification.opCoalescing.count(ValueTypeBinary(instruction_r1.value, ValueType::all)))
+					if (!this->specification.opCoalescing.count(ValueTypeBinary(ValueType::all, instruction_r0.value)))
+						if (!this->specification.opCoalescing.count(ValueTypeBinary(ValueType::all, ValueType::all)))
+							goto error_syntax;
+						else
+							lc_value = this->specification.opCoalescing[ValueTypeBinary(ValueType::all, ValueType::all)];
+					else
+						lc_value = this->specification.opCoalescing[ValueTypeBinary(ValueType::all, instruction_r0.value)];
+				else
+					lc_value = this->specification.opCoalescing[ValueTypeBinary(instruction_r1.value, ValueType::all)];
+			else
+				lc_value = this->specification.opCoalescing[ValueTypeBinary(instruction_r1.value, instruction_r0.value)];
+
+			lc_value(*this);
+
+			goto evaluate;
+
+		/*
 			if (instruction_r0.value == ValueType::arr) 
 				if (instruction_r1.value == ValueType::arr)
 				{
@@ -644,17 +656,28 @@ Status Program::run (const charT* script)
 			instruction_r1 = stackInstructions.get_r(1);
 
 			goto eval_binary;
+			*/
 		}
 
-		eval_binary_coalescing: {
-			
+		eval_coalescing_long: {
+		/*
 			this->memory.insert<String*>(Program::EMPTY_STRING, instruction_r0.shift);
 			instruction_r1.instr = InstructionType::op;
 			instruction_r1.shift = instruction_r0.shift;
 			this->stackInstructions.at_r(0).shift += sizeof(void*);
 			this->stackInstructions.at_r(1) = instruction_r1;
+			goto eval_binary;*/
+			stackInstructions.at_r(1) = instruction_r0;
+			--stackInstructions.max_index;
+			
+			goto eval_coalescing;
+		}
 
-			goto eval_binary;
+		eval_cleanup_separator: {
+			stackInstructions.at_r(1) = instruction_r0;
+			--stackInstructions.max_index;
+
+			goto evaluate;
 		}
 	}
 

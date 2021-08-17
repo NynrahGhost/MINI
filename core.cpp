@@ -101,111 +101,123 @@ namespace Core {
 		{
 			destr(all, (Destructor)free); //TODO: Fill with string, table and stuff
 		}
-		core.prefix = Table<String, Table<ValueType, Procedure>>();
+		core.opPrefix = Table<String, Table<ValueType, Procedure>>();
 		{
 			Table<ValueType, Procedure>* table;
 
-			table = &core.prefix[T("%")];
+			table = &core.opPrefix[T("%")];
 			uFun(all, test);
 
-			table = &core.prefix[T("&")];
+			table = &core.opPrefix[T("&")];
 			uFun(name, (getReference<1>));
 
-			table = &core.prefix[T("*")];
+			table = &core.opPrefix[T("*")];
 			uFun(name, (getValue<1>));
 
 			//table = &core.prefix[T("*")];
 			//uFun(all, getValueProcedure);
 
-			table = &core.prefix[T(">")];
+			table = &core.opPrefix[T(">")];
 			uFun(all, allArrayInclusive);
 
 			//table = &core.prefix[T("^")];
 			//uFun(all, allGroupInclusive);
 
-			table = &core.prefix[T("^")];
+			table = &core.opPrefix[T("^")];
 			uFun(int64, getNamespace);
 
-			table = &core.prefix[T("@")];
+			table = &core.opPrefix[T("@")];
 			uFun(int64, atContextByIndex);
 			uFun(name, atContextByName);
 			uFun(string, atContextByName);
 			uFun(arr, renameArrayContext);
 		}
-		core.postfix = Table<String, Table<ValueType, Procedure>>();
+		core.opPostfix = Table<String, Table<ValueType, Procedure>>();
 		{
 			Table<ValueType, Procedure>* table;
 
-			table = &core.postfix[T("%")];
+			table = &core.opPostfix[T("%")];
 			uFun(all, test);
 			
-			table = &core.postfix[T("*")];
+			table = &core.opPostfix[T("*")];
 			uFun(all, getValueProcedure);
 
-			table = &core.postfix[T(">")];
+			table = &core.opPostfix[T(">")];
 			uFun(all, allArrayExclusive);
 
-			table = &core.postfix[T("^")];
+			table = &core.opPostfix[T("^")];
 			uFun(all, allGroupExclusive);
 
-			table = &core.postfix[T(":")];
+			table = &core.opPostfix[T(":")];
 			uFun(dict, allContext);
 			uFun(name, allContext);
 		}
 
-		core.binary = Table<String, Table<ValueTypeBinary, Procedure>>();
+		core.opBinary = Table<String, Table<ValueTypeBinary, Procedure>>();
 		{
 			Table<ValueTypeBinary, Procedure>* table;
 
-			table = &core.binary[T("")];
+			/*table = &core.binary[T("")];
 			bFun(name, arr, (getValue<2>));
 			bFun(reference, arr, (getValue<2>));
 			bFun(unprocedure, arr, invokeProcedure);
 			bFun(parameter_pattern, arr, invokeFunction);
 			bFun(unfunction, arr, invokeNativeFunction);
+			*/
 
-			table = &core.binary[T("@")];
+			table = &core.opBinary[T("@")];
 			bFun(unfunction, arr, callWithContext);
 
-			table = &core.binary[T("+")];
+			table = &core.opBinary[T("+")];
 			bFunInterfaceMatch(int64, int64, int64, add);
 			bFunInterfaceMatch(float64, int64, float64, add);
 			bFunInterfaceMatch(int64, float64, float64, add);
 			bFunInterfaceMatch(float64, float64, float64, add);
 
-			table = &core.binary[T("-")];
+			table = &core.opBinary[T("-")];
 			bFunInterfaceMatch(int64, int64, int64, sub);
 			bFunInterfaceMatch(float64, int64, float64, sub);
 			bFunInterfaceMatch(int64, float64, float64, sub);
 			bFunInterfaceMatch(float64, float64, float64, sub);
 
-			table = &core.binary[T("*")];
+			table = &core.opBinary[T("*")];
 			bFunInterfaceMatch(int64, int64, int64, mul);
 			bFunInterfaceMatch(float64, int64, float64, mul);
 			bFunInterfaceMatch(int64, float64, float64, mul);
 			bFunInterfaceMatch(float64, float64, float64, mul);
 
-			table = &core.binary[T("/")];
+			table = &core.opBinary[T("/")];
 			bFunInterfaceMatch(int64, int64, int64, div);
 			bFunInterfaceMatch(float64, int64, float64, div);
 			bFunInterfaceMatch(int64, float64, float64, div);
 			bFunInterfaceMatch(float64, float64, float64, div);
 
-			table = &core.binary[T("=")];
+			table = &core.opBinary[T("=")];
 			bFun(name, all, assign);
 			bFun(pointer, all, assign);
 
-			table = &core.binary[T(".")];
+			table = &core.opBinary[T(".")];
 			bFun(int64, int64, (createFloat<int64, int64, float64, ValueType::float64>));
 
-			table = &core.binary[T(":")];
+			table = &core.opBinary[T(":")];
 			bFun(name, name, getChild);
 			bFun(dict, name, getChild);
 
-			table = &core.binary[T(",")];
+			table = &core.opBinary[T(",")];
 			bFun(all, all, comma);
 		}
-		
+
+		core.opCoalescing = Table<ValueTypeBinary, Procedure>();
+		{
+			Table<ValueTypeBinary, Procedure>* table = &core.opCoalescing;
+
+			bFun(name, arr, (getValue<1>));
+			bFun(reference, arr, (getValue<1>));
+			bFun(unprocedure, arr, invokeProcedure);
+			bFun(parameter_pattern, arr, invokeFunction);
+			bFun(unfunction, arr, invokeNativeFunction);
+		}
+
 		return core;
 	}
 
@@ -224,7 +236,7 @@ namespace Core {
 	String fromInt(int64 num) {
 		String result;
 		bool negative = num < 0;
-		while ((num / 10) != 0) {
+		while (num != 0) {
 			result.push_back((charT)((num % 10) + T('0')));
 			num /= 10;
 		}
@@ -276,7 +288,7 @@ namespace Core {
 				result.append(var.first);
 				result.append(T(" : "));
 				result.append(toStringGlobal(program, var.second));
-				result.append(T(", "));
+				result.append(T("; "));
 			}
 			result.append(T("}"));
 			return result;
@@ -285,7 +297,7 @@ namespace Core {
 			for (int i = 0; i < (*(Array<ValueType*>*)(value + 1)).max_index; ++i)
 			{
 				result.append(toStringGlobal(program, (*(Array<ValueType*>*)(value + 1)).get(i)));
-				result.append(T(", "));
+				result.append(T("; "));
 			}
 			result.append(T("]"));
 			return result;
@@ -320,7 +332,7 @@ namespace Core {
 		case ValueType::string:
 		case ValueType::name:
 		case ValueType::link:
-			return *(String*)(program.memory.content + instruction.shift);
+			return **(String**)(program.memory.content + instruction.shift);
 		case ValueType::dict:
 			result.append(T("{\n"));
 			for (auto var : *(Table<String, ValueType*>*)(program.memory.content + instruction.shift))
@@ -328,19 +340,18 @@ namespace Core {
 				result.append(var.first);
 				result.append(T(" : "));
 				result.append(toStringGlobal(program, var.second));
-				result.append(T(", "));
+				result.append(T("; "));
 			}
 			result.append(T("}"));
 			return result;
 		case ValueType::arr:
 			result.append(T("["));
 			for (int i = 0; i < program.stackArrays.at(instruction.shift).max_index; ++i)
-			//for (int i = 0; i < (*(Array<ValueType*>*)(program.memory.content + instruction.shift)).max_index; ++i)
 			{
 				result.append(toStringLocal(program, program.stackArrays.at(instruction.shift).at(i)));
-				//result.append(toStringGlobal(program, (*(Array<ValueType*>*)(program.memory.content + instruction.shift)).get(i)));
-				result.append(T(", "));
+				result.append(T("; "));
 			}
+			result.append(toStringLocal(program, program.stackArrays.at(instruction.shift).at_r(0)));
 			result.append(T("]"));
 			return result;
 		default:
@@ -364,15 +375,20 @@ namespace Core {
 	}
 
 	void print(Program& program) {
-		Instruction instruction = program.stackInstructions.get_r(0);
+		Instruction instruction_r0 = program.stackInstructions.get_r(0);
+		Instruction instruction_r1 = program.stackInstructions.get_r(1);
 		ToStringLocal function = 0;
-		if (program.specification.typeStringLocal.count(instruction.value))
-			function = program.specification.typeStringLocal.at(instruction.value);
+		if (program.specification.typeStringLocal.count(instruction_r0.value))
+			function = program.specification.typeStringLocal.at(instruction_r0.value);
 		if (program.specification.typeStringLocal.count(ValueType::all))
 			function = program.specification.typeStringLocal.at(ValueType::all);
-		std::cout << function(program, instruction);
+		std::cout << function(program, instruction_r0);
 
-		//TODO: leave only array
+		//delete program.memory.at<String*>(instruction_r1.shift); //Possible memory leak as ptr to ptr gets freed
+
+		program.memory.move_relative(instruction_r0.shift, program.specification.typeSize[instruction_r0.value], -(int64)sizeof(String**));
+		program.stackInstructions.at_r(1) = instruction_r0;
+		--program.stackInstructions.max_index;
 	}
 
 	void test(Program& program) {
@@ -411,7 +427,7 @@ namespace Core {
 	void invokeResolve(Program& program) {}
 
 	void invokeProcedure(Program& program) {
-		program.memory.at<Procedure>(program.stackInstructions.at_r(2).shift)(program);
+		program.memory.at<Procedure>(program.stackInstructions.at_r(1).shift)(program);
 	}
 
 	void invokeFunction(Program& program) {

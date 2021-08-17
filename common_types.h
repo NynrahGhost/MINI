@@ -237,7 +237,7 @@ struct Span : Array<uint8> {
 		max_index -= shift;
 	}
 
-	inline void move_relative(size_t position, size_t size, size_t shift) {
+	inline void move_relative(size_t position, size_t size, int64 shift) {
 		memcpy(content + position + shift, content + position, size);
 	}
 

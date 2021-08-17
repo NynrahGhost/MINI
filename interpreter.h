@@ -43,9 +43,10 @@ struct Module {
     Table<ValueType, ToStringLocal> typeStringLocal;
     Table<ValueType, Destructor> typeDestructor; //TODO: provide possibility to destroy with target function
 
-    Table<String, Table<ValueType, Procedure>> prefix;
-    Table<String, Table<ValueType, Procedure>> postfix;
-    Table<String, Table<ValueTypeBinary, Procedure>> binary;
+    Table<String, Table<ValueType, Procedure>> opPrefix;
+    Table<String, Table<ValueType, Procedure>> opPostfix;
+    Table<String, Table<ValueTypeBinary, Procedure>> opBinary;
+    Table<ValueTypeBinary, Procedure> opCoalescing;
 };
 
 class Program {
