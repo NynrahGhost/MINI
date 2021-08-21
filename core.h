@@ -18,6 +18,11 @@ namespace Core
 	String toStringLocalArray(Program& program, Instruction instruction);
 	void print(Program& program);
 
+
+	void conditional(Program& program);
+	void conditionalTrue(Program& program);
+	void conditionalFalse(Program& program);
+
 	void test(Program& program);
 
 	void getValueProcedure(Program& program);
@@ -74,7 +79,9 @@ namespace Core
 	void allGroupExclusive(Program& program);
 	void allContext(Program& program);
 
-	void comma(Program& program);
+	void commaPrefix(Program& program);
+	void commaPostfix(Program& program);
+	void commaBinary(Program& program);
 
 	void getChild(Program& program);
 

@@ -36,17 +36,21 @@ using ToStringLocal = String (*) (Program&, Instruction);
 struct Module {
     Table<String, String> metadata;
 
-    Table<String, ValueType> typeId; //void toString(ValueType* memory);
-    Table<ValueType, String> typeName;
-    Table<ValueType, size_t> typeSize;
-    Table<ValueType, ToStringGlobal> typeStringGlobal;
-    Table<ValueType, ToStringLocal> typeStringLocal;
-    Table<ValueType, Destructor> typeDestructor; //TODO: provide possibility to destroy with target function
+    struct {
+        Table<String, ValueType> id; //void toString(ValueType* memory);
+        Table<ValueType, String> name;
+        Table<ValueType, size_t> size;
+        Table<ValueType, ToStringGlobal> stringGlobal;
+        Table<ValueType, ToStringLocal> stringLocal;
+        Table<ValueType, Destructor> destructor; //TODO: provide possibility to destroy with target function
+    } type;
 
-    Table<String, Table<ValueType, Procedure>> opPrefix;
-    Table<String, Table<ValueType, Procedure>> opPostfix;
-    Table<String, Table<ValueTypeBinary, Procedure>> opBinary;
-    Table<ValueTypeBinary, Procedure> opCoalescing;
+    struct {
+        Table<String, Table<ValueType, Procedure>> prefix;
+        Table<String, Table<ValueType, Procedure>> postfix;
+        Table<String, Table<ValueTypeBinary, Procedure>> binary;
+        Table<ValueTypeBinary, Procedure> coalescing;
+    } op;
 };
 
 class Program {
@@ -57,24 +61,19 @@ public:
     Array<Table<String, ValueType*>> namespaces;
     Module specification;
 
-    Array<Instruction> stackInstructions;
-    Array<Instruction> stackCalls;
-    Array<Array<Instruction>> stackArrays;
+    struct _stacks {
+        Array<Instruction> instructions;
+        Array<Array<Instruction>> arrays;
+
+        void drop(size_t amount);
+    } stacks;
+
     ValueLocation context;
     Span memory;
 
 
     Program();
     Program(Array<Table<String, ValueType*>> data);
-
-    /*~Program() {
-        data.~Array();
-        namespaces.~Array();
-
-        stackInstructions.~Array();
-        stackCalls.~Array();
-        stackArrays.~Array();
-    }*/
 
     Status run(const charT* script);
 
