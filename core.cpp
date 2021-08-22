@@ -466,10 +466,14 @@ namespace Core {
 		program.stacks.instructions.at_r(0).modifier = 0;
 	}
 
-	//Implementation is the same in all three until I realise wether it's needed to free the memory occupied by local values
 	void commaPrefix(Program& program) {
-		program.stacks.instructions.at_r(2) = program.stacks.instructions.at_r(0);
-		program.stacks.instructions.max_index -= 2;
+		if (program.stacks.instructions.at_r(2).instr == InstructionType::spacing) {
+			program.stacks.instructions.at_r(3) = program.stacks.instructions.at_r(0);
+			program.stacks.instructions.max_index -= 3;
+		} else {
+			program.stacks.instructions.at_r(1) = program.stacks.instructions.at_r(0);
+			program.stacks.instructions.max_index -= 1;
+		}
 	}
 	void commaPostfix(Program& program) {
 		program.stacks.instructions.at_r(2) = program.stacks.instructions.at_r(0);

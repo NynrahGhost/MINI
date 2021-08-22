@@ -9,9 +9,8 @@ int main()
 {	
 	const charT* script;
 
-	//script = T("(print 'current number: ') , (print ?0 3; 7);");
-	script = T("print (?0 (2); (1); +  3)");
-
+	script = T("print (?1 (2); (1); + 3);");
+	
 	Program program = Program();
 	
 	int result = (int)program.run(script);
