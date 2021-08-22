@@ -21,7 +21,7 @@ enum class InstructionType : uint8 {
     append_n,
     skip_next,
     skip_after_next,
-    skip_var,
+    ignore_separator,
     find_value,
 
 
