@@ -9,7 +9,7 @@
 //Case for operator characters
 #define char_operator 										\
 	     T('<'): case T('>'): case T('='):					\
-	case T('@'): case T('?'): case T(','):					\
+	case T('@'): case T('!'): case T('?'): case T(','):		\
 	case T('-'): case T('+'): case T('*'): case T(':'):		\
 	case T('/'): case T('^'): case T('\\'): case T('%'):	\
 	case T('&'): case T('|'):								\

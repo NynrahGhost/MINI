@@ -17,6 +17,7 @@ namespace Core
 	String toStringLocal(Program& program, Instruction instruction);
 	String toStringLocalArray(Program& program, Instruction instruction);
 	void print(Program& program);
+	void scan(Program& program);
 
 
 	void conditional(Program& program);

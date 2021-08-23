@@ -110,6 +110,13 @@ namespace Core {
 			uFun(truth, conditionalTrue);
 			uFun(lie, conditionalFalse);
 
+			table = &core.op.prefix[T("!<<")];
+			uFun(all, print);
+
+			table = &core.op.prefix[T("!>>")];
+			uFun(name, getReference<0>);
+			uFun(reference, scan);
+
 			table = &core.op.prefix[T(",")];
 			uFun(all, commaPrefix);
 
@@ -234,6 +241,11 @@ namespace Core {
 		*ptr = ValueType::unprocedure;
 		*(Procedure*)(ptr + 1) = print;
 		data[T("print")] = ptr;
+
+		ptr = (ValueType*)malloc(sizeof(ValueType) + sizeof(void*)); //TODO: memory check
+		*ptr = ValueType::unprocedure;
+		*(Procedure*)(ptr + 1) = scan;
+		data[T("scan")] = ptr;
 
 		return data;
 	}
@@ -388,6 +400,27 @@ namespace Core {
 		if (program.specification.type.stringLocal.count(ValueType::all))
 			function = program.specification.type.stringLocal.at(ValueType::all);
 		std::cout << function(program, instruction_r0);
+
+		//delete program.memory.at<String*>(instruction_r1.shift); //Possible memory leak as ptr to ptr gets freed
+
+		program.memory.move_relative(instruction_r0.shift, program.specification.type.size[instruction_r0.value], -(int64)sizeof(String**));
+		program.stacks.instructions.at_r(1) = instruction_r0;
+		--program.stacks.instructions.max_index;
+	}
+
+	void scan(Program& program) {
+		String* input = new String();
+		std::getline(std::cin, *input);
+
+		Instruction instruction_r0 = program.stacks.instructions.get_r(0);
+		Instruction instruction_r1 = program.stacks.instructions.get_r(1);
+
+		ValueType** ref = (ValueType**)(program.memory.content + instruction_r0.shift);
+
+		*ref = (ValueType*)malloc(sizeof(ValueType) + sizeof(void*));
+
+		**ref = ValueType::string;
+		*(String**)(ref + 1) = input;
 
 		//delete program.memory.at<String*>(instruction_r1.shift); //Possible memory leak as ptr to ptr gets freed
 

@@ -9,7 +9,7 @@ int main()
 {	
 	const charT* script;
 
-	script = T("print (?1 (2); (1); + 3);");
+	script = T("print (!>>ref)");
 	
 	Program program = Program();
 	
