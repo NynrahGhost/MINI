@@ -87,6 +87,8 @@ namespace Core {
 			{ValueType::arr, 0},
 			{ValueType::expression, sizeof(void*)},
 			{ValueType::unprocedure, sizeof(void*)}, //TODO: void* for 'all'
+			{ValueType::reference, sizeof(void*)},
+			{ValueType::pointer, sizeof(void*)},
 		});
 		core.type.stringGlobal = Table<ValueType, ToStringGlobal>();
 		{
@@ -111,6 +113,7 @@ namespace Core {
 			uFun(lie, conditionalFalse);
 
 			table = &core.op.prefix[T("!<<")];
+			uFun(name, getReference<0>);
 			uFun(all, print);
 
 			table = &core.op.prefix[T("!>>")];
@@ -297,7 +300,7 @@ namespace Core {
 		case ValueType::string:
 		case ValueType::name:
 		case ValueType::link:
-			return *(String*)(value + 1);
+			return **(String**)(value + 1);
 		case ValueType::dict:
 			result.append(T("{\n"));
 			for (auto var : *(Table<String, ValueType*>*)(value + 1))
@@ -339,13 +342,13 @@ namespace Core {
 		case ValueType::int64:
 			return fromInt(*(int64*)(program.memory.content + instruction.shift));
 		case ValueType::uint8:
-			return fromInt(*(uint8*)(program.memory.content + instruction.shift));
+			return fromUint(*(uint8*)(program.memory.content + instruction.shift));
 		case ValueType::uint16:
-			return fromInt(*(uint16*)(program.memory.content + instruction.shift));
+			return fromUint(*(uint16*)(program.memory.content + instruction.shift));
 		case ValueType::uint32:
-			return fromInt(*(uint32*)(program.memory.content + instruction.shift));
+			return fromUint(*(uint32*)(program.memory.content + instruction.shift));
 		case ValueType::uint64:
-			return fromInt(*(uint64*)(program.memory.content + instruction.shift));
+			return fromUint(*(uint64*)(program.memory.content + instruction.shift));
 		case ValueType::string:
 		case ValueType::name:
 		case ValueType::link:
@@ -370,6 +373,13 @@ namespace Core {
 			}
 			result.append(toStringLocal(program, program.stacks.arrays.at(instruction.shift).at_r(0)));
 			result.append(T("]"));
+			return result;
+		case ValueType::reference:
+			//result.append(fromInt(*(uintptr_t*)(program.memory.content + instruction.shift)));
+			//result.append("(");
+			//result.append("ref(");
+			result.append(toStringGlobal(program, **(ValueType***)(program.memory.content + instruction.shift)));
+			//result.append(")");
 			return result;
 		default:
 			result.append((charT*)(program.memory.content + instruction.shift), program.specification.type.size[instruction.value]);
@@ -415,12 +425,14 @@ namespace Core {
 		Instruction instruction_r0 = program.stacks.instructions.get_r(0);
 		Instruction instruction_r1 = program.stacks.instructions.get_r(1);
 
-		ValueType** ref = (ValueType**)(program.memory.content + instruction_r0.shift);
+		ValueType*** ref = (ValueType***)(program.memory.content + instruction_r0.shift);
 
-		*ref = (ValueType*)malloc(sizeof(ValueType) + sizeof(void*));
+		ValueType* ptr = (ValueType*)malloc(sizeof(ValueType) + sizeof(void*));
 
-		**ref = ValueType::string;
-		*(String**)(ref + 1) = input;
+		*ptr = ValueType::string;
+		*(String**)(ptr + 1) = input;
+
+		**ref = ptr;
 
 		//delete program.memory.at<String*>(instruction_r1.shift); //Possible memory leak as ptr to ptr gets freed
 
@@ -509,6 +521,8 @@ namespace Core {
 		}
 	}
 	void commaPostfix(Program& program) {
+		program.memory.max_index -= program.specification.type.size[program.stacks.instructions.at_r(2).value];
+		program.memory.max_index -= sizeof(void*);
 		program.stacks.instructions.at_r(2) = program.stacks.instructions.at_r(0);
 		program.stacks.instructions.max_index -= 2;
 	}
@@ -584,14 +598,14 @@ namespace Core {
 	}*/
 
 	template<size_t _index_r>
-	void getReference(Program& program) {
+	void getPointer(Program& program) {
 		Instruction& name = program.stacks.instructions.at_r(_index_r);
 		auto table = program.data.at_r(0);
 
 		if (table.count(*program.memory.at<String*>(name.shift)))
 		{
-			ValueType* ptr = program.data.at_r(0)[*program.memory.at<String*>(name.shift)];
-			
+			ValueType* ptr = table[*program.memory.at<String*>(name.shift)];
+
 			delete (String**)program.memory.at<String*>(name.shift);
 
 			program.memory.at<ValueType*>(name.shift) = (ValueType*&)ptr;
@@ -606,8 +620,38 @@ namespace Core {
 
 			program.memory.at<ValueType*>(name.shift) = ptr;
 		}
+		name.value = ValueType::pointer;
+	}
+
+	template<size_t _index_r>
+	void getReference(Program& program) {
+		Instruction& name = program.stacks.instructions.at_r(_index_r);
+		auto table = program.data.at_r(0);
+
+		if (table.count(*program.memory.at<String*>(name.shift)))
+		{
+			ValueType** ptr = &table[*program.memory.at<String*>(name.shift)];
+
+			delete (String**)program.memory.at<String*>(name.shift);
+
+			program.memory.at<ValueType**>(name.shift) = (ValueType**)ptr;
+		}
+		else
+		{
+			ValueType* ptr = (ValueType*)malloc(sizeof(ValueType));
+			*ptr = ValueType::none;
+
+			auto ref = &program.data.at_r(0)[*program.memory.at<String*>(name.shift)];
+
+			*ref = ptr;
+
+			delete program.memory.at<String*>(name.shift);
+
+			program.memory.at<ValueType**>(name.shift) = ref;
+		}
 		name.value = ValueType::reference;
 	}
+
 
 	template<size_t _index_r>
 	void getValue(Program& program) {

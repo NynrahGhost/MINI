@@ -48,6 +48,9 @@ namespace Core
 	void getReferenceR2(Program& program);
 
 	template<size_t _index_r>
+	void getPointer(Program& program);
+
+	template<size_t _index_r>
 	void getReference(Program& program);
 
 	template<size_t _index_r>

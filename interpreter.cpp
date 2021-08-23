@@ -9,7 +9,7 @@ int main()
 {	
 	const charT* script;
 
-	script = T("print (!>>ref)");
+	script = T("!<<'Input number: \n', !>>ref, !<<'Your number: \n', !<<ref");
 	
 	Program program = Program();
 	
