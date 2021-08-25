@@ -68,7 +68,11 @@ public:
         void drop(size_t amount);
     } stacks;
 
-    ValueLocation context;
+    struct {
+        int32 shift;
+        int16 modifier;
+        ValueType value;
+    } context;
     Span memory;
 
 

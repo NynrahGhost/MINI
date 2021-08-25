@@ -6,10 +6,10 @@
 #include "common_utils.h"
 
 int main()
-{	
+{
 	const charT* script;
 
-	script = T("!<<'Input number: \n', !>>ref, !<<'Your number: \n', !<<ref");
+	script = T("!<<'Input text: \n', !>>ref, !<<'Your text: \n', !<<ref , !<<'\n'");
 	
 	Program program = Program();
 	
@@ -29,7 +29,7 @@ Program::Program() {
 	data.add(Core::initCoreData());//Table<String, ValueType*>();
 	stacks.instructions.init();// = *(new Array<Instruction>());
 	stacks.instructions.add(Instruction::atom(InstructionType::start));
-	context = ValueLocation{ 0, ValueType::none };
+	context;
 	specification = Core::initCore();
 };
 
@@ -37,14 +37,14 @@ Program::Program(Array<Table<String, ValueType*>> data) {
 	this->data = data;
 	stacks.instructions = Array<Instruction>();
 	stacks.instructions.add(Instruction::atom(InstructionType::start));
-	context = ValueLocation{ 0, ValueType::none };
+	context; //context = ValueLocation{ ValueType::none, 0 };
 	specification = Core::initCore();
 };
 
 Status Program::run(const charT* script)
 {
-	String* buffer = new String();
-	buffer->reserve(256);
+	//String* buffer = new String();
+	//buffer->reserve(256);
 	
 	int scriptIndex = -1;
 
@@ -62,8 +62,9 @@ Status Program::run(const charT* script)
 		memory.init(256);
 
 	parse: {
-		if (script[++scriptIndex] == 0)
+		switch (script[++scriptIndex])
 		{
+		case T('\0'):
 			if (stacks.instructions.get_r(0).instr != InstructionType::end)
 			{
 				//--scriptIndex;
@@ -72,10 +73,7 @@ Status Program::run(const charT* script)
 			}
 			else
 				goto ending;
-		}
 
-		switch (script[scriptIndex])
-		{
 		case T(';'):
 			stacks.instructions.add(Instruction::atom(InstructionType::separator));
 			goto evaluate;
@@ -134,48 +132,40 @@ Status Program::run(const charT* script)
 		}
 
 		spacing: {
-			++scriptIndex;
-			switch (script[scriptIndex])
+			stacks.instructions.add(Instruction::atom(InstructionType::spacing));
+		spacing_loop:
+			switch (script[++scriptIndex])
 			{
 			case char_space_character:
 				//Currently MoreINI doesn't specify any behaviour depending on spacing signature, though it's possible to make one.
-				goto spacing;
+				goto spacing_loop;
 
 			default:
 				--scriptIndex;
-				stacks.instructions.add(Instruction::atom(InstructionType::spacing));
-
 				goto evaluate;
 			}
 		}
 
 		operation: {
-			++scriptIndex;
-			switch (script[scriptIndex])
+			stacks.instructions.add(Instruction::pos(InstructionType::op, memory.max_index));
+		operation_loop:
+			switch (script[++scriptIndex])
 			{
 			case char_operator:
-				*buffer += script[scriptIndex];
-				goto operation;
-
+				memory.add<charT>(script[scriptIndex]);
+				goto operation_loop;
+			case T('\0'):
 			default:
 				--scriptIndex;
-
-				//alloc_guard(sizeof(void*));
-
-				stacks.instructions.add(Instruction::pos(InstructionType::op, memory.max_index));
-
-				memory.add<uintptr_t>((uintptr_t)buffer);
-
-				//*(uintptr_t*)(memory.data + memory.currentSize) = (uintptr_t)buffer;
-				//memory.currentSize += sizeof(void*);
-
-				buffer = new String();
-
+				{Instruction& instruction = stacks.instructions.at_r(0);
+				instruction.modifier = memory.max_index - instruction.shift;}
 				goto evaluate;
 			}
 		}
 
 		name: {
+			stacks.instructions.add(Instruction::val(ValueType::name, memory.max_index));
+		name_loop:
 			switch (script[++scriptIndex])
 			{	// if special character then name finished.
 			case char_space_character:
@@ -185,116 +175,89 @@ Status Program::run(const charT* script)
 			case T('\''):
 			case T('"'):
 			case T('\0'):
-				--scriptIndex;
-
-				stacks.instructions.add(Instruction::val(ValueType::name, memory.max_index));
-				memory.add<uintptr_t>((uintptr_t)buffer);
-				buffer = new String();
-
+				--scriptIndex; 
+				{Instruction& instruction = stacks.instructions.at_r(0);
+				instruction.modifier = memory.max_index - instruction.shift;}
 				goto evaluate;
 
 			default:
-				*buffer += script[scriptIndex];
-				goto name;
+				memory.add<charT>(script[scriptIndex]);
+				goto name_loop;
 			}
 		}
 
 		number: {
-			++scriptIndex;
-			switch (script[scriptIndex])
+			stacks.instructions.add(Instruction::val(ValueType::int64, memory.max_index));
+			int64 number = 0;
+		number_loop:
+			switch (script[++scriptIndex])
 			{
 			case char_number:
-				*buffer += script[scriptIndex];
-				goto number;
+				number *= 10;
+				number += script[scriptIndex] - T('0');
+				goto number_loop;
 
 			default:
 				--scriptIndex;
-
-				//alloc_guard(sizeof(int64));
-
-				stacks.instructions.add(Instruction::val(ValueType::int64, memory.max_index));
-
-				//*(int*)(memory.data + memory.currentSize) = 5;// = std::stoi(*buffer);
-
-				int64 number = 0;
-				for (int i = 0; i < buffer->length(); ++i)
-					number *= 10,
-					number += ((*buffer)[i] - T('0'));
-
 				memory.add<int64>(number);
-
-				//*(int64*)(memory.data + memory.currentSize) = number;
-				//memory.currentSize += sizeof(int64);
-
-				buffer = new String();
-
 				goto evaluate;
 			}
 		}
 
 		string: {
-			++scriptIndex;
-			if (script[scriptIndex] == 0)
-				goto error_string_missing_closing_quote;
-
-			switch (script[scriptIndex])
+			stacks.instructions.add(Instruction::val(ValueType::string, memory.max_index));
+		string_loop:
+			switch (script[++scriptIndex])
 			{
 			case T('"'):
-				stacks.instructions.add(Instruction::val(ValueType::string, memory.max_index));
-				memory.add<uintptr_t>((uintptr_t)buffer);
-				buffer = new String();
+				{Instruction& instruction = stacks.instructions.at_r(0);
+				instruction.modifier = memory.max_index - instruction.shift;}
 				goto evaluate;
 
 			case T('\0'):
-				goto error_syntax;
+				goto error_string_missing_closing_quote;
 
 			default:
-				*buffer += script[scriptIndex];
-				goto string;
+				memory.add<charT>(script[scriptIndex]);
+				goto string_loop;
 			}
 		}
 
 		link: {
-			++scriptIndex;
-			if (script[scriptIndex] == 0)
-				goto error_string_missing_closing_quote;
-
-			switch (script[scriptIndex])
+			stacks.instructions.add(Instruction::val(ValueType::string, memory.max_index));
+		link_loop:
+			switch (script[++scriptIndex])
 			{
 			case T('\''):
-				stacks.instructions.add(Instruction::val(ValueType::link, memory.max_index));
-				memory.add<uintptr_t>((uintptr_t)buffer);
-				buffer = new String();
+				{Instruction& instruction = stacks.instructions.at_r(0);
+				instruction.modifier = memory.max_index - instruction.shift;}
 				goto evaluate;
 
 			case T('\0'):
-				goto error_syntax;
+				goto error_string_missing_closing_quote;
 
 			default:
-				*buffer += script[scriptIndex];
-				goto link;
+				memory.add<charT>(script[scriptIndex]);
+				goto link_loop;
 			}
 		}
 
 		expression: {
-			++scriptIndex;
-			if (script[scriptIndex] == 0)
-				goto error_string_missing_closing_quote;
-
-			switch (script[scriptIndex])
+			stacks.instructions.add(Instruction::val(ValueType::string, memory.max_index));
+		expression_loop:
+			switch (script[++scriptIndex])
 			{
-			case T('`'):
-				stacks.instructions.add(Instruction::val(ValueType::expression, memory.max_index));
-				memory.add<uintptr_t>((uintptr_t)buffer);
-				buffer = new String();
+			case T('\''):
+				{Instruction& instruction = stacks.instructions.at_r(0);
+				instruction.modifier = memory.max_index - instruction.shift;}
 				goto evaluate;
 
 			case T('\0'):
-				goto error_syntax;
+				goto error_string_missing_closing_quote;
 
 			default:
-				*buffer += script[scriptIndex];
-				goto expression;
+				memory.add<charT>(script[scriptIndex]);
+				goto expression_loop;
 			}
 		}
 	}
@@ -472,6 +435,7 @@ Status Program::run(const charT* script)
             case InstructionType::op:                                         //   | x |o p|val|
                 switch (instruction_r2.instr) {
                 case InstructionType::value: goto eval_binary;                //   |val|o p|val| :eval_binary
+				case InstructionType::op: goto eval_prefix;                   //   |o p|o p|val| :eval_prefix
                 case InstructionType::start: goto eval_prefix;                //   |s t|o p|val| :eval_prefix
 				case InstructionType::ignore_separator: goto eval_prefix;     //   |/;/|o p|val| :eval_prefix
 				case InstructionType::skip_next: goto eval_prefix;            //   |s>-|o p|val| :eval_prefix
@@ -559,7 +523,9 @@ Status Program::run(const charT* script)
 			/*context = stack[iterator - 2].location;
 			stack[iterator - 2] = stack[iterator - 1];
 			stack.pop_back();*/
-			context = stacks.instructions.get_r(3).location;
+			context.shift = stacks.instructions.get_r(3).shift;
+			context.value = stacks.instructions.get_r(3).value;
+			context.modifier = stacks.instructions.get_r(3).modifier;
 			stacks.instructions.get_r(3) = instruction_r1;
 
 			stacks.instructions.max_index -= 3;// resize(iterator - 4);
@@ -611,20 +577,20 @@ Status Program::run(const charT* script)
 		}
 
 		eval_prefix: {
-			tmpPtr = memory.at<uint8*>(instruction_r1.shift);
+			String opString = String((charT*)(memory.content + instruction_r1.shift), instruction_r1.modifier);
 
-			if (!this->specification.op.prefix.count(*(String*)tmpPtr)) 
+			if (!this->specification.op.prefix.count(opString))
 				goto error_syntax;
 
 			Procedure lc_value;
 
-			if (!this->specification.op.prefix[(*(String*)tmpPtr)].count(instruction_r0.value))
-				if (!this->specification.op.prefix[(*(String*)tmpPtr)].count(ValueType::all))
+			if (!this->specification.op.prefix[opString].count(instruction_r0.value))
+				if (!this->specification.op.prefix[opString].count(ValueType::all))
 					goto error_syntax;
 				else
-					lc_value = this->specification.op.prefix[(*(String*)tmpPtr)][ValueType::all];
+					lc_value = this->specification.op.prefix[opString][ValueType::all];
 			else
-				lc_value = this->specification.op.prefix[(*(String*)tmpPtr)][instruction_r0.value];
+				lc_value = this->specification.op.prefix[opString][instruction_r0.value];
 
 			lc_value(*this);
 
@@ -632,20 +598,20 @@ Status Program::run(const charT* script)
 		}
 
 		eval_postfix: {
-			tmpPtr = memory.at<uint8*>(instruction_r1.shift);
+			String opString = String((charT*)(memory.content + instruction_r1.shift), instruction_r1.modifier);
 
-			if (!this->specification.op.postfix.count(*(String*)tmpPtr))
+			if (!this->specification.op.postfix.count(opString))
 				goto error_syntax;
 
 			Procedure lc_value;
 
-			if (!this->specification.op.postfix[(*(String*)tmpPtr)].count(instruction_r2.value))
-				if (!this->specification.op.postfix[(*(String*)tmpPtr)].count(ValueType::all))
+			if (!this->specification.op.postfix[opString].count(instruction_r2.value))
+				if (!this->specification.op.postfix[opString].count(ValueType::all))
 					goto error_syntax;
 				else
-					lc_value = this->specification.op.postfix[(*(String*)tmpPtr)][ValueType::all];
+					lc_value = this->specification.op.postfix[opString][ValueType::all];
 			else
-				lc_value = this->specification.op.postfix[(*(String*)tmpPtr)][instruction_r2.value];
+				lc_value = this->specification.op.postfix[opString][instruction_r2.value];
 
 			lc_value(*this);
 
@@ -653,30 +619,26 @@ Status Program::run(const charT* script)
 		}
 
 		eval_binary: {
-			tmpPtr = memory.at<uint8*>(instruction_r1.shift); //Pointer to pointer
+			String opString = String((charT*)(memory.content + instruction_r1.shift), instruction_r1.modifier);
 
-			if (!this->specification.op.binary.count(*(String*)tmpPtr))
+			if (!this->specification.op.binary.count(opString))
 				goto error_syntax;
-
-			//if (!this->specification.op.binary[(*(String*)tmpPtr)].count(ValueTypeBinary(instruction_r2.value, instruction_r0.value)))
-			//	goto error_syntax;
 
 			Procedure lc_value;// = this->specification.op.binary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
 
-
-			if (!this->specification.op.binary[(*(String*)tmpPtr)].count(ValueTypeBinary(instruction_r2.value, instruction_r0.value)))
-				if (!this->specification.op.binary[(*(String*)tmpPtr)].count(ValueTypeBinary(instruction_r2.value, ValueType::all)))
-					if (!this->specification.op.binary[(*(String*)tmpPtr)].count(ValueTypeBinary(ValueType::all, instruction_r0.value)))
-						if (!this->specification.op.binary[(*(String*)tmpPtr)].count(ValueTypeBinary(ValueType::all, ValueType::all)))
+			if (!this->specification.op.binary[opString].count(ValueTypeBinary(instruction_r2.value, instruction_r0.value)))
+				if (!this->specification.op.binary[opString].count(ValueTypeBinary(instruction_r2.value, ValueType::all)))
+					if (!this->specification.op.binary[opString].count(ValueTypeBinary(ValueType::all, instruction_r0.value)))
+						if (!this->specification.op.binary[opString].count(ValueTypeBinary(ValueType::all, ValueType::all)))
 							goto error_syntax;
 						else
-							lc_value = this->specification.op.binary[(*(String*)tmpPtr)][ValueTypeBinary(ValueType::all, ValueType::all)];
+							lc_value = this->specification.op.binary[opString][ValueTypeBinary(ValueType::all, ValueType::all)];
 					else
-						lc_value = this->specification.op.binary[(*(String*)tmpPtr)][ValueTypeBinary(ValueType::all, instruction_r0.value)];
+						lc_value = this->specification.op.binary[opString][ValueTypeBinary(ValueType::all, instruction_r0.value)];
 				else
-					lc_value = this->specification.op.binary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, ValueType::all)];
+					lc_value = this->specification.op.binary[opString][ValueTypeBinary(instruction_r2.value, ValueType::all)];
 			else
-				lc_value = this->specification.op.binary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
+				lc_value = this->specification.op.binary[opString][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
 
 			lc_value(*this);
 
@@ -784,38 +746,4 @@ Status Program::run(const charT* script)
 
 ending:
 	return Status::success;
-}
-
-void print(ValueType* memory)
-{
-	//std::unordered_map<String, ValueType*> dict = std::unordered_map<String, ValueType*>();
-
-	switch (*memory)
-	{
-	case ValueType::dict:
-		//std::unordered_map<String, ValueType*> dict = **((std::unordered_map<String, ValueType*>**)(memory + 1));
-		std::cout << T("{ ");
-		//for (auto var = dict.begin(); var != dict.end(); ++var)
-		for(auto var: **((Table<String, ValueType*>**)(memory + 1)))
-		{
-			std::cout << var.first.c_str() << T(": ");
-			print(var.second);
-			std::cout << T("; ");
-		}
-		std::cout << T("} ");
-		return;
-
-	case ValueType::int64:
-		std::cout << *((__int64*)(memory + 1));
-		return;
-
-	case ValueType::float64:
-		std::cout << *((double*)(memory + 1));
-		return;
-
-	case ValueType::string:
-		//std::cout << *(std::wstring**)(memory + 1);
-		std::cout << (*(String*)(*(String**)(memory + 1))).c_str();
-		return;
-	}
 }

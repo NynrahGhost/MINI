@@ -124,55 +124,59 @@ public:
 
 
 struct ValueLocation {
-    int shift;
     ValueType value;
+    int shift;
 };
 
 struct Instruction {
     InstructionType instr;
-    union {
-        ValueLocation location;
-        struct {
-            int shift;
-            ValueType value;
-        };
-        int modifier;
-    };
+    ValueType value;
+#if TYPE_SYSTEM_SIZE == 8
+    int16 modifier;
+#elif TYPE_SYSTEM_SIZE == 16
+    int8 modifier;
+#endif
+    int32 shift;
 
-    static Instruction atom(InstructionType type) {
+    inline static Instruction atom(InstructionType type) {
         return Instruction{
             type
         };
     }
 
-    static Instruction pos(InstructionType type, int shift) {
+    inline static Instruction pos(InstructionType type, int shift) {
         return Instruction{
             type,
+            ValueType::none,
+            0,
             shift
         };
     }
 
-    static Instruction val(ValueType value, int shift) {
+    inline static Instruction val(ValueType value, int shift) {
         return Instruction{
             InstructionType::value,
+            value,
+            0,
             shift,
-            value
         };
     }
 
-    static Instruction context(ValueType value, int shift) {
+    inline static Instruction context(ValueType value, int shift) {
         return Instruction{
             InstructionType::context,
+            value,
+            0,
             shift,
-            value
         };
     }
 
-    static Instruction call(ValueType value, int shift) {
+    inline static Instruction call(ValueType value, int shift) {
         return Instruction{
             InstructionType::call,
+            value,
+            0,
             shift,
-            value
         };
     }
 

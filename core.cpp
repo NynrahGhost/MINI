@@ -18,6 +18,10 @@ core.type.destructor[ValueType::TYPE] = FUNCTION;
 #define uFun(LEFT_TYPE, FUNCTION) \
 (*table)[ValueType::LEFT_TYPE] = FUNCTION;
 
+//Unary function interface
+#define uFun(LEFT_TYPE, FUNCTION) \
+(*table)[ValueType::LEFT_TYPE] = FUNCTION;
+
 //Binary function
 #define bFun(LEFT_TYPE, RIGHT_TYPE, FUNCTION) \
 (*table)[ValueTypeBinary(ValueType::LEFT_TYPE, ValueType::RIGHT_TYPE)] = FUNCTION;
@@ -123,8 +127,9 @@ namespace Core {
 			table = &core.op.prefix[T(",")];
 			uFun(all, commaPrefix);
 
-			table = &core.op.prefix[T("%")];
-			uFun(all, test);
+			//table = &core.op.prefix[T("-")];
+			//u uFun(int64, (negate<int64>));
+			//uFun(float64, (negate<float64>));
 
 			table = &core.op.prefix[T("&")];
 			uFun(name, (getReference<1>));
@@ -148,9 +153,6 @@ namespace Core {
 		{
 			Table<ValueType, Procedure>* table;
 
-			table = &core.op.postfix[T("%")];
-			uFun(all, test);
-
 			table = &core.op.postfix[T(",")];
 			uFun(all, commaPostfix);
 			
@@ -171,14 +173,6 @@ namespace Core {
 		core.op.binary = Table<String, Table<ValueTypeBinary, Procedure>>();
 		{
 			Table<ValueTypeBinary, Procedure>* table;
-
-			/*table = &core.binary[T("")];
-			bFun(name, arr, (getValue<2>));
-			bFun(reference, arr, (getValue<2>));
-			bFun(unprocedure, arr, invokeProcedure);
-			bFun(parameter_pattern, arr, invokeFunction);
-			bFun(unfunction, arr, invokeNativeFunction);
-			*/
 
 			table = &core.op.binary[T("@")];
 			bFun(unfunction, arr, callWithContext);
@@ -231,6 +225,8 @@ namespace Core {
 			bFun(unprocedure, all, invokeProcedure); //arr
 			bFun(parameter_pattern, arr, invokeFunction);
 			bFun(unfunction, arr, invokeNativeFunction);
+
+			bFun(string, string, concatenate);
 		}
 
 		return core;
@@ -300,7 +296,7 @@ namespace Core {
 		case ValueType::string:
 		case ValueType::name:
 		case ValueType::link:
-			return **(String**)(value + 1);
+			return String((charT*)(value+3), (*(uint16*)(value+1)));
 		case ValueType::dict:
 			result.append(T("{\n"));
 			for (auto var : *(Table<String, ValueType*>*)(value + 1))
@@ -352,7 +348,7 @@ namespace Core {
 		case ValueType::string:
 		case ValueType::name:
 		case ValueType::link:
-			return **(String**)(program.memory.content + instruction.shift);
+			return String((charT*)(program.memory.content + instruction.shift), instruction.modifier);
 		case ValueType::dict:
 			result.append(T("{\n"));
 			for (auto var : *(Table<String, ValueType*>*)(program.memory.content + instruction.shift))
@@ -409,61 +405,48 @@ namespace Core {
 			function = program.specification.type.stringLocal.at(instruction_r0.value);
 		if (program.specification.type.stringLocal.count(ValueType::all))
 			function = program.specification.type.stringLocal.at(ValueType::all);
+#if ENCODING == 8
 		std::cout << function(program, instruction_r0);
-
-		//delete program.memory.at<String*>(instruction_r1.shift); //Possible memory leak as ptr to ptr gets freed
-
-		program.memory.move_relative(instruction_r0.shift, program.specification.type.size[instruction_r0.value], -(int64)sizeof(String**));
+#elif ENCODING == 16
+		std::wcout << function(program, instruction_r0);
+#endif
+		program.memory.move_absolute(instruction_r0.shift, program.memory.max_index, instruction_r1.shift);
 		program.stacks.instructions.at_r(1) = instruction_r0;
 		--program.stacks.instructions.max_index;
 	}
 
 	void scan(Program& program) {
-		String* input = new String();
-		std::getline(std::cin, *input);
-
+		String input = String();
+#if ENCODING == 8
+		std::getline(std::cin, input);
+#elif ENCODING == 16
+		std::getline(std::wcin, input); //Doesn't work yet
+#endif
 		Instruction instruction_r0 = program.stacks.instructions.get_r(0);
 		Instruction instruction_r1 = program.stacks.instructions.get_r(1);
 
 		ValueType*** ref = (ValueType***)(program.memory.content + instruction_r0.shift);
 
-		ValueType* ptr = (ValueType*)malloc(sizeof(ValueType) + sizeof(void*));
-
+		ValueType* ptr = (ValueType*)malloc(sizeof(ValueType) + sizeof(uint16) + input.size()-1);
+		
 		*ptr = ValueType::string;
-		*(String**)(ptr + 1) = input;
+		*(uint16*)(ptr + 1) = input.size();
+		memcpy(ptr + sizeof(ValueType) + sizeof(uint16), input.data(), input.size());
+
+		if (!program.specification.type.destructor.count(***ref))
+			if (!program.specification.type.destructor.count(ValueType::all))
+				return;
+			else
+				program.specification.type.destructor[ValueType::all](**ref);
+		else
+			program.specification.type.destructor[***ref](**ref);
 
 		**ref = ptr;
 
-		//delete program.memory.at<String*>(instruction_r1.shift); //Possible memory leak as ptr to ptr gets freed
-
-		program.memory.move_relative(instruction_r0.shift, program.specification.type.size[instruction_r0.value], -(int64)sizeof(String**));
+		program.memory.move_absolute(instruction_r0.shift, program.memory.max_index, instruction_r1.shift);
+		//program.memory.move_relative(instruction_r0.shift, program.specification.type.size[instruction_r0.value], -(int64)sizeof(String**));
 		program.stacks.instructions.at_r(1) = instruction_r0;
 		--program.stacks.instructions.max_index;
-	}
-
-	void test(Program& program) {
-		if (program.stacks.instructions[program.stacks.instructions.max_index].instr == InstructionType::value) {
-			std::cout << program.specification.type.name.at(program.stacks.instructions[program.stacks.instructions.max_index].value) << std::endl;
-			//program.stack.instructions.erase(program.stack.instructions.cend() - 2);
-		}
-
-		if (program.stacks.instructions[program.stacks.instructions.max_index - 2].instr == InstructionType::value) {
-			std::cout << program.specification.type.name.at(program.stacks.instructions[program.stacks.instructions.max_index - 2].value) << std::endl;
-			//program.stack.instructions.erase(program.stack.instructions.cend() - 2);
-		} else {
-			std::cout << program.specification.type.name.at(program.stacks.instructions[program.stacks.instructions.max_index - 1].value) << std::endl;
-			//program.stack.instructions.erase(program.stack.instructions.cend() - 2);
-		}
-		/*
-		program.stack.instructions.erase(program.stack.instructions.cend() - 2);
-		switch (program.stack.instructions[program.stack.instructions.size() - 2].value)
-		{
-		case ValueType::string:
-			std::cout << (**(String**)(program.memory.data + program.stack.instructions[program.stack.instructions.size() - 2].shift)).c_str() << std::endl;
-		default:
-			//std::cout << "Test! " << (int32)program.context.value << "\n";
-			std::cout << program.specification.type.name.at(program.stack.instructions[program.stack.instructions.size() - 2].value) << std::endl;
-		}*/
 	}
 
 	void conditional(Program& program) {
@@ -474,45 +457,38 @@ namespace Core {
 		while(size)
 			if (*(ptr + --size) != 0)
 			{
-				delete (*(String**)(program.memory.content + program.stacks.instructions.at_r(1).shift));
-					//program.specification.type.destructor[program.stacks.instructions.at_r(2).value]; //TODO: delete value
-					//delete ((String**)program.memory.content + program.stacks.instructions.at_r(1).shift);
-				program.memory.max_index -= sizeof(void*);
-				program.memory.max_index -= sizeof(int64);
+				program.memory.max_index = program.stacks.instructions.at_r(1).shift;
 				program.stacks.instructions.max_index -= 1;
 				program.stacks.instructions.at_r(0).instr = InstructionType::skip_after_next;
 				program.stacks.instructions.at_r(0).modifier = 0;
 				return;
 			}
 
-		delete (*(String**)(program.memory.content + program.stacks.instructions.at_r(1).shift));
-		program.memory.max_index -= sizeof(void*);
-		program.memory.max_index -= sizeof(int64);
+		program.memory.max_index = program.stacks.instructions.at_r(1).shift;
 		program.stacks.instructions.max_index -= 1;
 		program.stacks.instructions.at_r(0).instr = InstructionType::skip_next;
 		program.stacks.instructions.at_r(0).modifier = 0;
 	}
 
 	void conditionalTrue(Program& program) {
-		delete (*(String**)(program.memory.content + program.stacks.instructions.at_r(1).shift));
-		program.memory.max_index -= sizeof(void*);
-		program.memory.max_index -= sizeof(int64);
+		program.memory.max_index = program.stacks.instructions.at_r(1).shift;
 		program.stacks.instructions.max_index -= 1;
 		program.stacks.instructions.at_r(0).instr = InstructionType::skip_after_next;
 		program.stacks.instructions.at_r(0).modifier = 0;
 	}
 
 	void conditionalFalse(Program& program) {
-		delete (*(String**)(program.memory.content + program.stacks.instructions.at_r(1).shift));
-		program.memory.max_index -= sizeof(void*);
-		program.memory.max_index -= sizeof(int64);
+		program.memory.max_index = program.stacks.instructions.at_r(1).shift;
 		program.stacks.instructions.max_index -= 1;
 		program.stacks.instructions.at_r(0).instr = InstructionType::skip_next;
 		program.stacks.instructions.at_r(0).modifier = 0;
 	}
 
-	void commaPrefix(Program& program) {
+	void commaPrefix(Program& program) { //TODO: redo or prohibit prefix comma.
 		if (program.stacks.instructions.at_r(2).instr == InstructionType::spacing) {
+			Instruction instruction_r0 = program.stacks.instructions.get_r(0);
+			program.memory.move_relative(instruction_r0.shift, program.memory.max_index, -(int64)sizeof(charT));
+
 			program.stacks.instructions.at_r(3) = program.stacks.instructions.at_r(0);
 			program.stacks.instructions.max_index -= 3;
 		} else {
@@ -520,13 +496,13 @@ namespace Core {
 			program.stacks.instructions.max_index -= 1;
 		}
 	}
-	void commaPostfix(Program& program) {
-		program.memory.max_index -= program.specification.type.size[program.stacks.instructions.at_r(2).value];
-		program.memory.max_index -= sizeof(void*);
+	void commaPostfix(Program& program) { 
+		program.memory.max_index = program.stacks.instructions.at_r(2).shift;
 		program.stacks.instructions.at_r(2) = program.stacks.instructions.at_r(0);
 		program.stacks.instructions.max_index -= 2;
 	}
 	void commaBinary(Program& program) {
+		program.memory.max_index = program.stacks.instructions.at_r(2).shift;
 		program.stacks.instructions.at_r(2) = program.stacks.instructions.at_r(0);
 		program.stacks.instructions.max_index -= 2;
 	}
@@ -584,17 +560,19 @@ namespace Core {
 		program.stacks.instructions.at_r(0).value = type;
 	}
 
-	/*
-	void getReferenceR0(Program& program) {
-		getReference(program, program.stack.instructions.at_r(0));
-	}
+	/*template<typename _Type, typename _TypeResult, ValueType type, _TypeResult(*function) (_Type)>
+	void unaryPrefixFunctionInterface(Program& program) {
+		_TypeLeft left = program.memory.get<_TypeLeft>(program.stacks.instructions.get_r(2).shift);
+		_TypeRight right = program.memory.get<_TypeRight>(program.stacks.instructions.get_r(0).shift);
 
-	void getReferenceR1(Program& program) {
-		getReference(program, program.stack.instructions.at_r(1));
-	}
+		program.memory.max_index -= sizeof(_TypeLeft);
+		program.memory.max_index -= sizeof(void*);
+		program.memory.max_index -= sizeof(_TypeRight);
 
-	void getReferenceR2(Program& program) {
-		getReference(program, program.stack.instructions.at_r(2));
+		program.memory.add<_TypeResult>(((_TypeResult(*) (_TypeLeft, _TypeRight))function)(left, right));
+
+		program.stacks.instructions.max_index -= 2;
+		program.stacks.instructions.at_r(0).value = type;
 	}*/
 
 	template<size_t _index_r>
@@ -626,28 +604,23 @@ namespace Core {
 	template<size_t _index_r>
 	void getReference(Program& program) {
 		Instruction& name = program.stacks.instructions.at_r(_index_r);
-		auto table = program.data.at_r(0);
+		Table<String, ValueType*>* table = &program.data.at_r(0);
+		String str = String((charT*)(program.memory.content + name.shift), name.modifier);
 
-		if (table.count(*program.memory.at<String*>(name.shift)))
+		if (table->count(str))
 		{
-			ValueType** ptr = &table[*program.memory.at<String*>(name.shift)];
-
-			delete (String**)program.memory.at<String*>(name.shift);
-
+			ValueType** ptr = &(*table)[str];
 			program.memory.at<ValueType**>(name.shift) = (ValueType**)ptr;
+			program.memory.max_index = name.shift + sizeof(void*);
 		}
 		else
 		{
 			ValueType* ptr = (ValueType*)malloc(sizeof(ValueType));
 			*ptr = ValueType::none;
-
-			auto ref = &program.data.at_r(0)[*program.memory.at<String*>(name.shift)];
-
+			auto ref = &program.data.at_r(0)[str];
 			*ref = ptr;
-
-			delete program.memory.at<String*>(name.shift);
-
 			program.memory.at<ValueType**>(name.shift) = ref;
+			program.memory.max_index = name.shift + sizeof(void*);
 		}
 		name.value = ValueType::reference;
 	}

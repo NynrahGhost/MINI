@@ -24,7 +24,6 @@ namespace Core
 	void conditionalTrue(Program& program);
 	void conditionalFalse(Program& program);
 
-	void test(Program& program);
 
 	void getValueProcedure(Program& program);
 
@@ -73,9 +72,19 @@ namespace Core
 	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult>
 	_TypeResult div(_TypeLeft l, _TypeRight r) { return l / r; }
 
+	template<typename _Type, typename _TypeResult>
+	_TypeResult negate(_Type t) { return -t; }
+
+	template<typename _Type>
+	_Type negate(_Type t) { return -t; }
+
 	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult, ValueType _valueType>
 	void createFloat(Program& program);
 
+	void concatenate(Program& program) {
+		program.stacks.instructions.at_r(1).modifier += program.stacks.instructions.at_r(0).modifier;
+		--program.stacks.instructions.max_index;
+	}
 
 	void allArrayInclusive(Program& program);
 	void allArrayExclusive(Program& program);
