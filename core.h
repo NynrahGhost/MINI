@@ -35,6 +35,10 @@ namespace Core
 	void renameArrayContext(Program& program);
 
 
+	void callThis(Program& program);
+	void contextMethod(Program& program);
+
+
 	void invokeResolve(Program& program);
 	void invokeProcedure(Program& program);
 	void invokeFunction(Program& program);
@@ -42,9 +46,7 @@ namespace Core
 
 	void assign(Program& program);
 
-	void getReferenceR0(Program& program);
-	void getReferenceR1(Program& program);
-	void getReferenceR2(Program& program);
+	void ignore(Program& program);
 
 	template<size_t _index_r>
 	void getPointer(Program& program);
@@ -81,10 +83,10 @@ namespace Core
 	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult, ValueType _valueType>
 	void createFloat(Program& program);
 
-	void concatenate(Program& program) {
-		program.stacks.instructions.at_r(1).modifier += program.stacks.instructions.at_r(0).modifier;
-		--program.stacks.instructions.max_index;
-	}
+	void contextAtIndex(Program& program);
+	void contextAtName(Program& program);
+
+	void concatenate(Program& program);
 
 	void allArrayInclusive(Program& program);
 	void allArrayExclusive(Program& program);

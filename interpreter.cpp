@@ -9,8 +9,9 @@ int main()
 {
 	const charT* script;
 
-	script = T("!<<'Input text: \n', !>>ref, !<<'Your text: \n', !<<ref , !<<'\n'");
-	
+	//script = T("!<<('Input ''text: \n'), !>>ref, !<<'Your text: \n', !<<ref , !<<'\n'");
+	script = T("1234.print['well'; 'World!'];");
+
 	Program program = Program();
 	
 	int result = (int)program.run(script);
@@ -247,7 +248,7 @@ Status Program::run(const charT* script)
 		expression_loop:
 			switch (script[++scriptIndex])
 			{
-			case T('\''):
+			case T('\`'):
 				{Instruction& instruction = stacks.instructions.at_r(0);
 				instruction.modifier = memory.max_index - instruction.shift;}
 				goto evaluate;
@@ -316,9 +317,11 @@ Status Program::run(const charT* script)
 		case InstructionType::skip_next: goto eval_skip_next;                 //   |   |   |s>-| :eval_skip_next
 		case InstructionType::skip_after_next: goto parse;                    //   |   |   |s->| :parse
 		case InstructionType::ignore_separator: goto parse;                   //   |   |   |/;/| :parse
+		case InstructionType::ignore_array_start: goto parse;                 //   |   |   |/[/| :parse
 		case InstructionType::separator:
 			switch (instruction_r1.instr) {                                   //   |   | x | ; |
 			case InstructionType::ignore_separator: goto eval_delete_r0r1;    //   |   |/;/| ; | :eval_delete_r0r1
+			case InstructionType::ignore_array_start: goto parse;             //   |   |/[/| ; | :parse
 			case InstructionType::separator: goto eval_array_add_empty;       //   |   | ; | ; | :eval_array_add_empty
 			case InstructionType::start_array: goto eval_array_add_empty;     //   |   | [ | ; | :eval_array_add_empty
 			case InstructionType::op: goto eval_postfix;                      //   |   |o p| ; | :eval_postfix		//TODO: Better to do another level to check for val
@@ -330,6 +333,7 @@ Status Program::run(const charT* script)
 				case InstructionType::spacing: goto eval_binary_long;         //   | _ |val| ; | :eval_binary_long
 				case InstructionType::skip_after_next: goto eval_skip_after_next;//|s->|val| ; | :eval_skip_after_next
 				case InstructionType::ignore_separator: goto eval_leave_r1;   //   |/;/|val| ; | :eval_leave_r1
+				case InstructionType::ignore_array_start: goto parse;         //   |/[/|val| ; | :parse
 				default: goto error_syntax; }
 			default: goto error_syntax; }
         case InstructionType::start_group: goto parse;                        //   |   |   | ( | :parse
@@ -341,7 +345,10 @@ Status Program::run(const charT* script)
 				case InstructionType::spacing: goto eval_binary_long;         //   | _ |val| ) | :eval_binary_long
 				default: goto error_syntax; }
 			default: goto error_syntax; }
-		case InstructionType::start_array: goto eval_array_start;             //   |   |   | [ | :eval_array_start
+		case InstructionType::start_array:                                    //   |   | x | [ | 
+			switch (instruction_r1.instr) {
+			case InstructionType::ignore_array_start: goto eval_delete_r0r1;  //   |   |/[/| [ | :eval_delete_r0r1
+			default: goto eval_array_start;}                                  //   |   |all| [ | :eval_array_start
 		case InstructionType::end_array:                                      
 			switch (instruction_r1.instr) {                                   //   |   | x | ] |
 			case InstructionType::start_array: goto eval_array_empty;         //   |   | [ | ] | :eval_array_empty
@@ -400,6 +407,7 @@ Status Program::run(const charT* script)
 				case InstructionType::skip_after_next: goto eval_delete_r0;   //   |s->|o p| _ | :eval_delete_r0
 				case InstructionType::skip_next: goto eval_delete_r0;         //   |s>-|o p| _ | :eval_delete_r0
 				case InstructionType::ignore_separator: goto eval_delete_r0;  //   |/;/|o p| _ | :eval_delete_r0
+				case InstructionType::ignore_array_start: goto eval_delete_r0;//   |/[/|o p| _ | :eval_delete_r0
 				case InstructionType::start_group: goto eval_delete_r0;       //   | ( |o p| _ | :eval_delete_r0
 				case InstructionType::start_array: goto eval_delete_r0;       //   | [ |o p| _ | :eval_delete_r0
 				case InstructionType::start_context: goto eval_delete_r0;     //   | { |o p| _ | :eval_delete_r0
@@ -422,6 +430,7 @@ Status Program::run(const charT* script)
             switch (instruction_r1.instr) {
 			case InstructionType::skip_after_next: goto parse;                //   |   |s->|val| :parse
 			case InstructionType::ignore_separator: goto parse;               //   |   |/;/|val| :parse
+			case InstructionType::ignore_array_start: goto parse;             //   |   |/[/|val| :parse
 			case InstructionType::start_context: goto parse;                  //   |   | { |val| :parse
 			case InstructionType::start_array: goto parse;                    //   |   | [ |val| :parse
 			case InstructionType::start_group: goto parse;                    //   |   | ( |val| :parse
@@ -438,6 +447,7 @@ Status Program::run(const charT* script)
 				case InstructionType::op: goto eval_prefix;                   //   |o p|o p|val| :eval_prefix
                 case InstructionType::start: goto eval_prefix;                //   |s t|o p|val| :eval_prefix
 				case InstructionType::ignore_separator: goto eval_prefix;     //   |/;/|o p|val| :eval_prefix
+				case InstructionType::ignore_array_start: goto eval_prefix;   //   |/[/|o p|val| :eval_prefix
 				case InstructionType::skip_next: goto eval_prefix;            //   |s>-|o p|val| :eval_prefix
 				case InstructionType::skip_after_next: goto eval_prefix;      //   |s->|o p|val| :eval_prefix
                 case InstructionType::start_group: goto eval_prefix;          //   | ( |o p|val| :eval_prefix
@@ -534,9 +544,7 @@ Status Program::run(const charT* script)
 
 		eval_array_start: {
 			++stacks.arrays.max_index;
-			stacks.arrays.at_r(0).init();//.add(*(new Array<Instruction>()));
-			//stack.arrays.getr_u(0).reserve(16); //TODO: initial capacity
-			//stack.instructions.add(Instruction::atom(InstructionType::start_array));
+			stacks.arrays.at_r(0).init();
 			stacks.instructions.at_r(0).shift = stacks.arrays.max_index;
 			goto parse;
 		}

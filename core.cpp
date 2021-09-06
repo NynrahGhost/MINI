@@ -111,10 +111,19 @@ namespace Core {
 		{
 			Table<ValueType, Procedure>* table;
 
+			table = &core.op.prefix[T("//")];
+			uFun(all, ignore);
+			
 			table = &core.op.prefix[T("?")];
 			uFun(all, conditional);
 			uFun(truth, conditionalTrue);
 			uFun(lie, conditionalFalse);
+
+			table = &core.op.prefix[T("?.")];
+			//uFun(all, conditionalShort);
+
+			table = &core.op.prefix[T("?|")];
+			//uFun(all, loopWhile);
 
 			table = &core.op.prefix[T("!<<")];
 			uFun(name, getReference<0>);
@@ -148,6 +157,9 @@ namespace Core {
 			uFun(name, atContextByName);
 			uFun(string, atContextByName);
 			uFun(arr, renameArrayContext);
+
+			table = &core.op.prefix[T(".")];
+			uFun(int64, contextMethod);
 		}
 		core.op.postfix = Table<String, Table<ValueType, Procedure>>();
 		{
@@ -168,6 +180,10 @@ namespace Core {
 			table = &core.op.postfix[T(":")];
 			uFun(dict, allContext);
 			uFun(name, allContext);
+			//uFun(type, allocDynamicArrayStack);
+
+			table = &core.op.postfix[T("*:")];
+			//uFun(dict, allocDynamicArrayHeap);
 		}
 
 		core.op.binary = Table<String, Table<ValueTypeBinary, Procedure>>();
@@ -197,6 +213,7 @@ namespace Core {
 			bFunInterfaceMatch(float64, int64, float64, mul);
 			bFunInterfaceMatch(int64, float64, float64, mul);
 			bFunInterfaceMatch(float64, float64, float64, mul);
+			//bFun(type, none, allocHeap);
 
 			table = &core.op.binary[T("/")];
 			bFunInterfaceMatch(int64, int64, int64, div);
@@ -210,10 +227,16 @@ namespace Core {
 
 			table = &core.op.binary[T(".")];
 			bFun(int64, int64, (createFloat<int64, int64, float64, ValueType::float64>));
+			bFun(all, name, getValue<0>);
+			bFun(all, unprocedure, callThis);
 
 			table = &core.op.binary[T(":")];
 			bFun(name, name, getChild);
 			bFun(dict, name, getChild);
+			//bFun(type, int64, allocArrayStack);
+
+			table = &core.op.binary[T("*:")];
+			//bFun(type, int64, allocArrayHeap);
 		}
 
 		core.op.coalescing = Table<ValueTypeBinary, Procedure>();
@@ -227,6 +250,8 @@ namespace Core {
 			bFun(unfunction, arr, invokeNativeFunction);
 
 			bFun(string, string, concatenate);
+
+			//bFun(type, none, allocStack);
 		}
 
 		return core;
@@ -236,15 +261,26 @@ namespace Core {
 		Table<String, ValueType*> data = Table<String, ValueType*>();
 		ValueType* ptr;
 
-		ptr = (ValueType*)malloc(sizeof(ValueType) + sizeof(void*)); //TODO: memory check
+		ptr = (ValueType*)malloc(sizeof(ValueType) + sizeof(void*));
+		if (!ptr)
+			throw std::bad_alloc();
 		*ptr = ValueType::unprocedure;
 		*(Procedure*)(ptr + 1) = print;
 		data[T("print")] = ptr;
 
-		ptr = (ValueType*)malloc(sizeof(ValueType) + sizeof(void*)); //TODO: memory check
+		ptr = (ValueType*)malloc(sizeof(ValueType) + sizeof(void*)); 
+		if (!ptr)
+			throw std::bad_alloc();
 		*ptr = ValueType::unprocedure;
 		*(Procedure*)(ptr + 1) = scan;
 		data[T("scan")] = ptr;
+
+		ptr = (ValueType*)malloc(sizeof(ValueType) + sizeof(void*));
+		if (!ptr)
+			throw std::bad_alloc();
+		*ptr = ValueType::unprocedure;
+		*(Procedure*)(ptr + 1) = conditional;	//Should be pattern matching for truth and lie types.
+		data[T("if")] = ptr;
 
 		return data;
 	}
@@ -397,6 +433,55 @@ namespace Core {
 		return result;
 	}
 
+	void ignore(Program& program) {
+		//TODO: add script to program.
+	}
+
+
+	void callThis(Program& program) {
+		++program.stacks.arrays.max_index;
+		program.stacks.arrays.at_r(0).init(); //allocate new array
+
+		void* method = program.memory.at<void*>(program.stacks.instructions.get_r(0).shift);
+		program.memory.max_index -= sizeof(void*) + sizeof(charT); //erase operator and method pointer.
+
+		program.memory.move_relative(program.stacks.instructions.get_r(2).shift, program.stacks.arrays.max_index, sizeof(void*));
+		program.memory.at<void*>(program.stacks.instructions.at_r(2).shift) = method;
+		program.stacks.instructions.at_r(0).shift = program.stacks.instructions.get_r(2).shift;
+		program.stacks.instructions.at_r(2).shift += sizeof(void*); // Move method pointer to object position, and shift object
+
+		program.stacks.arrays.at_r(0).add(program.stacks.instructions.get_r(2));
+
+		program.stacks.instructions.at_r(2) = program.stacks.instructions.get_r(0);
+		program.stacks.instructions.at_r(1) = Instruction::pos(InstructionType::start_array, program.stacks.arrays.max_index);
+		program.stacks.instructions.at_r(0) = Instruction::atom(InstructionType::ignore_array_start);
+	}
+
+	void contextMethod(Program& program) {
+
+	}
+
+
+	void contextAtIndex(Program& program) {
+		if (program.context.value == ValueType::arr) {
+			Instruction instr = program.stacks.arrays.at(program.context.shift).at(program.memory.at<int64>(program.stacks.instructions.at_r(1).shift));
+			//if(instr.value == ValueType::
+		}
+	}
+
+	void contextAtName(Program& program) {
+		if (program.context.value == ValueType::dict) {
+			auto var = &(*program.memory.at<Table<String, ValueType*>*>(program.context.shift))[String(program.memory.at<charT*>(program.stacks.instructions.at_r(0).shift))];
+			program.memory.max_index = program.stacks.instructions.at_r(1).shift;
+			program.memory.add<ValueType**>(var);
+		}
+	}
+
+	void concatenate(Program& program) {
+		program.stacks.instructions.at_r(1).modifier += program.stacks.instructions.at_r(0).modifier;
+		--program.stacks.instructions.max_index;
+	}
+
 	void print(Program& program) {
 		Instruction instruction_r0 = program.stacks.instructions.get_r(0);
 		Instruction instruction_r1 = program.stacks.instructions.get_r(1);
@@ -484,6 +569,22 @@ namespace Core {
 		program.stacks.instructions.at_r(0).modifier = 0;
 	}
 
+	void loopWhile(Program& program) { //TODO
+		size_t size = program.specification.type.size[program.stacks.instructions.at_r(0).value];
+
+		uint8* ptr = (program.memory.content + program.stacks.instructions.at_r(0).shift);
+
+		while (size)
+			if (*(ptr + --size) != 0)
+			{
+				program.memory.max_index = program.stacks.instructions.at_r(1).shift;
+				program.stacks.instructions.max_index -= 1;
+				program.stacks.instructions.at_r(0).instr = InstructionType::skip_after_next;
+				program.stacks.instructions.at_r(0).modifier = 0;
+				return;
+			}
+	}
+
 	void commaPrefix(Program& program) { //TODO: redo or prohibit prefix comma.
 		if (program.stacks.instructions.at_r(2).instr == InstructionType::spacing) {
 			Instruction instruction_r0 = program.stacks.instructions.get_r(0);
@@ -560,21 +661,6 @@ namespace Core {
 		program.stacks.instructions.at_r(0).value = type;
 	}
 
-	/*template<typename _Type, typename _TypeResult, ValueType type, _TypeResult(*function) (_Type)>
-	void unaryPrefixFunctionInterface(Program& program) {
-		_TypeLeft left = program.memory.get<_TypeLeft>(program.stacks.instructions.get_r(2).shift);
-		_TypeRight right = program.memory.get<_TypeRight>(program.stacks.instructions.get_r(0).shift);
-
-		program.memory.max_index -= sizeof(_TypeLeft);
-		program.memory.max_index -= sizeof(void*);
-		program.memory.max_index -= sizeof(_TypeRight);
-
-		program.memory.add<_TypeResult>(((_TypeResult(*) (_TypeLeft, _TypeRight))function)(left, right));
-
-		program.stacks.instructions.max_index -= 2;
-		program.stacks.instructions.at_r(0).value = type;
-	}*/
-
 	template<size_t _index_r>
 	void getPointer(Program& program) {
 		Instruction& name = program.stacks.instructions.at_r(_index_r);
@@ -630,21 +716,25 @@ namespace Core {
 	void getValue(Program& program) {
 		Instruction& name = program.stacks.instructions.at_r(_index_r);
 		auto table = program.data.at_r(0);
+		String str = String((charT*)(program.memory.content + name.shift), name.modifier);
 
-		if (table.count(*program.memory.at<String*>(name.shift)))
+		if (table.count(str))
 		{
-			ValueType* ptr = program.data.at_r(0)[*program.memory.at<String*>(name.shift)];
+			ValueType* ptr = program.data.at_r(0)[str];
 
-			delete (String**)program.memory.at<String*>(name.shift); //TODO: probably memory leak as ptr to ptr deleted
-
-			program.memory.replace(ptr + 1, program.specification.type.size[*ptr], name.shift, sizeof(void*));
-
-			name.value = *ptr;
+			switch (*ptr) {
+			case ValueType::string:
+				//TODO: decide whether I use null terminated string or not.
+				return;
+			default:
+				program.memory.replace(ptr + 1, program.specification.type.size[*ptr], name.shift, sizeof(void*));
+				name.value = *ptr;
+				return;
+			}
 		}
 		else
 		{
-			delete program.memory.at<String*>(name.shift);
-			program.memory.erase(name.shift, sizeof(void*));
+			program.memory.max_index -= sizeof(void*);
 			name.value = ValueType::none;
 		}
 	}

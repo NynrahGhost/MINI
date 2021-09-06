@@ -29,21 +29,21 @@ enum class SubroutinePatternMatchingType : uint8 {  //Type _t -> Type _res
 };
 
 struct SubroutinePatternMatching {
-    SubroutinePatternMatchingType patternType;
     union {
         ValueType parameter;
         struct { //Range
+            int skip; // I doubt jump for more then sizeof(ValueType) would arise.
             ValueType lessThen; //  (less - type) > more //  1 | 2 | 3 / 3 |  | 1
             ValueType moreThen;
-            int skip; // I doubt jump for more then sizeof(ValueType) would arise.
         };
         struct { //JumpTable
+            int stride;
             ValueType lessThen;
             ValueType moreThen;
-            int stride;
         };
         void* pointer; //to function, value or varifying function.
     };
+    SubroutinePatternMatchingType patternType;
 
     SubroutinePatternMatching() : patternType(SubroutinePatternMatchingType::None) {}
 
