@@ -9,40 +9,36 @@ int main()
 {
 	const charT* script;
 
-	//script = T("!<<('Input ''text: \n'), !>>ref, !<<'Your text: \n', !<<ref , !<<'\n'");
-	script = T("1234.print['well'; 'World!'];");
+	script = T("!<<('Input ''text: \n'), !>>ref, !<<'Your text: \n', !<<ref , !<<'\n'");
+	//script = T("1234.print['well'; 'World!'];");
+	//script = T("!<<'here';");
 
-	Program program = Program();
-	
-	int result = (int)program.run(script);
+	data.init();// = *(new Array<Table<String, ValueType*>>());
+	data.add(Core::initCoreData());//Table<String, ValueType*>();
+	stack.instructions.init();// = *(new Array<Instruction>());
+	stack.instructions.add(Instruction::atom(InstructionType::start));
+	//context;
+	//specification = Core::initCore();
+
+	int result = (int)run(script);
 	return result;
 	/**/
 }
 
-String* const Program::EMPTY_STRING = new String(T(""));
 
-void Program::_stacks::drop(size_t amount) {
+Array<Table<String, ValueType*>> data = Array<Table<String, ValueType*>>(16);
+Array<Table<String, ValueType*>> namespaces = Array<Table<String, ValueType*>>(16);
+Module* specification = Core::initCore();
+_stack stack = _stack{ Array<Instruction>(16), Array<Array<Instruction>>(16) };
+_context context = _context{ 0, 0, ValueType::none };
+Span memory = Span(1024);
 
-}
 
-Program::Program() {
-	data.init();// = *(new Array<Table<String, ValueType*>>());
-	data.add(Core::initCoreData());//Table<String, ValueType*>();
-	stacks.instructions.init();// = *(new Array<Instruction>());
-	stacks.instructions.add(Instruction::atom(InstructionType::start));
-	context;
-	specification = Core::initCore();
-};
+//void _stacks::drop(size_t amount) {
 
-Program::Program(Array<Table<String, ValueType*>> data) {
-	this->data = data;
-	stacks.instructions = Array<Instruction>();
-	stacks.instructions.add(Instruction::atom(InstructionType::start));
-	context; //context = ValueLocation{ ValueType::none, 0 };
-	specification = Core::initCore();
-};
+//}
 
-Status Program::run(const charT* script)
+Status run(const charT* script)
 {
 	//String* buffer = new String();
 	//buffer->reserve(256);
@@ -66,41 +62,41 @@ Status Program::run(const charT* script)
 		switch (script[++scriptIndex])
 		{
 		case T('\0'):
-			if (stacks.instructions.get_r(0).instr != InstructionType::end)
+			if (stack.instructions.get_r(0).instr != InstructionType::end)
 			{
 				//--scriptIndex;
-				stacks.instructions.add(Instruction::atom(InstructionType::end));
+				stack.instructions.add(Instruction::atom(InstructionType::end));
 				goto evaluate;
 			}
 			else
 				goto ending;
 
 		case T(';'):
-			stacks.instructions.add(Instruction::atom(InstructionType::separator));
+			stack.instructions.add(Instruction::atom(InstructionType::separator));
 			goto evaluate;
 
 		case T('('):
-			stacks.instructions.add(Instruction::atom(InstructionType::start_group));
+			stack.instructions.add(Instruction::atom(InstructionType::start_group));
 			goto evaluate;
 
 		case T('['):
-			stacks.instructions.add(Instruction::atom(InstructionType::start_array));
+			stack.instructions.add(Instruction::atom(InstructionType::start_array));
 			goto evaluate;
 
 		case T('{'):
-			stacks.instructions.add(Instruction::atom(InstructionType::start_context));
+			stack.instructions.add(Instruction::atom(InstructionType::start_context));
 			goto evaluate;
 
 		case T(')'):
-			stacks.instructions.add(Instruction::atom(InstructionType::end_group));
+			stack.instructions.add(Instruction::atom(InstructionType::end_group));
 			goto evaluate;
 
 		case T(']'):
-			stacks.instructions.add(Instruction::atom(InstructionType::end_array));
+			stack.instructions.add(Instruction::atom(InstructionType::end_array));
 			goto evaluate;
 
 		case T('}'):
-			stacks.instructions.add(Instruction::atom(InstructionType::end_context));
+			stack.instructions.add(Instruction::atom(InstructionType::end_context));
 			goto evaluate;
 
 		case char_space_character:
@@ -133,7 +129,7 @@ Status Program::run(const charT* script)
 		}
 
 		spacing: {
-			stacks.instructions.add(Instruction::atom(InstructionType::spacing));
+			stack.instructions.add(Instruction::atom(InstructionType::spacing));
 		spacing_loop:
 			switch (script[++scriptIndex])
 			{
@@ -148,7 +144,7 @@ Status Program::run(const charT* script)
 		}
 
 		operation: {
-			stacks.instructions.add(Instruction::pos(InstructionType::op, memory.max_index));
+			stack.instructions.add(Instruction::pos(InstructionType::op, memory.max_index));
 		operation_loop:
 			switch (script[++scriptIndex])
 			{
@@ -158,14 +154,14 @@ Status Program::run(const charT* script)
 			case T('\0'):
 			default:
 				--scriptIndex;
-				{Instruction& instruction = stacks.instructions.at_r(0);
+				{Instruction& instruction = stack.instructions.at_r(0);
 				instruction.modifier = memory.max_index - instruction.shift;}
 				goto evaluate;
 			}
 		}
 
 		name: {
-			stacks.instructions.add(Instruction::val(ValueType::name, memory.max_index));
+			stack.instructions.add(Instruction::val(ValueType::name, memory.max_index));
 		name_loop:
 			switch (script[++scriptIndex])
 			{	// if special character then name finished.
@@ -177,7 +173,7 @@ Status Program::run(const charT* script)
 			case T('"'):
 			case T('\0'):
 				--scriptIndex; 
-				{Instruction& instruction = stacks.instructions.at_r(0);
+				{Instruction& instruction = stack.instructions.at_r(0);
 				instruction.modifier = memory.max_index - instruction.shift;}
 				goto evaluate;
 
@@ -188,7 +184,7 @@ Status Program::run(const charT* script)
 		}
 
 		number: {
-			stacks.instructions.add(Instruction::val(ValueType::int64, memory.max_index));
+			stack.instructions.add(Instruction::val(ValueType::int64, memory.max_index));
 			int64 number = 0;
 		number_loop:
 			switch (script[++scriptIndex])
@@ -206,12 +202,12 @@ Status Program::run(const charT* script)
 		}
 
 		string: {
-			stacks.instructions.add(Instruction::val(ValueType::string, memory.max_index));
+			stack.instructions.add(Instruction::val(ValueType::string, memory.max_index));
 		string_loop:
 			switch (script[++scriptIndex])
 			{
 			case T('"'):
-				{Instruction& instruction = stacks.instructions.at_r(0);
+				{Instruction& instruction = stack.instructions.at_r(0);
 				instruction.modifier = memory.max_index - instruction.shift;}
 				goto evaluate;
 
@@ -225,12 +221,12 @@ Status Program::run(const charT* script)
 		}
 
 		link: {
-			stacks.instructions.add(Instruction::val(ValueType::string, memory.max_index));
+			stack.instructions.add(Instruction::val(ValueType::string, memory.max_index));
 		link_loop:
 			switch (script[++scriptIndex])
 			{
 			case T('\''):
-				{Instruction& instruction = stacks.instructions.at_r(0);
+				{Instruction& instruction = stack.instructions.at_r(0);
 				instruction.modifier = memory.max_index - instruction.shift;}
 				goto evaluate;
 
@@ -244,12 +240,12 @@ Status Program::run(const charT* script)
 		}
 
 		expression: {
-			stacks.instructions.add(Instruction::val(ValueType::string, memory.max_index));
+			stack.instructions.add(Instruction::val(ValueType::string, memory.max_index));
 		expression_loop:
 			switch (script[++scriptIndex])
 			{
 			case T('\`'):
-				{Instruction& instruction = stacks.instructions.at_r(0);
+				{Instruction& instruction = stack.instructions.at_r(0);
 				instruction.modifier = memory.max_index - instruction.shift;}
 				goto evaluate;
 
@@ -262,6 +258,23 @@ Status Program::run(const charT* script)
 			}
 		}
 	}
+	/*
+		print[arg0;arg1;arg2]
+
+		|   |   | ] | //Check close left
+		|   | ] |val| //Array coalescing 
+		| ] |o p| _ | //Array postfix
+		|   | ] | _ | //Parse
+	| ] | - |val| _ | //Binary long
+
+
+		+table{ arg0:123; function:"@0" }
+	
+		ref = +table { 
+			
+		}
+
+	*/
 
 	skip: {
 		switch (script[++scriptIndex]) {
@@ -306,9 +319,9 @@ Status Program::run(const charT* script)
 	}
 
     evaluate: {
-		instruction_r0 = *(stacks.instructions.content + stacks.instructions.max_index);
-		instruction_r1 = *(stacks.instructions.content + stacks.instructions.max_index - 1);
-		instruction_r2 = *(stacks.instructions.content + stacks.instructions.max_index - 2);
+		instruction_r0 = *(stack.instructions.content + stack.instructions.max_index);
+		instruction_r1 = *(stack.instructions.content + stack.instructions.max_index - 1);
+		instruction_r2 = *(stack.instructions.content + stack.instructions.max_index - 2);
 
                                                                               //   Decision tree 
         switch (instruction_r0.instr) {                                       //    ___________
@@ -460,26 +473,26 @@ Status Program::run(const charT* script)
         default: goto error_syntax; }
 
 		eval_delete_r0: {
-			--stacks.instructions.max_index;
+			--stack.instructions.max_index;
 			goto parse;
 		}
 		eval_delete_r0r1: {
-			stacks.instructions.max_index -= 2;
+			stack.instructions.max_index -= 2;
 			goto parse;
 		}
 		eval_leave_r1: {
-			stacks.instructions.at_r(2) = instruction_r1;
-			stacks.instructions.max_index -= 2;
+			stack.instructions.at_r(2) = instruction_r1;
+			stack.instructions.max_index -= 2;
 			goto parse;
 		}
 
 		eval_skip_next: {
 			if (((uint32)instruction_r0.modifier) == 0) {
-				stacks.instructions.at_r(0).instr = InstructionType::ignore_separator;
+				stack.instructions.at_r(0).instr = InstructionType::ignore_separator;
 				//--stacks.instructions.max_index;
 				goto skip;
 			} else {
-				--stacks.instructions.at_r(0).modifier;
+				--stack.instructions.at_r(0).modifier;
 				goto skip;
 			}
 		}
@@ -494,37 +507,37 @@ Status Program::run(const charT* script)
 				//stacks.instructions.at_r(1).instr = InstructionType::ignore_separator;
 				//stacks.instructions.max_index -= 1;
 
-				stacks.instructions.at_r(2) = instruction_r1;
-				stacks.instructions.max_index -= 2;
+				stack.instructions.at_r(2) = instruction_r1;
+				stack.instructions.max_index -= 2;
 
 				goto skip;
 			} else {
 				// I don't know what to do here yet.
-				--stacks.instructions.at_r(0).modifier; 
+				--stack.instructions.at_r(0).modifier; 
 				goto skip;
 			}
 		}
 
 
 		eval_context_new: {
-			stacks.instructions.add(Instruction::context(context.value, context.shift));
+			stack.instructions.add(Instruction::context(context.value, context.shift));
 
 			memory.add<void*>((void*)new Table<String, ValueType*>());
 			//*(void**)(memory.data + memory.currentSize) = new Table<String, ValueType*>();
 			//memory.currentSize += sizeof(void*);
 
-			stacks.instructions.add(Instruction::atom(InstructionType::start_context));
+			stack.instructions.add(Instruction::atom(InstructionType::start_context));
 
 			goto parse;
 		}
 
 		eval_context_of: {
-			stacks.instructions.at_r(0) = Instruction::context(context.value, context.shift);
+			stack.instructions.at_r(0) = Instruction::context(context.value, context.shift);
 
 			context.shift = instruction_r1.shift;
 			context.value = instruction_r2.value;
 
-			stacks.instructions.add(Instruction::atom(InstructionType::start_context));
+			stack.instructions.add(Instruction::atom(InstructionType::start_context));
 
 			goto parse;
 		}
@@ -533,53 +546,53 @@ Status Program::run(const charT* script)
 			/*context = stack[iterator - 2].location;
 			stack[iterator - 2] = stack[iterator - 1];
 			stack.pop_back();*/
-			context.shift = stacks.instructions.get_r(3).shift;
-			context.value = stacks.instructions.get_r(3).value;
-			context.modifier = stacks.instructions.get_r(3).modifier;
-			stacks.instructions.get_r(3) = instruction_r1;
+			context.shift = stack.instructions.get_r(3).shift;
+			context.value = stack.instructions.get_r(3).value;
+			context.modifier = stack.instructions.get_r(3).modifier;
+			stack.instructions.get_r(3) = instruction_r1;
 
-			stacks.instructions.max_index -= 3;// resize(iterator - 4);
+			stack.instructions.max_index -= 3;// resize(iterator - 4);
 			goto parse;
 		}
 
 		eval_array_start: {
-			++stacks.arrays.max_index;
-			stacks.arrays.at_r(0).init();
-			stacks.instructions.at_r(0).shift = stacks.arrays.max_index;
+			++stack.arrays.max_index;
+			stack.arrays.at_r(0).init();
+			stack.instructions.at_r(0).shift = stack.arrays.max_index;
 			goto parse;
 		}
 
 		eval_array_add: {
-			stacks.arrays[instruction_r2.shift].add(instruction_r1);
-			//memory.max_index -= specification.type.size[instruction_r1.value];
-			stacks.instructions.max_index -= 2;
+			stack.arrays[instruction_r2.shift].add(instruction_r1);
+			//memory.max_index -= specification->type.size[instruction_r1.value];
+			stack.instructions.max_index -= 2;
 			goto parse;
 		}
 
 		eval_array_add_empty: {
-			stacks.arrays[instruction_r2.shift].add(Instruction::val(ValueType::arr, 0));
-			stacks.instructions.max_index -= 1;
+			stack.arrays[instruction_r2.shift].add(Instruction::val(ValueType::arr, 0));
+			stack.instructions.max_index -= 1;
 			goto parse;
 		}
 
 		eval_array_empty: {
-			stacks.instructions.max_index -= 1;
-			stacks.instructions.at_r(0).instr = InstructionType::value;
+			stack.instructions.max_index -= 1;
+			stack.instructions.at_r(0).instr = InstructionType::value;
 			goto parse;
 		}
 
 		eval_array_end: {
-			stacks.arrays[instruction_r2.shift].add(instruction_r1);
-			//memory.max_index -= specification.type.size[instruction_r1.value];
-			stacks.instructions.max_index -= 2;
-			stacks.instructions.at_r(0).instr = InstructionType::value;
-			stacks.instructions.at_r(0).value = ValueType::arr;
+			stack.arrays[instruction_r2.shift].add(instruction_r1);
+			//memory.max_index -= specification->type.size[instruction_r1.value];
+			stack.instructions.max_index -= 2;
+			stack.instructions.at_r(0).instr = InstructionType::value;
+			stack.instructions.at_r(0).value = ValueType::arr;
 			goto evaluate; //goto parse;
 		}
 
 		eval_group: {
-			stacks.instructions.at_r(2) = instruction_r1;
-			stacks.instructions.max_index -= 2;
+			stack.instructions.at_r(2) = instruction_r1;
+			stack.instructions.max_index -= 2;
 
 			goto evaluate;
 		}
@@ -587,20 +600,20 @@ Status Program::run(const charT* script)
 		eval_prefix: {
 			String opString = String((charT*)(memory.content + instruction_r1.shift), instruction_r1.modifier);
 
-			if (!this->specification.op.prefix.count(opString))
+			if (!specification->op.prefix.count(opString))
 				goto error_syntax;
 
 			Procedure lc_value;
 
-			if (!this->specification.op.prefix[opString].count(instruction_r0.value))
-				if (!this->specification.op.prefix[opString].count(ValueType::all))
+			if (!specification->op.prefix[opString].count(instruction_r0.value))
+				if (!specification->op.prefix[opString].count(ValueType::all))
 					goto error_syntax;
 				else
-					lc_value = this->specification.op.prefix[opString][ValueType::all];
+					lc_value = specification->op.prefix[opString][ValueType::all];
 			else
-				lc_value = this->specification.op.prefix[opString][instruction_r0.value];
+				lc_value = specification->op.prefix[opString][instruction_r0.value];
 
-			lc_value(*this);
+			lc_value();
 
 			goto evaluate; //goto parse;
 		}
@@ -608,20 +621,20 @@ Status Program::run(const charT* script)
 		eval_postfix: {
 			String opString = String((charT*)(memory.content + instruction_r1.shift), instruction_r1.modifier);
 
-			if (!this->specification.op.postfix.count(opString))
+			if (!specification->op.postfix.count(opString))
 				goto error_syntax;
 
 			Procedure lc_value;
 
-			if (!this->specification.op.postfix[opString].count(instruction_r2.value))
-				if (!this->specification.op.postfix[opString].count(ValueType::all))
+			if (!specification->op.postfix[opString].count(instruction_r2.value))
+				if (!specification->op.postfix[opString].count(ValueType::all))
 					goto error_syntax;
 				else
-					lc_value = this->specification.op.postfix[opString][ValueType::all];
+					lc_value = specification->op.postfix[opString][ValueType::all];
 			else
-				lc_value = this->specification.op.postfix[opString][instruction_r2.value];
+				lc_value = specification->op.postfix[opString][instruction_r2.value];
 
-			lc_value(*this);
+			lc_value();
 
 			goto evaluate; //goto parse;
 		}
@@ -629,33 +642,33 @@ Status Program::run(const charT* script)
 		eval_binary: {
 			String opString = String((charT*)(memory.content + instruction_r1.shift), instruction_r1.modifier);
 
-			if (!this->specification.op.binary.count(opString))
+			if (!specification->op.binary.count(opString))
 				goto error_syntax;
 
-			Procedure lc_value;// = this->specification.op.binary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
+			Procedure lc_value;// = specification->op.binary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
 
-			if (!this->specification.op.binary[opString].count(ValueTypeBinary(instruction_r2.value, instruction_r0.value)))
-				if (!this->specification.op.binary[opString].count(ValueTypeBinary(instruction_r2.value, ValueType::all)))
-					if (!this->specification.op.binary[opString].count(ValueTypeBinary(ValueType::all, instruction_r0.value)))
-						if (!this->specification.op.binary[opString].count(ValueTypeBinary(ValueType::all, ValueType::all)))
+			if (!specification->op.binary[opString].count(ValueTypeBinary(instruction_r2.value, instruction_r0.value)))
+				if (!specification->op.binary[opString].count(ValueTypeBinary(instruction_r2.value, ValueType::all)))
+					if (!specification->op.binary[opString].count(ValueTypeBinary(ValueType::all, instruction_r0.value)))
+						if (!specification->op.binary[opString].count(ValueTypeBinary(ValueType::all, ValueType::all)))
 							goto error_syntax;
 						else
-							lc_value = this->specification.op.binary[opString][ValueTypeBinary(ValueType::all, ValueType::all)];
+							lc_value = specification->op.binary[opString][ValueTypeBinary(ValueType::all, ValueType::all)];
 					else
-						lc_value = this->specification.op.binary[opString][ValueTypeBinary(ValueType::all, instruction_r0.value)];
+						lc_value = specification->op.binary[opString][ValueTypeBinary(ValueType::all, instruction_r0.value)];
 				else
-					lc_value = this->specification.op.binary[opString][ValueTypeBinary(instruction_r2.value, ValueType::all)];
+					lc_value = specification->op.binary[opString][ValueTypeBinary(instruction_r2.value, ValueType::all)];
 			else
-				lc_value = this->specification.op.binary[opString][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
+				lc_value = specification->op.binary[opString][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
 
-			lc_value(*this);
+			lc_value();
 
 			goto evaluate;
 		}
 
 		eval_binary_long: {
 			
-			instruction_r3 = stacks.instructions.get_r(3);
+			instruction_r3 = stack.instructions.get_r(3);
 
 			--scriptIndex;
 
@@ -666,8 +679,8 @@ Status Program::run(const charT* script)
 			case InstructionType::value:
 
 				// val sp val x
-				stacks.instructions.at_r(2) = instruction_r1;
-				stacks.instructions.max_index -= 2;
+				stack.instructions.at_r(2) = instruction_r1;
+				stack.instructions.max_index -= 2;
 
 				instruction_r0 = instruction_r1;
 				instruction_r1 = instruction_r3;
@@ -676,13 +689,13 @@ Status Program::run(const charT* script)
 
 			case InstructionType::op:
 				// [val sp] op sp val x
-				stacks.instructions.at_r(4) = instruction_r3;
-				stacks.instructions.at_r(3) = instruction_r1;
-				stacks.instructions.max_index -= 3;
+				stack.instructions.at_r(4) = instruction_r3;
+				stack.instructions.at_r(3) = instruction_r1;
+				stack.instructions.max_index -= 3;
 
 				instruction_r0 = instruction_r1;
 				instruction_r1 = instruction_r3;
-				instruction_r2 = stacks.instructions.at_r(2);
+				instruction_r2 = stack.instructions.at_r(2);
 
 				goto eval_binary;
 			default:
@@ -701,37 +714,37 @@ Status Program::run(const charT* script)
 			//if(left != arr, right != arr)
 			//	right.shift, right>>
 			
-			Procedure lc_value;// = this->specification.binary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
+			Procedure lc_value;// = specification->binary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
 
-			if (!this->specification.op.coalescing.count(ValueTypeBinary(instruction_r1.value, instruction_r0.value)))
-				if (!this->specification.op.coalescing.count(ValueTypeBinary(instruction_r1.value, ValueType::all)))
-					if (!this->specification.op.coalescing.count(ValueTypeBinary(ValueType::all, instruction_r0.value)))
-						if (!this->specification.op.coalescing.count(ValueTypeBinary(ValueType::all, ValueType::all)))
+			if (!specification->op.coalescing.count(ValueTypeBinary(instruction_r1.value, instruction_r0.value)))
+				if (!specification->op.coalescing.count(ValueTypeBinary(instruction_r1.value, ValueType::all)))
+					if (!specification->op.coalescing.count(ValueTypeBinary(ValueType::all, instruction_r0.value)))
+						if (!specification->op.coalescing.count(ValueTypeBinary(ValueType::all, ValueType::all)))
 							goto error_syntax;
 						else
-							lc_value = this->specification.op.coalescing[ValueTypeBinary(ValueType::all, ValueType::all)];
+							lc_value = specification->op.coalescing[ValueTypeBinary(ValueType::all, ValueType::all)];
 					else
-						lc_value = this->specification.op.coalescing[ValueTypeBinary(ValueType::all, instruction_r0.value)];
+						lc_value = specification->op.coalescing[ValueTypeBinary(ValueType::all, instruction_r0.value)];
 				else
-					lc_value = this->specification.op.coalescing[ValueTypeBinary(instruction_r1.value, ValueType::all)];
+					lc_value = specification->op.coalescing[ValueTypeBinary(instruction_r1.value, ValueType::all)];
 			else
-				lc_value = this->specification.op.coalescing[ValueTypeBinary(instruction_r1.value, instruction_r0.value)];
+				lc_value = specification->op.coalescing[ValueTypeBinary(instruction_r1.value, instruction_r0.value)];
 
-			lc_value(*this);
+			lc_value();
 
 			goto evaluate;
 		}
 
 		eval_coalescing_long: {
-			stacks.instructions.at_r(1) = instruction_r0;
-			--stacks.instructions.max_index;
+			stack.instructions.at_r(1) = instruction_r0;
+			--stack.instructions.max_index;
 			
 			goto eval_coalescing;
 		}
 
 		eval_cleanup_separator: {
-			stacks.instructions.at_r(1) = instruction_r0;
-			--stacks.instructions.max_index;
+			stack.instructions.at_r(1) = instruction_r0;
+			--stack.instructions.max_index;
 
 			goto evaluate;
 		}

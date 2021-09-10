@@ -3,7 +3,7 @@
 
 namespace Core
 {
-	Module initCore();
+	Module* initCore();
 	Table<String, ValueType*> initCoreData();
 
 	extern "C" {
@@ -13,53 +13,66 @@ namespace Core
 	String fromInt(int64 num);
 	String fromUint(uint64 num);
 
-	String toStringGlobal(Program& program, ValueType* value);
-	String toStringLocal(Program& program, Instruction instruction);
-	String toStringLocalArray(Program& program, Instruction instruction);
-	void print(Program& program);
-	void scan(Program& program);
+	String toStringGlobal(ValueType* value);
+	String toStringLocal(Instruction instruction);
+	String toStringLocalArray(Instruction instruction);
+	void print();
+	void scan();
 
 
-	void conditional(Program& program);
-	void conditionalTrue(Program& program);
-	void conditionalFalse(Program& program);
+	void conditional();
+	void conditionalTrue();
+	void conditionalFalse();
 
 
-	void getValueProcedure(Program& program);
+	void getValueProcedure();
 
-	void getNamespace(Program& program);
-	void atContextByIndex(Program& program);
-	void atContextByName(Program& program);
+	void getNamespace();
+	void atContextByIndex();
+	void atContextByName();
 
-	void callWithContext(Program& program);
-	void renameArrayContext(Program& program);
-
-
-	void callThis(Program& program);
-	void contextMethod(Program& program);
+	void callWithContext();
+	void renameArrayContext();
 
 
-	void invokeResolve(Program& program);
-	void invokeProcedure(Program& program);
-	void invokeFunction(Program& program);
-	void invokeNativeFunction(Program& program);
+	void callThis();
+	void contextMethod();
 
-	void assign(Program& program);
 
-	void ignore(Program& program);
+	void invokeResolve();
+	void invokeProcedure();
+	void invokeFunction();
+	void invokeNativeFunction();
 
-	template<size_t _index_r>
-	void getPointer(Program& program);
+	void assign();
+
+	void ignore();
 
 	template<size_t _index_r>
-	void getReference(Program& program);
+	void getPointer();
 
 	template<size_t _index_r>
-	void getValue(Program& program);
+	void getReference();
+
+	template<size_t _index_r>
+	void getValue();
 
 
 	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult, ValueType type, _TypeResult(*function) (_TypeLeft, _TypeRight) >
-	void binaryFunctionInterface(Program& program);
+	void binaryFunctionInterface();
+
+
+	/*void functionInterfaceForward() {
+		void* func = memory.at<void*>(stack.instructions.get_r(1).shift);
+		Array<Instruction>* param = &stack.arrays.at(stack.instructions.get_r(0).shift);
+
+		reinterpret_cast<void(*)(Array<Instruction>*)>(func)(param);
+
+		g_erase_s_r(3);
+
+		specification->type.destructor[ValueType::arr](stack.instructions.get_r(1));
+	}*/
+
 
 
 	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult>
@@ -81,23 +94,23 @@ namespace Core
 	_Type negate(_Type t) { return -t; }
 
 	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult, ValueType _valueType>
-	void createFloat(Program& program);
+	void createFloat();
 
-	void contextAtIndex(Program& program);
-	void contextAtName(Program& program);
+	void contextAtIndex();
+	void contextAtName();
 
-	void concatenate(Program& program);
+	void concatenate();
 
-	void allArrayInclusive(Program& program);
-	void allArrayExclusive(Program& program);
-	void allGroupInclusive(Program& program);
-	void allGroupExclusive(Program& program);
-	void allContext(Program& program);
+	void allArrayInclusive();
+	void allArrayExclusive();
+	void allGroupInclusive();
+	void allGroupExclusive();
+	void allContext();
 
-	void commaPrefix(Program& program);
-	void commaPostfix(Program& program);
-	void commaBinary(Program& program);
+	void commaPrefix();
+	void commaPostfix();
+	void commaBinary();
 
-	void getChild(Program& program);
+	void getChild();
 
 }

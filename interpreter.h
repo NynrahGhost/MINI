@@ -26,23 +26,23 @@ enum class ProcedureResult {
     repeat,
 };
 
-class Program;  //Defined before Procedure, to break cyclic dependancy
-
-using Procedure = void (*) (Program&);
-using Destructor = void (*) (ValueType*);
-using ToStringGlobal = String (*) (Program&, ValueType*);
-using ToStringLocal = String (*) (Program&, Instruction);
+using Procedure = void (*) ();
+using Destructor = void (*) (void*);
+using ToStringGlobal = String (*) (ValueType*);
+using ToStringLocal = String (*) (Instruction);
 
 struct Module {
     Table<String, String> metadata;
 
     struct {
-        Table<String, ValueType> id; //void toString(ValueType* memory);
+        Table<String, ValueType> id;
         Table<ValueType, String> name;
         Table<ValueType, size_t> size;
+        //Specification may require variableSize field (Currently not belonging to size table means type is varsize)
         Table<ValueType, ToStringGlobal> stringGlobal;
         Table<ValueType, ToStringLocal> stringLocal;
-        Table<ValueType, Destructor> destructor; //TODO: provide possibility to destroy with target function
+        Table<ValueType, Destructor> destructor; 
+        //Specification may require hasDestructor field (Currently not belonging to destructor table means type has no destructor)
     } type;
 
     struct {
@@ -53,37 +53,33 @@ struct Module {
     } op;
 };
 
-class Program {
-protected:
-    static String* const EMPTY_STRING;
-public:
-    Array<Table<String, ValueType*>> data;
-    Array<Table<String, ValueType*>> namespaces;
-    Module specification;
 
-    struct _stacks {
-        Array<Instruction> instructions;
-        Array<Array<Instruction>> arrays;
+extern Array<Table<String, ValueType*>> data;// = Array<Table<String, ValueType*>>(16);
+extern Array<Table<String, ValueType*>> namespaces;// = Array<Table<String, ValueType*>>(16);
+extern Module* specification;// = NULL;// = Core::initCore();
 
-        void drop(size_t amount);
-    } stacks;
+struct _stack {
+    Array<Instruction> instructions;
+    Array<Array<Instruction>> arrays;
 
-    struct {
-        int32 shift;
-        int16 modifier;
-        ValueType value;
-    } context;
-    Span memory;
-
-
-    Program();
-    Program(Array<Table<String, ValueType*>> data);
-
-    Status run(const charT* script);
-
-    //template<typename T> T pop();
-    //template<> int32 pop<int32>();
+    void drop(size_t amount);
 };
+
+extern _stack stack;// = _stack{ Array<Instruction>(16), Array<Array<Instruction>>(16) };
+
+struct _context {
+    int32 shift;
+    int16 modifier;
+    ValueType value;
+};
+
+extern _context context;// = _context{ 0, 0, ValueType::none };
+
+extern Span memory;// = Span(1024);
+
+//Program(Array<Table<String, ValueType*>> data);
+
+Status run(const charT* script);
 
 int main();
 

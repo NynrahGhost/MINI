@@ -4,15 +4,15 @@
 
 //String representation of heap memory
 #define toStrGlobal(TYPE, FUNCTION) \
-core.type.stringGlobal[ValueType::TYPE] = FUNCTION;
+core->type.stringGlobal[ValueType::TYPE] = FUNCTION;
 
 //String representation of stack memory
 #define toStrLocal(TYPE, FUNCTION) \
-core.type.stringLocal[ValueType::TYPE] = FUNCTION;
+core->type.stringLocal[ValueType::TYPE] = FUNCTION;
 
 //Destructor
 #define destr(TYPE, FUNCTION) \
-core.type.destructor[ValueType::TYPE] = FUNCTION;
+core->type.destructor[ValueType::TYPE] = FUNCTION;
 
 //Unary function
 #define uFun(LEFT_TYPE, FUNCTION) \
@@ -36,11 +36,11 @@ core.type.destructor[ValueType::TYPE] = FUNCTION;
 
 
 namespace Core {
-	Module initCore() {
+	Module* initCore() {
 		//if (Core::core != 0)
 		//	return *Core::core;
-		Module core;
-		core.type.id = Table<String, ValueType>({	//type.name : typeID
+		Module* core = new Module();
+		core->type.id = Table<String, ValueType>({	//type.name : typeID
 			{T("int64"), ValueType::int64},
 			{T("int32"), ValueType::int32},
 			{T("int16"), ValueType::int16},
@@ -57,7 +57,7 @@ namespace Core {
 			{T("array"), ValueType::arr},
 			{T("expression"), ValueType::expression},
 		});
-		core.type.name = Table<ValueType, String>({	//typeID : type.name
+		core->type.name = Table<ValueType, String>({	//typeID : type.name
 			{ValueType::int64, T("int64")},
 			{ValueType::int32, T("int32")},
 			{ValueType::int16, T("int16")},
@@ -74,7 +74,7 @@ namespace Core {
 			{ValueType::arr, T("array")},
 			{ValueType::expression, T("expression")},
 		});
-		core.type.size = Table<ValueType, size_t>({	//typeID : type.size
+		core->type.size = Table<ValueType, size_t>({	//typeID : type.size
 			{ValueType::int64, 8},
 			{ValueType::int32, 4},
 			{ValueType::int16, 2},
@@ -94,154 +94,154 @@ namespace Core {
 			{ValueType::reference, sizeof(void*)},
 			{ValueType::pointer, sizeof(void*)},
 		});
-		core.type.stringGlobal = Table<ValueType, ToStringGlobal>();
+		core->type.stringGlobal = Table<ValueType, ToStringGlobal>();
 		{
 			toStrGlobal(all, toStringGlobal);
 		}
-		core.type.stringLocal = Table<ValueType, ToStringLocal>();
+		core->type.stringLocal = Table<ValueType, ToStringLocal>();
 		{
 			toStrLocal(all, toStringLocal);
 			toStrLocal(arr, toStringLocalArray);
 		}
-		core.type.destructor = Table<ValueType, Destructor>();
+		core->type.destructor = Table<ValueType, Destructor>();
 		{
 			destr(all, (Destructor)free); //TODO: Fill with string, table and stuff
 		}
-		core.op.prefix = Table<String, Table<ValueType, Procedure>>();
+		core->op.prefix = Table<String, Table<ValueType, Procedure>>();
 		{
 			Table<ValueType, Procedure>* table;
 
-			table = &core.op.prefix[T("//")];
+			table = &core->op.prefix[T("//")];
 			uFun(all, ignore);
 			
-			table = &core.op.prefix[T("?")];
+			table = &core->op.prefix[T("?")];
 			uFun(all, conditional);
 			uFun(truth, conditionalTrue);
 			uFun(lie, conditionalFalse);
 
-			table = &core.op.prefix[T("?.")];
+			table = &core->op.prefix[T("?.")];
 			//uFun(all, conditionalShort);
 
-			table = &core.op.prefix[T("?|")];
+			table = &core->op.prefix[T("?|")];
 			//uFun(all, loopWhile);
 
-			table = &core.op.prefix[T("!<<")];
+			table = &core->op.prefix[T("!<<")];
 			uFun(name, getReference<0>);
 			uFun(all, print);
 
-			table = &core.op.prefix[T("!>>")];
+			table = &core->op.prefix[T("!>>")];
 			uFun(name, getReference<0>);
 			uFun(reference, scan);
 
-			table = &core.op.prefix[T(",")];
+			table = &core->op.prefix[T(",")];
 			uFun(all, commaPrefix);
 
-			//table = &core.op.prefix[T("-")];
+			//table = &core->op.prefix[T("-")];
 			//u uFun(int64, (negate<int64>));
 			//uFun(float64, (negate<float64>));
 
-			table = &core.op.prefix[T("&")];
+			table = &core->op.prefix[T("&")];
 			uFun(name, (getReference<1>));
 
-			table = &core.op.prefix[T("*")];
+			table = &core->op.prefix[T("*")];
 			uFun(name, (getValue<1>));
 
-			table = &core.op.prefix[T(">")];
+			table = &core->op.prefix[T(">")];
 			uFun(all, allArrayInclusive);
 
-			table = &core.op.prefix[T("^")];
+			table = &core->op.prefix[T("^")];
 			uFun(int64, getNamespace);
 
-			table = &core.op.prefix[T("@")];
+			table = &core->op.prefix[T("@")];
 			uFun(int64, atContextByIndex);
 			uFun(name, atContextByName);
 			uFun(string, atContextByName);
 			uFun(arr, renameArrayContext);
 
-			table = &core.op.prefix[T(".")];
+			table = &core->op.prefix[T(".")];
 			uFun(int64, contextMethod);
 		}
-		core.op.postfix = Table<String, Table<ValueType, Procedure>>();
+		core->op.postfix = Table<String, Table<ValueType, Procedure>>();
 		{
 			Table<ValueType, Procedure>* table;
 
-			table = &core.op.postfix[T(",")];
+			table = &core->op.postfix[T(",")];
 			uFun(all, commaPostfix);
 			
-			table = &core.op.postfix[T("*")];
+			table = &core->op.postfix[T("*")];
 			uFun(all, getValueProcedure);
 
-			table = &core.op.postfix[T(">")];
+			table = &core->op.postfix[T(">")];
 			uFun(all, allArrayExclusive);
 
-			table = &core.op.postfix[T("^")];
+			table = &core->op.postfix[T("^")];
 			uFun(all, allGroupExclusive);
 
-			table = &core.op.postfix[T(":")];
+			table = &core->op.postfix[T(":")];
 			uFun(dict, allContext);
 			uFun(name, allContext);
 			//uFun(type, allocDynamicArrayStack);
 
-			table = &core.op.postfix[T("*:")];
+			table = &core->op.postfix[T("*:")];
 			//uFun(dict, allocDynamicArrayHeap);
 		}
 
-		core.op.binary = Table<String, Table<ValueTypeBinary, Procedure>>();
+		core->op.binary = Table<String, Table<ValueTypeBinary, Procedure>>();
 		{
 			Table<ValueTypeBinary, Procedure>* table;
 
-			table = &core.op.binary[T("@")];
+			table = &core->op.binary[T("@")];
 			bFun(unfunction, arr, callWithContext);
 
-			table = &core.op.binary[T(",")];
+			table = &core->op.binary[T(",")];
 			bFun(all, all, commaBinary);
 
-			table = &core.op.binary[T("+")];
+			table = &core->op.binary[T("+")];
 			bFunInterfaceMatch(int64, int64, int64, add);
 			bFunInterfaceMatch(float64, int64, float64, add);
 			bFunInterfaceMatch(int64, float64, float64, add);
 			bFunInterfaceMatch(float64, float64, float64, add);
 
-			table = &core.op.binary[T("-")];
+			table = &core->op.binary[T("-")];
 			bFunInterfaceMatch(int64, int64, int64, sub);
 			bFunInterfaceMatch(float64, int64, float64, sub);
 			bFunInterfaceMatch(int64, float64, float64, sub);
 			bFunInterfaceMatch(float64, float64, float64, sub);
 
-			table = &core.op.binary[T("*")];
+			table = &core->op.binary[T("*")];
 			bFunInterfaceMatch(int64, int64, int64, mul);
 			bFunInterfaceMatch(float64, int64, float64, mul);
 			bFunInterfaceMatch(int64, float64, float64, mul);
 			bFunInterfaceMatch(float64, float64, float64, mul);
 			//bFun(type, none, allocHeap);
 
-			table = &core.op.binary[T("/")];
+			table = &core->op.binary[T("/")];
 			bFunInterfaceMatch(int64, int64, int64, div);
 			bFunInterfaceMatch(float64, int64, float64, div);
 			bFunInterfaceMatch(int64, float64, float64, div);
 			bFunInterfaceMatch(float64, float64, float64, div);
 
-			table = &core.op.binary[T("=")];
+			table = &core->op.binary[T("=")];
 			bFun(name, all, assign);
 			bFun(pointer, all, assign);
 
-			table = &core.op.binary[T(".")];
+			table = &core->op.binary[T(".")];
 			bFun(int64, int64, (createFloat<int64, int64, float64, ValueType::float64>));
 			bFun(all, name, getValue<0>);
 			bFun(all, unprocedure, callThis);
 
-			table = &core.op.binary[T(":")];
+			table = &core->op.binary[T(":")];
 			bFun(name, name, getChild);
 			bFun(dict, name, getChild);
 			//bFun(type, int64, allocArrayStack);
 
-			table = &core.op.binary[T("*:")];
+			table = &core->op.binary[T("*:")];
 			//bFun(type, int64, allocArrayHeap);
 		}
 
-		core.op.coalescing = Table<ValueTypeBinary, Procedure>();
+		core->op.coalescing = Table<ValueTypeBinary, Procedure>();
 		{
-			Table<ValueTypeBinary, Procedure>* table = &core.op.coalescing;
+			Table<ValueTypeBinary, Procedure>* table = &core->op.coalescing;
 
 			bFun(name, all, (getValue<1>)); //arr
 			bFun(reference, arr, (getValue<1>));
@@ -307,7 +307,7 @@ namespace Core {
 		return result;
 	}
 
-	String toStringGlobal(Program& program, ValueType* value) {
+	String toStringGlobal(ValueType* value) {
 		String result = String();
 
 		void* tmp;
@@ -339,7 +339,7 @@ namespace Core {
 			{
 				result.append(var.first);
 				result.append(T(" : "));
-				result.append(toStringGlobal(program, var.second));
+				result.append(toStringGlobal(var.second));
 				result.append(T("; "));
 			}
 			result.append(T("}"));
@@ -348,169 +348,169 @@ namespace Core {
 			result.append(T("["));
 			for (int i = 0; i < (*(Array<ValueType*>*)(value + 1)).max_index; ++i)
 			{
-				result.append(toStringGlobal(program, (*(Array<ValueType*>*)(value + 1)).get(i)));
+				result.append(toStringGlobal((*(Array<ValueType*>*)(value + 1)).get(i)));
 				result.append(T("; "));
 			}
 			result.append(T("]"));
 			return result;
 		default:
-			result.append((charT*)(value + 1), program.specification.type.size[*value]);
+			result.append((charT*)(value + 1), specification->type.size[*value]);
 			return result;
 		}
 	}
 
-	String toStringLocal(Program& program, Instruction instruction) {
+	String toStringLocal(Instruction instruction) {
 		String result = String();
 
 		void* tmp;
 
 		switch (instruction.value) {
 		case ValueType::int8:
-			return fromInt(*(int8*)(program.memory.content + instruction.shift));
+			return fromInt(*(int8*)(memory.content + instruction.shift));
 		case ValueType::int16:
-			return fromInt(*(int16*)(program.memory.content + instruction.shift));
+			return fromInt(*(int16*)(memory.content + instruction.shift));
 		case ValueType::int32:
-			return fromInt(*(int32*)(program.memory.content + instruction.shift));
+			return fromInt(*(int32*)(memory.content + instruction.shift));
 		case ValueType::int64:
-			return fromInt(*(int64*)(program.memory.content + instruction.shift));
+			return fromInt(*(int64*)(memory.content + instruction.shift));
 		case ValueType::uint8:
-			return fromUint(*(uint8*)(program.memory.content + instruction.shift));
+			return fromUint(*(uint8*)(memory.content + instruction.shift));
 		case ValueType::uint16:
-			return fromUint(*(uint16*)(program.memory.content + instruction.shift));
+			return fromUint(*(uint16*)(memory.content + instruction.shift));
 		case ValueType::uint32:
-			return fromUint(*(uint32*)(program.memory.content + instruction.shift));
+			return fromUint(*(uint32*)(memory.content + instruction.shift));
 		case ValueType::uint64:
-			return fromUint(*(uint64*)(program.memory.content + instruction.shift));
+			return fromUint(*(uint64*)(memory.content + instruction.shift));
 		case ValueType::string:
 		case ValueType::name:
 		case ValueType::link:
-			return String((charT*)(program.memory.content + instruction.shift), instruction.modifier);
+			return String((charT*)(memory.content + instruction.shift), instruction.modifier);
 		case ValueType::dict:
 			result.append(T("{\n"));
-			for (auto var : *(Table<String, ValueType*>*)(program.memory.content + instruction.shift))
+			for (auto var : *(Table<String, ValueType*>*)(memory.content + instruction.shift))
 			{
 				result.append(var.first);
 				result.append(T(" : "));
-				result.append(toStringGlobal(program, var.second));
+				result.append(toStringGlobal(var.second));
 				result.append(T("; "));
 			}
 			result.append(T("}"));
 			return result;
 		case ValueType::arr:
 			result.append(T("["));
-			for (int i = 0; i < program.stacks.arrays.at(instruction.shift).max_index; ++i)
+			for (int i = 0; i < stack.arrays.at(instruction.shift).max_index; ++i)
 			{
-				result.append(toStringLocal(program, program.stacks.arrays.at(instruction.shift).at(i)));
+				result.append(toStringLocal(stack.arrays.at(instruction.shift).at(i)));
 				result.append(T("; "));
 			}
-			result.append(toStringLocal(program, program.stacks.arrays.at(instruction.shift).at_r(0)));
+			result.append(toStringLocal(stack.arrays.at(instruction.shift).at_r(0)));
 			result.append(T("]"));
 			return result;
 		case ValueType::reference:
-			//result.append(fromInt(*(uintptr_t*)(program.memory.content + instruction.shift)));
+			//result.append(fromInt(*(uintptr_t*)(memory.content + instruction.shift)));
 			//result.append("(");
 			//result.append("ref(");
-			result.append(toStringGlobal(program, **(ValueType***)(program.memory.content + instruction.shift)));
+			result.append(toStringGlobal(**(ValueType***)(memory.content + instruction.shift)));
 			//result.append(")");
 			return result;
 		default:
-			result.append((charT*)(program.memory.content + instruction.shift), program.specification.type.size[instruction.value]);
+			result.append((charT*)(memory.content + instruction.shift), specification->type.size[instruction.value]);
 			return result;
 		}
 	}
 
-	String toStringLocalArray(Program& program, Instruction instruction) {
+	String toStringLocalArray(Instruction instruction) {
 		String result = String();
-		auto arr = program.stacks.arrays.get(instruction.shift);
+		auto arr = stack.arrays.get(instruction.shift);
 
 		result.append(T("[ "));
 		for (int i = 0; i < arr.max_index; ++i) {
 			instruction = arr.get(i);
-			result.append(program.specification.type.stringLocal[instruction.value](program, instruction));
+			result.append(specification->type.stringLocal[instruction.value](instruction));
 			result.append(T(", "));
 		}
 		result.append(T("] "));
 		return result;
 	}
 
-	void ignore(Program& program) {
-		//TODO: add script to program.
+	void ignore() {
+		//TODO: add script to 
 	}
 
 
-	void callThis(Program& program) {
-		++program.stacks.arrays.max_index;
-		program.stacks.arrays.at_r(0).init(); //allocate new array
+	void callThis() {
+		++stack.arrays.max_index;
+		stack.arrays.at_r(0).init(); //allocate new array
 
-		void* method = program.memory.at<void*>(program.stacks.instructions.get_r(0).shift);
-		program.memory.max_index -= sizeof(void*) + sizeof(charT); //erase operator and method pointer.
+		void* method = memory.at<void*>(stack.instructions.get_r(0).shift);
+		memory.max_index -= sizeof(void*) + sizeof(charT); //erase operator and method pointer.
 
-		program.memory.move_relative(program.stacks.instructions.get_r(2).shift, program.stacks.arrays.max_index, sizeof(void*));
-		program.memory.at<void*>(program.stacks.instructions.at_r(2).shift) = method;
-		program.stacks.instructions.at_r(0).shift = program.stacks.instructions.get_r(2).shift;
-		program.stacks.instructions.at_r(2).shift += sizeof(void*); // Move method pointer to object position, and shift object
+		memory.move_relative(stack.instructions.get_r(2).shift, stack.arrays.max_index, sizeof(void*));
+		memory.at<void*>(stack.instructions.at_r(2).shift) = method;
+		stack.instructions.at_r(0).shift = stack.instructions.get_r(2).shift;
+		stack.instructions.at_r(2).shift += sizeof(void*); // Move method pointer to object position, and shift object
 
-		program.stacks.arrays.at_r(0).add(program.stacks.instructions.get_r(2));
+		stack.arrays.at_r(0).add(stack.instructions.get_r(2));
 
-		program.stacks.instructions.at_r(2) = program.stacks.instructions.get_r(0);
-		program.stacks.instructions.at_r(1) = Instruction::pos(InstructionType::start_array, program.stacks.arrays.max_index);
-		program.stacks.instructions.at_r(0) = Instruction::atom(InstructionType::ignore_array_start);
+		stack.instructions.at_r(2) = stack.instructions.get_r(0);
+		stack.instructions.at_r(1) = Instruction::pos(InstructionType::start_array, stack.arrays.max_index);
+		stack.instructions.at_r(0) = Instruction::atom(InstructionType::ignore_array_start);
 	}
 
-	void contextMethod(Program& program) {
+	void contextMethod() {
 
 	}
 
 
-	void contextAtIndex(Program& program) {
-		if (program.context.value == ValueType::arr) {
-			Instruction instr = program.stacks.arrays.at(program.context.shift).at(program.memory.at<int64>(program.stacks.instructions.at_r(1).shift));
+	void contextAtIndex() {
+		if (context.value == ValueType::arr) {
+			Instruction instr = stack.arrays.at(context.shift).at(memory.at<int64>(stack.instructions.at_r(1).shift));
 			//if(instr.value == ValueType::
 		}
 	}
 
-	void contextAtName(Program& program) {
-		if (program.context.value == ValueType::dict) {
-			auto var = &(*program.memory.at<Table<String, ValueType*>*>(program.context.shift))[String(program.memory.at<charT*>(program.stacks.instructions.at_r(0).shift))];
-			program.memory.max_index = program.stacks.instructions.at_r(1).shift;
-			program.memory.add<ValueType**>(var);
+	void contextAtName() {
+		if (context.value == ValueType::dict) {
+			auto var = &(*memory.at<Table<String, ValueType*>*>(context.shift))[String(memory.at<charT*>(stack.instructions.at_r(0).shift))];
+			memory.max_index = stack.instructions.at_r(1).shift;
+			memory.add<ValueType**>(var);
 		}
 	}
 
-	void concatenate(Program& program) {
-		program.stacks.instructions.at_r(1).modifier += program.stacks.instructions.at_r(0).modifier;
-		--program.stacks.instructions.max_index;
+	void concatenate() {
+		stack.instructions.at_r(1).modifier += stack.instructions.at_r(0).modifier;
+		--stack.instructions.max_index;
 	}
 
-	void print(Program& program) {
-		Instruction instruction_r0 = program.stacks.instructions.get_r(0);
-		Instruction instruction_r1 = program.stacks.instructions.get_r(1);
+	void print() {
+		Instruction instruction_r0 = stack.instructions.get_r(0);
+		Instruction instruction_r1 = stack.instructions.get_r(1);
 		ToStringLocal function = 0;
-		if (program.specification.type.stringLocal.count(instruction_r0.value))
-			function = program.specification.type.stringLocal.at(instruction_r0.value);
-		if (program.specification.type.stringLocal.count(ValueType::all))
-			function = program.specification.type.stringLocal.at(ValueType::all);
+		if (specification->type.stringLocal.count(instruction_r0.value))
+			function = specification->type.stringLocal.at(instruction_r0.value);
+		if (specification->type.stringLocal.count(ValueType::all))
+			function = specification->type.stringLocal.at(ValueType::all);
 #if ENCODING == 8
-		std::cout << function(program, instruction_r0);
+		std::cout << function(instruction_r0);
 #elif ENCODING == 16
 		std::wcout << function(program, instruction_r0);
 #endif
-		program.memory.move_absolute(instruction_r0.shift, program.memory.max_index, instruction_r1.shift);
-		program.stacks.instructions.at_r(1) = instruction_r0;
-		--program.stacks.instructions.max_index;
+		memory.move_absolute(instruction_r0.shift, memory.max_index, instruction_r1.shift);
+		stack.instructions.at_r(1) = instruction_r0;
+		--stack.instructions.max_index;
 	}
 
-	void scan(Program& program) {
+	void scan() {
 		String input = String();
 #if ENCODING == 8
 		std::getline(std::cin, input);
 #elif ENCODING == 16
 		std::getline(std::wcin, input); //Doesn't work yet
 #endif
-		Instruction instruction_r0 = program.stacks.instructions.get_r(0);
-		Instruction instruction_r1 = program.stacks.instructions.get_r(1);
+		Instruction instruction_r0 = stack.instructions.get_r(0);
+		Instruction instruction_r1 = stack.instructions.get_r(1);
 
-		ValueType*** ref = (ValueType***)(program.memory.content + instruction_r0.shift);
+		ValueType*** ref = (ValueType***)(memory.content + instruction_r0.shift);
 
 		ValueType* ptr = (ValueType*)malloc(sizeof(ValueType) + sizeof(uint16) + input.size()-1);
 		
@@ -518,314 +518,314 @@ namespace Core {
 		*(uint16*)(ptr + 1) = input.size();
 		memcpy(ptr + sizeof(ValueType) + sizeof(uint16), input.data(), input.size());
 
-		if (!program.specification.type.destructor.count(***ref))
-			if (!program.specification.type.destructor.count(ValueType::all))
+		if (!specification->type.destructor.count(***ref))
+			if (!specification->type.destructor.count(ValueType::all))
 				return;
 			else
-				program.specification.type.destructor[ValueType::all](**ref);
+				specification->type.destructor[ValueType::all](**ref);
 		else
-			program.specification.type.destructor[***ref](**ref);
+			specification->type.destructor[***ref](**ref);
 
 		**ref = ptr;
 
-		program.memory.move_absolute(instruction_r0.shift, program.memory.max_index, instruction_r1.shift);
-		//program.memory.move_relative(instruction_r0.shift, program.specification.type.size[instruction_r0.value], -(int64)sizeof(String**));
-		program.stacks.instructions.at_r(1) = instruction_r0;
-		--program.stacks.instructions.max_index;
+		memory.move_absolute(instruction_r0.shift, memory.max_index, instruction_r1.shift);
+		//memory.move_relative(instruction_r0.shift, specification->type.size[instruction_r0.value], -(int64)sizeof(String**));
+		stack.instructions.at_r(1) = instruction_r0;
+		--stack.instructions.max_index;
 	}
 
-	void conditional(Program& program) {
-		size_t size = program.specification.type.size[program.stacks.instructions.at_r(0).value];
+	void conditional() {
+		size_t size = specification->type.size[stack.instructions.at_r(0).value];
 
-		uint8* ptr = (program.memory.content + program.stacks.instructions.at_r(0).shift);
+		uint8* ptr = (memory.content + stack.instructions.at_r(0).shift);
 
 		while(size)
 			if (*(ptr + --size) != 0)
 			{
-				program.memory.max_index = program.stacks.instructions.at_r(1).shift;
-				program.stacks.instructions.max_index -= 1;
-				program.stacks.instructions.at_r(0).instr = InstructionType::skip_after_next;
-				program.stacks.instructions.at_r(0).modifier = 0;
+				memory.max_index = stack.instructions.at_r(1).shift;
+				stack.instructions.max_index -= 1;
+				stack.instructions.at_r(0).instr = InstructionType::skip_after_next;
+				stack.instructions.at_r(0).modifier = 0;
 				return;
 			}
 
-		program.memory.max_index = program.stacks.instructions.at_r(1).shift;
-		program.stacks.instructions.max_index -= 1;
-		program.stacks.instructions.at_r(0).instr = InstructionType::skip_next;
-		program.stacks.instructions.at_r(0).modifier = 0;
+		memory.max_index = stack.instructions.at_r(1).shift;
+		stack.instructions.max_index -= 1;
+		stack.instructions.at_r(0).instr = InstructionType::skip_next;
+		stack.instructions.at_r(0).modifier = 0;
 	}
 
-	void conditionalTrue(Program& program) {
-		program.memory.max_index = program.stacks.instructions.at_r(1).shift;
-		program.stacks.instructions.max_index -= 1;
-		program.stacks.instructions.at_r(0).instr = InstructionType::skip_after_next;
-		program.stacks.instructions.at_r(0).modifier = 0;
+	void conditionalTrue() {
+		memory.max_index = stack.instructions.at_r(1).shift;
+		stack.instructions.max_index -= 1;
+		stack.instructions.at_r(0).instr = InstructionType::skip_after_next;
+		stack.instructions.at_r(0).modifier = 0;
 	}
 
-	void conditionalFalse(Program& program) {
-		program.memory.max_index = program.stacks.instructions.at_r(1).shift;
-		program.stacks.instructions.max_index -= 1;
-		program.stacks.instructions.at_r(0).instr = InstructionType::skip_next;
-		program.stacks.instructions.at_r(0).modifier = 0;
+	void conditionalFalse() {
+		memory.max_index = stack.instructions.at_r(1).shift;
+		stack.instructions.max_index -= 1;
+		stack.instructions.at_r(0).instr = InstructionType::skip_next;
+		stack.instructions.at_r(0).modifier = 0;
 	}
 
-	void loopWhile(Program& program) { //TODO
-		size_t size = program.specification.type.size[program.stacks.instructions.at_r(0).value];
+	void loopWhile() { //TODO
+		size_t size = specification->type.size[stack.instructions.at_r(0).value];
 
-		uint8* ptr = (program.memory.content + program.stacks.instructions.at_r(0).shift);
+		uint8* ptr = (memory.content + stack.instructions.at_r(0).shift);
 
 		while (size)
 			if (*(ptr + --size) != 0)
 			{
-				program.memory.max_index = program.stacks.instructions.at_r(1).shift;
-				program.stacks.instructions.max_index -= 1;
-				program.stacks.instructions.at_r(0).instr = InstructionType::skip_after_next;
-				program.stacks.instructions.at_r(0).modifier = 0;
+				memory.max_index = stack.instructions.at_r(1).shift;
+				stack.instructions.max_index -= 1;
+				stack.instructions.at_r(0).instr = InstructionType::skip_after_next;
+				stack.instructions.at_r(0).modifier = 0;
 				return;
 			}
 	}
 
-	void commaPrefix(Program& program) { //TODO: redo or prohibit prefix comma.
-		if (program.stacks.instructions.at_r(2).instr == InstructionType::spacing) {
-			Instruction instruction_r0 = program.stacks.instructions.get_r(0);
-			program.memory.move_relative(instruction_r0.shift, program.memory.max_index, -(int64)sizeof(charT));
+	void commaPrefix() { //TODO: redo or prohibit prefix comma.
+		if (stack.instructions.at_r(2).instr == InstructionType::spacing) {
+			Instruction instruction_r0 = stack.instructions.get_r(0);
+			memory.move_relative(instruction_r0.shift, memory.max_index, -(int64)sizeof(charT));
 
-			program.stacks.instructions.at_r(3) = program.stacks.instructions.at_r(0);
-			program.stacks.instructions.max_index -= 3;
+			stack.instructions.at_r(3) = stack.instructions.at_r(0);
+			stack.instructions.max_index -= 3;
 		} else {
-			program.stacks.instructions.at_r(1) = program.stacks.instructions.at_r(0);
-			program.stacks.instructions.max_index -= 1;
+			stack.instructions.at_r(1) = stack.instructions.at_r(0);
+			stack.instructions.max_index -= 1;
 		}
 	}
-	void commaPostfix(Program& program) { 
-		program.memory.max_index = program.stacks.instructions.at_r(2).shift;
-		program.stacks.instructions.at_r(2) = program.stacks.instructions.at_r(0);
-		program.stacks.instructions.max_index -= 2;
+	void commaPostfix() { 
+		memory.max_index = stack.instructions.at_r(2).shift;
+		stack.instructions.at_r(2) = stack.instructions.at_r(0);
+		stack.instructions.max_index -= 2;
 	}
-	void commaBinary(Program& program) {
-		program.memory.max_index = program.stacks.instructions.at_r(2).shift;
-		program.stacks.instructions.at_r(2) = program.stacks.instructions.at_r(0);
-		program.stacks.instructions.max_index -= 2;
-	}
-
-	void getNamespace(Program& program) {}
-	void atContextByIndex(Program& program) {}
-	void atContextByName(Program& program) {}
-
-	void callWithContext(Program& program) {}
-	void renameArrayContext(Program& program) {}
-
-
-	void invokeResolve(Program& program) {}
-
-	void invokeProcedure(Program& program) {
-		program.memory.at<Procedure>(program.stacks.instructions.at_r(1).shift)(program);
+	void commaBinary() {
+		memory.max_index = stack.instructions.at_r(2).shift;
+		stack.instructions.at_r(2) = stack.instructions.at_r(0);
+		stack.instructions.max_index -= 2;
 	}
 
-	void invokeFunction(Program& program) {
-		Instruction parameter = program.stacks.instructions.get_r(0);
-		Instruction function = program.stacks.instructions.get_r(2);
+	void getNamespace() {}
+	void atContextByIndex() {}
+	void atContextByName() {}
 
-		/*if (program.context.value == ValueType::dll)
+	void callWithContext() {}
+	void renameArrayContext() {}
+
+
+	void invokeResolve() {}
+
+	void invokeProcedure() {
+		memory.at<Procedure>(stack.instructions.at_r(1).shift)();
+	}
+
+	void invokeFunction() {
+		Instruction parameter = stack.instructions.get_r(0);
+		Instruction function = stack.instructions.get_r(2);
+
+		/*if (context.value == ValueType::dll)
 		{
-			GetProcAddress(program.memory.get<HMODULE>(program.context.shift), program.memory.get<String>(function.shift).c_str());
-			program.stack.arrays.get_r(parameter.modifier).content;
+			GetProcAddress(memory.get<HMODULE>(context.shift), memory.get<String>(function.shift).c_str());
+			stack.arrays.get_r(parameter.modifier).content;
 		}*/
 
-		program.stacks.instructions.max_index -= 2;
+		stack.instructions.max_index -= 2;
 
 																									//TODO: add a function to add value
-		program.stacks.instructions.add(Instruction::call(parameter.value, parameter.shift));	//TODO: make a 'call' instruction that specifies change of executable string
-		program.stacks.instructions.add(Instruction::context(parameter.value, parameter.shift));
+		stack.instructions.add(Instruction::call(parameter.value, parameter.shift));	//TODO: make a 'call' instruction that specifies change of executable string
+		stack.instructions.add(Instruction::context(parameter.value, parameter.shift));
 
 
 	}
 
-	void invokeNativeFunction(Program& program) {
+	void invokeNativeFunction() {
 
 	}
 
 
 	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult, ValueType type, _TypeResult (*function) (_TypeLeft, _TypeRight)>
-	void binaryFunctionInterface(Program& program) {
-		_TypeLeft left = program.memory.get<_TypeLeft>(program.stacks.instructions.get_r(2).shift);
-		_TypeRight right = program.memory.get<_TypeRight>(program.stacks.instructions.get_r(0).shift);
+	void binaryFunctionInterface() {
+		_TypeLeft left = memory.get<_TypeLeft>(stack.instructions.get_r(2).shift);
+		_TypeRight right = memory.get<_TypeRight>(stack.instructions.get_r(0).shift);
 
-		program.memory.max_index -= sizeof(_TypeLeft);
-		program.memory.max_index -= sizeof(void*);
-		program.memory.max_index -= sizeof(_TypeRight);
+		memory.max_index -= sizeof(_TypeLeft);
+		memory.max_index -= sizeof(void*);
+		memory.max_index -= sizeof(_TypeRight);
 
-		program.memory.add<_TypeResult>(((_TypeResult(*) (_TypeLeft, _TypeRight))function)(left, right));
+		memory.add<_TypeResult>(((_TypeResult(*) (_TypeLeft, _TypeRight))function)(left, right));
 
-		program.stacks.instructions.max_index -= 2;
-		program.stacks.instructions.at_r(0).value = type;
+		stack.instructions.max_index -= 2;
+		stack.instructions.at_r(0).value = type;
 	}
 
 	template<size_t _index_r>
-	void getPointer(Program& program) {
-		Instruction& name = program.stacks.instructions.at_r(_index_r);
-		auto table = program.data.at_r(0);
+	void getPointer() {
+		Instruction& name = stack.instructions.at_r(_index_r);
+		auto table = data.at_r(0);
 
-		if (table.count(*program.memory.at<String*>(name.shift)))
+		if (table.count(*memory.at<String*>(name.shift)))
 		{
-			ValueType* ptr = table[*program.memory.at<String*>(name.shift)];
+			ValueType* ptr = table[*memory.at<String*>(name.shift)];
 
-			delete (String**)program.memory.at<String*>(name.shift);
+			delete (String**)memory.at<String*>(name.shift);
 
-			program.memory.at<ValueType*>(name.shift) = (ValueType*&)ptr;
+			memory.at<ValueType*>(name.shift) = (ValueType*&)ptr;
 		}
 		else
 		{
 			ValueType* ptr = (ValueType*)malloc(sizeof(ValueType));
 			*ptr = ValueType::none;
-			program.data.at_r(0)[*program.memory.at<String*>(name.shift)] = ptr;
+			data.at_r(0)[*memory.at<String*>(name.shift)] = ptr;
 
-			delete program.memory.at<String*>(name.shift);
+			delete memory.at<String*>(name.shift);
 
-			program.memory.at<ValueType*>(name.shift) = ptr;
+			memory.at<ValueType*>(name.shift) = ptr;
 		}
 		name.value = ValueType::pointer;
 	}
 
 	template<size_t _index_r>
-	void getReference(Program& program) {
-		Instruction& name = program.stacks.instructions.at_r(_index_r);
-		Table<String, ValueType*>* table = &program.data.at_r(0);
-		String str = String((charT*)(program.memory.content + name.shift), name.modifier);
+	void getReference() {
+		Instruction& name = stack.instructions.at_r(_index_r);
+		Table<String, ValueType*>* table = &data.at_r(0);
+		String str = String((charT*)(memory.content + name.shift), name.modifier);
 
 		if (table->count(str))
 		{
 			ValueType** ptr = &(*table)[str];
-			program.memory.at<ValueType**>(name.shift) = (ValueType**)ptr;
-			program.memory.max_index = name.shift + sizeof(void*);
+			memory.at<ValueType**>(name.shift) = (ValueType**)ptr;
+			memory.max_index = name.shift + sizeof(void*);
 		}
 		else
 		{
 			ValueType* ptr = (ValueType*)malloc(sizeof(ValueType));
 			*ptr = ValueType::none;
-			auto ref = &program.data.at_r(0)[str];
+			auto ref = &data.at_r(0)[str];
 			*ref = ptr;
-			program.memory.at<ValueType**>(name.shift) = ref;
-			program.memory.max_index = name.shift + sizeof(void*);
+			memory.at<ValueType**>(name.shift) = ref;
+			memory.max_index = name.shift + sizeof(void*);
 		}
 		name.value = ValueType::reference;
 	}
 
 
 	template<size_t _index_r>
-	void getValue(Program& program) {
-		Instruction& name = program.stacks.instructions.at_r(_index_r);
-		auto table = program.data.at_r(0);
-		String str = String((charT*)(program.memory.content + name.shift), name.modifier);
+	void getValue() {
+		Instruction& name = stack.instructions.at_r(_index_r);
+		auto table = data.at_r(0);
+		String str = String((charT*)(memory.content + name.shift), name.modifier);
 
 		if (table.count(str))
 		{
-			ValueType* ptr = program.data.at_r(0)[str];
+			ValueType* ptr = data.at_r(0)[str];
 
 			switch (*ptr) {
 			case ValueType::string:
 				//TODO: decide whether I use null terminated string or not.
 				return;
 			default:
-				program.memory.replace(ptr + 1, program.specification.type.size[*ptr], name.shift, sizeof(void*));
+				memory.replace(ptr + 1, specification->type.size[*ptr], name.shift, sizeof(void*));
 				name.value = *ptr;
 				return;
 			}
 		}
 		else
 		{
-			program.memory.max_index -= sizeof(void*);
+			memory.max_index -= sizeof(void*);
 			name.value = ValueType::none;
 		}
 	}
 
 
-	void assign(Program& program) {
-		auto left = program.stacks.instructions.get_r(2);
-		auto right = program.stacks.instructions.get_r(0);
+	void assign() {
+		auto left = stack.instructions.get_r(2);
+		auto right = stack.instructions.get_r(0);
 
-		ValueType* ptr = (ValueType*)malloc(sizeof(ValueType) + program.specification.type.size[right.value]);
+		ValueType* ptr = (ValueType*)malloc(sizeof(ValueType) + specification->type.size[right.value]);
 		*ptr = right.value;
-		memcpy(ptr + 1, program.memory.content + right.shift, program.specification.type.size[right.value]);
+		memcpy(ptr + 1, memory.content + right.shift, specification->type.size[right.value]);
 
-		program.namespaces.get_r(0)[program.memory.get<String>(left.shift)] = ptr;
+		namespaces.get_r(0)[memory.get<String>(left.shift)] = ptr;
 	}
 
-	void assignToReference(Program& program) {
-		auto left = program.stacks.instructions.get_r(2);
-		auto right = program.stacks.instructions.get_r(0);
+	void assignToReference() {
+		auto left = stack.instructions.get_r(2);
+		auto right = stack.instructions.get_r(0);
 
-		ValueType* ptr = (ValueType*)malloc(sizeof(ValueType) + program.specification.type.size[right.value]);
+		ValueType* ptr = (ValueType*)malloc(sizeof(ValueType) + specification->type.size[right.value]);
 		*ptr = right.value;
-		memcpy(ptr + 1, program.memory.content + right.shift, program.specification.type.size[right.value]);
+		memcpy(ptr + 1, memory.content + right.shift, specification->type.size[right.value]);
 
-		program.namespaces.get_r(0)[program.memory.get<String>(left.shift)] = ptr;
+		namespaces.get_r(0)[memory.get<String>(left.shift)] = ptr;
 	}
 
 
 	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult, ValueType _valueType>
-	void createFloat(Program& program) {
+	void createFloat() {
 		_TypeResult number = 0;
-		_TypeLeft left = program.memory.get<_TypeLeft>(program.stacks.instructions.get_r(2).shift);
-		_TypeRight right = program.memory.get<_TypeLeft>(program.stacks.instructions.get_r(0).shift);
+		_TypeLeft left = memory.get<_TypeLeft>(stack.instructions.get_r(2).shift);
+		_TypeRight right = memory.get<_TypeLeft>(stack.instructions.get_r(0).shift);
 
 		if (right == 0)
 			number = left * 1.0;
 		else
 			number = left * 1.0 + ((right*1.0) / pow(10, floor(log10(right))+1));
 
-		program.memory.max_index -= sizeof(void*) + sizeof(_TypeLeft) + sizeof(_TypeRight);
+		memory.max_index -= sizeof(void*) + sizeof(_TypeLeft) + sizeof(_TypeRight);
 
-		program.stacks.instructions.max_index -= 2;
-		program.stacks.instructions.at_r(0).value = _valueType;
-		program.memory.add<_TypeResult>(number);
+		stack.instructions.max_index -= 2;
+		stack.instructions.at_r(0).value = _valueType;
+		memory.add<_TypeResult>(number);
 	}
 
-	void getValueProcedure(Program& program) { // Unordered map saves keys by address
-		/*uint8* memory = program.memory.data + program.stack.instructions[program.stack.instructions.max_index].shift;
-		uint8* value = (uint8*)(program.data.at_r(0)[**(String**)(memory)]);
+	void getValueProcedure() { // Unordered map saves keys by address
+		/*uint8* memory = memory.data + stack.instructions[stack.instructions.max_index].shift;
+		uint8* value = (uint8*)(data.at_r(0)[**(String**)(memory)]);
 
-		int l = program.specification.type.size[*(ValueType*)value];
+		int l = specification.type.size[*(ValueType*)value];
 
-		program.stack.instructions[program.stack.instructions.max_index].value = *(ValueType*)value;
+		stack.instructions[stack.instructions.max_index].value = *(ValueType*)value;
 
 		value = (uint8*)((ValueType*)value + 1);
 
 		for (int i = 0; i < l; ++i)
 			*(memory + i) = *(value + i);
 
-		program.memory.currentSize -= sizeof(void*);
-		program.memory.currentSize += l;
+		memory.currentSize -= sizeof(void*);
+		memory.currentSize += l;
 
-		program.stack.instructions.at_r(1) = program.stack.instructions.at_r(0);
-		program.stack.instructions.max_index -= 1;*/
+		stack.instructions.at_r(1) = stack.instructions.at_r(0);
+		stack.instructions.max_index -= 1;*/
 	}
-	void allArrayInclusive(Program& program) {
-
-	}
-	void allArrayExclusive(Program& program) {
+	void allArrayInclusive() {
 
 	}
-	void allGroupInclusive(Program& program) {
+	void allArrayExclusive() {
 
 	}
-	void allGroupExclusive(Program& program) {
+	void allGroupInclusive() {
 
 	}
-	void allContext(Program& program) {
+	void allGroupExclusive() {
 
 	}
-
-	void comma(Program& program) {
+	void allContext() {
 
 	}
 
-	void getChild(Program& program) {
-		/*String* right = *(String**)(program.memory.data + program.stack.instructions.at_r(0).shift);
-		program.stack.instructions.max_index -= 2;
-		String* left = *(String**)(program.memory.data + program.stack.instructions.at_r(0).shift);
+	void comma() {
 
-		auto ptr = program.data.at_r(0)[*left];
+	}
+
+	void getChild() {
+		/*String* right = *(String**)(memory.data + stack.instructions.at_r(0).shift);
+		stack.instructions.max_index -= 2;
+		String* left = *(String**)(memory.data + stack.instructions.at_r(0).shift);
+
+		auto ptr = data.at_r(0)[*left];
 
 		if (*ptr == ValueType::dict)
 		{
@@ -834,12 +834,12 @@ namespace Core {
 			//std::unordered_map<String, ValueType*>* map = *(std::unordered_map<String, ValueType*>**)ptr;
 			//ptr = (*map)[*right];
 
-			program.stack.instructions.at_r(0).value = *ptr;
+			stack.instructions.at_r(0).value = *ptr;
 
-			program.memory.currentSize -= sizeof(void*) + sizeof(void*) + sizeof(void*);
-			for (int i = 0; i < program.specification.type.size[*ptr]; ++i)
-				*(program.memory.data + program.memory.currentSize + i) = *((uint8*)ptr + sizeof(ValueType) + i);
-			program.memory.currentSize += program.specification.type.size[*ptr];
+			memory.currentSize -= sizeof(void*) + sizeof(void*) + sizeof(void*);
+			for (int i = 0; i < specification.type.size[*ptr]; ++i)
+				*(memory.data + memory.currentSize + i) = *((uint8*)ptr + sizeof(ValueType) + i);
+			memory.currentSize += specification.type.size[*ptr];
 
 			delete left,
 			delete right;
