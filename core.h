@@ -10,6 +10,10 @@ namespace Core
 		void call_function(void* function_pointer, Instruction* parameter_pointer, size_t parameter_size);
 	}
 
+	extern "C" {
+		uint64 call_test();
+	}
+
 	String fromInt(int64 num);
 	String fromUint(uint64 num);
 
@@ -24,6 +28,8 @@ namespace Core
 	void conditionalTrue();
 	void conditionalFalse();
 
+	void loadLibrary();
+	void freeLibrary();
 
 	void getValueProcedure();
 
@@ -48,14 +54,15 @@ namespace Core
 
 	void ignore();
 
-	template<size_t _index_r>
-	void getPointer();
 
-	template<size_t _index_r>
-	void getReference();
+	void getPointerR0();
+	void getPointerR1();
 
-	template<size_t _index_r>
-	void getValue();
+	void getReferenceR0();
+	void getReferenceR1();
+
+	void getValueR0();
+	void getValueR1();
 
 
 	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult, ValueType type, _TypeResult(*function) (_TypeLeft, _TypeRight) >
@@ -63,14 +70,14 @@ namespace Core
 
 
 	/*void functionInterfaceForward() {
-		void* func = memory.at<void*>(stack.instructions.get_r(1).shift);
-		Array<Instruction>* param = &stack.arrays.at(stack.instructions.get_r(0).shift);
+		void* func = memory.at<void*>(g_stack_instruction.get_r(1).shift);
+		Array<Instruction>* param = &g_stack_array.at(g_stack_instruction.get_r(0).shift);
 
 		reinterpret_cast<void(*)(Array<Instruction>*)>(func)(param);
 
 		g_erase_s_r(3);
 
-		specification->type.destructor[ValueType::arr](stack.instructions.get_r(1));
+		specification->type.destructor[ValueType::arr](g_stack_instruction.get_r(1));
 	}*/
 
 
@@ -94,7 +101,22 @@ namespace Core
 	_Type negate(_Type t) { return -t; }
 
 	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult, ValueType _valueType>
-	void createFloat();
+	void createFloat() {
+		_TypeResult number = 0;
+		_TypeLeft left = g_memory.get<_TypeLeft>(g_stack_instruction.get_r(2).shift);
+		_TypeRight right = g_memory.get<_TypeLeft>(g_stack_instruction.get_r(0).shift);
+
+		if (right == 0)
+			number = left * 1.0;
+		else
+			number = left * 1.0 + ((right * 1.0) / pow(10, floor(log10(right)) + 1));
+
+		g_memory.max_index -= sizeof(void*) + sizeof(_TypeLeft) + sizeof(_TypeRight);
+
+		g_stack_instruction.max_index -= 2;
+		g_stack_instruction.at_r(0).value = _valueType;
+		g_memory.add<_TypeResult>(number);
+	}
 
 	void contextAtIndex();
 	void contextAtName();

@@ -54,18 +54,11 @@ struct Module {
 };
 
 
-extern Array<Table<String, ValueType*>> data;// = Array<Table<String, ValueType*>>(16);
-extern Array<Table<String, ValueType*>> namespaces;// = Array<Table<String, ValueType*>>(16);
-extern Module* specification;// = NULL;// = Core::initCore();
-
-struct _stack {
-    Array<Instruction> instructions;
-    Array<Array<Instruction>> arrays;
-
-    void drop(size_t amount);
-};
-
-extern _stack stack;// = _stack{ Array<Instruction>(16), Array<Array<Instruction>>(16) };
+extern "C" Array<Table<String, ValueType*>> g_data;// = Array<Table<String, ValueType*>>(16);
+extern "C" Array<Table<String, ValueType*>> g_namespaces;// = Array<Table<String, ValueType*>>(16);
+extern "C" Module* g_specification;// = NULL;// = Core::initCore();
+extern "C" Array<Instruction> g_stack_instruction;
+extern "C" Array<Array<Instruction>> g_stack_array;
 
 struct _context {
     int32 shift;
@@ -73,11 +66,15 @@ struct _context {
     ValueType value;
 };
 
-extern _context context;// = _context{ 0, 0, ValueType::none };
+extern "C" _context g_context;// = _context{ 0, 0, ValueType::none };
 
-extern Span memory;// = Span(1024);
+extern "C" Span g_memory;// = Span(1024);
 
-//Program(Array<Table<String, ValueType*>> data);
+void g_memory_delete_top();
+void g_memory_delete_r(size_t index);
+void g_memory_delete_span_r(size_t index);
+void g_memory_delete_span_r(size_t indexBegin, size_t indexEnd);
+
 
 Status run(const charT* script);
 
