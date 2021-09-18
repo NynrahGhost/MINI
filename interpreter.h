@@ -28,6 +28,7 @@ enum class ProcedureResult {
 
 using Procedure = void (*) ();
 using Destructor = void (*) (void*);
+using DestructorProcedure = void (*) (void*, Instruction&);
 using ToStringGlobal = String (*) (ValueType*);
 using ToStringLocal = String (*) (Instruction);
 
@@ -35,13 +36,15 @@ struct Module {
     Table<String, String> metadata;
 
     struct {
+        uint32 count;
         Table<String, ValueType> id;
         Table<ValueType, String> name;
-        Table<ValueType, size_t> size;
+        uint8* size;
+            //Table<ValueType, size_t> size;
         //Specification may require variableSize field (Currently not belonging to size table means type is varsize)
         Table<ValueType, ToStringGlobal> stringGlobal;
         Table<ValueType, ToStringLocal> stringLocal;
-        Table<ValueType, Destructor> destructor; 
+        Table<ValueType, DestructorProcedure> destructor;
         //Specification may require hasDestructor field (Currently not belonging to destructor table means type has no destructor)
     } type;
 

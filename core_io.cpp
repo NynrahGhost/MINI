@@ -71,7 +71,7 @@ namespace Core {
 			result.append(T("]"));
 			return result;
 		default:
-			result.append((charT*)(value + 1), g_specification->type.size[*value]);
+			result.append((charT*)(value + 1), g_specification->type.size[(uint8)*value]);
 			return result;
 		}
 	}
@@ -131,7 +131,7 @@ namespace Core {
 			//result.append(")");
 			return result;
 		default:
-			result.append((charT*)(g_memory.content + instruction.shift), g_specification->type.size[instruction.value]);
+			result.append((charT*)(g_memory.content + instruction.shift), g_specification->type.size[(uint8)instruction.value]);
 			return result;
 		}
 	}
@@ -174,6 +174,8 @@ namespace Core {
 		std::getline(std::cin, input);
 #elif ENCODING == 16
 		std::getline(std::wcin, input); //Doesn't work yet
+#elif ENCODING == 32
+#error Not implemented yet.
 #endif
 		Instruction instruction_r0 = g_stack_instruction.get_r(0);
 		Instruction instruction_r1 = g_stack_instruction.get_r(1);
@@ -190,9 +192,9 @@ namespace Core {
 			if (!g_specification->type.destructor.count(ValueType::all))
 				return;
 			else
-				g_specification->type.destructor[ValueType::all](**ref);
+				((Destructor)g_specification->type.destructor[ValueType::all])(**ref);
 		else
-			g_specification->type.destructor[***ref](**ref);
+			((Destructor)g_specification->type.destructor[***ref])(**ref);
 
 		**ref = ptr;
 

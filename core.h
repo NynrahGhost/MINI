@@ -6,6 +6,10 @@ namespace Core
 	Module* initCore();
 	Table<String, ValueType*> initCoreData();
 
+	void doNothing();
+	void destructorArr(ValueType* ptr, Instruction& instr, void* efficient0, Instruction& efficient1);
+
+
 	extern "C" {
 		void call_function(void* function_pointer, Instruction* parameter_pointer, size_t parameter_size);
 	}

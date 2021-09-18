@@ -770,8 +770,9 @@ ending:
 void g_memory_delete_top() {
 	Instruction instr = g_stack_instruction.get_r(0);
 	if (g_specification->type.destructor.count(instr.value)) {
-		g_specification->type.destructor[instr.value](g_memory.content + instr.shift);
+		((Destructor)g_specification->type.destructor[instr.value])(g_memory.content + instr.shift);
 	}
+	--g_stack_instruction.max_index;
 	g_memory.max_index = instr.shift;
 }
 
@@ -780,7 +781,15 @@ void g_memory_delete_r(size_t index) {
 }
 
 void g_memory_delete_span_r(size_t index) {
-
+	Instruction instr;
+	while (--index) {
+		instr = g_stack_instruction.get_r(0);
+		if (g_specification->type.destructor.count(instr.value)) {
+			((Destructor)g_specification->type.destructor[instr.value])(g_memory.content + instr.shift);
+		}
+		g_memory.max_index = instr.shift; //Destruction may depend on the rest of memory allocated
+		--g_stack_instruction.max_index;
+	}
 }
 
 void g_memory_delete_span_r(size_t indexBegin, size_t indexEnd) {

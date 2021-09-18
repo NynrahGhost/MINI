@@ -50,28 +50,25 @@ enum class ValueType :
     none,
     all,
     type,
-    specification,
-    dll,
     truth, lie,             // Boolean type, but values are stored explicitly (thus it's more efficient then storing in int8).
     int8, int16, int32, int64,
     uint8, uint16, uint32, uint64,
     float16, float32, float64, float128,
     data0, data8, data16, data32,
+    name, string, expression, link,
     parameter_pattern,
     ufunction, umethod, uprocedure,
     unfunction, unmethod, unprocedure,
     bfunction, bmethod, bprocedure,
     bnfunction, bnmethod, bnprocedure,
-    name,
-    string,
-    expression,
-    link,
     arr,
     dict,
     pointer,
+    autoptr,           // Alike automatic storage, gets freeed when exits stack.
     reference,
-    smartPointer,           // Data that gets destroyed when there are no more references pointing to it
-    object,                 // Starts with address of schema it uses.
+    smartPointer,           // Data that gets destroyed when there are no more references pointing to it.
+    specification,
+    dll,
 };
 
 struct ValueTypeUnary {

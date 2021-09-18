@@ -57,6 +57,7 @@ namespace Core {
 		//if (Core::core != 0)
 		//	return *Core::core;
 		Module* core = new Module();
+		core->type.count = 45;
 		core->type.id = Table<String, ValueType>({	//type.name : typeID
 			{T("int64"), ValueType::int64},
 			{T("int32"), ValueType::int32},
@@ -91,7 +92,31 @@ namespace Core {
 			{ValueType::arr, T("array")},
 			{ValueType::expression, T("expression")},
 		});
-		core->type.size = Table<ValueType, size_t>({	//typeID : type.size
+		core->type.size = new uint8[46]{
+			0,
+			(uint8)-1,
+			1,
+			0, 0,
+			1, 2, 3, 4,
+			1, 2, 3, 4,
+			2, 4, 8, 16,
+			(uint8)-1, (uint8)-1, (uint8)-1, (uint8)-1,
+			(uint8)-1, (uint8)-1, (uint8)-1, (uint8)-1,
+			(uint8)-1,
+			8, 8, 8,
+			8, 8, 8,
+			8, 8, 8,
+			8, 8, 8,
+			(uint8)-1,
+			8,
+			8,
+			8,
+			8,
+			8,
+			8,
+			8
+		};
+		/*core->type.size = Table<ValueType, size_t>({	//typeID : type.size
 			{ValueType::int64, 8},
 			{ValueType::int32, 4},
 			{ValueType::int16, 2},
@@ -110,7 +135,7 @@ namespace Core {
 			{ValueType::unprocedure, sizeof(void*)}, //TODO: void* for 'all'
 			{ValueType::reference, sizeof(void*)},
 			{ValueType::pointer, sizeof(void*)},
-		});
+		});*/
 		core->type.stringGlobal = Table<ValueType, ToStringGlobal>();
 		{
 			toStrGlobal(all, toStringGlobal);
@@ -120,9 +145,11 @@ namespace Core {
 			toStrLocal(all, toStringLocal);
 			toStrLocal(arr, toStringLocalArray);
 		}
-		core->type.destructor = Table<ValueType, Destructor>();
+		core->type.destructor = Table<ValueType, DestructorProcedure>();
 		{
-			destr(all, (Destructor)free); //TODO: Fill with string, table and stuff
+			destr(all, (DestructorProcedure)doNothing); //TODO: Fill with string, table and stuff
+			destr(arr, (DestructorProcedure)destructorArr);
+			destr(autoptr, (DestructorProcedure)free);
 		}
 		core->op.prefix = Table<String, Table<ValueType, Procedure>>();
 		{

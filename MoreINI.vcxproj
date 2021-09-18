@@ -142,6 +142,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="core.cpp" />
+    <ClCompile Include="core_destructors.cpp" />
     <ClCompile Include="core_io.cpp" />
     <ClCompile Include="core_math.cpp" />
     <ClCompile Include="core_general.cpp" />

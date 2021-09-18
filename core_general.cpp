@@ -1,7 +1,9 @@
 #include "core.h"
 
 namespace Core {
-	//template<size_t _index_r>
+
+	void doNothing() {}
+
 	void getValueNameResolve() {
 		Instruction& name = g_stack_instruction.at_r(1);
 
@@ -123,7 +125,7 @@ namespace Core {
 				//TODO: decide whether I use null terminated string or not.
 				return;
 			default:
-				g_memory.replace(ptr + 1, g_specification->type.size[*ptr], name.shift, sizeof(void*));
+				g_memory.replace(ptr + 1, g_specification->type.size[(uint8)*ptr], name.shift, sizeof(void*));
 				name.value = *ptr;
 				return;
 			}
@@ -149,7 +151,7 @@ namespace Core {
 				//TODO: decide whether I use null terminated string or not.
 				return;
 			default:
-				g_memory.replace(ptr + 1, g_specification->type.size[*ptr], name.shift, sizeof(void*));
+				g_memory.replace(ptr + 1, g_specification->type.size[(uint8)*ptr], name.shift, sizeof(void*));
 				name.value = *ptr;
 				return;
 			}
@@ -163,7 +165,7 @@ namespace Core {
 
 
 	void conditional() {
-		size_t size = g_specification->type.size[g_stack_instruction.at_r(0).value];
+		size_t size = g_specification->type.size[(uint8)g_stack_instruction.at_r(0).value];
 
 		uint8* ptr = (g_memory.content + g_stack_instruction.at_r(0).shift);
 
@@ -199,7 +201,7 @@ namespace Core {
 
 
 	void loopWhile() { //TODO
-		size_t size = g_specification->type.size[g_stack_instruction.at_r(0).value];
+		size_t size = g_specification->type.size[(uint8)g_stack_instruction.at_r(0).value];
 
 		uint8* ptr = (g_memory.content + g_stack_instruction.at_r(0).shift);
 
@@ -219,9 +221,9 @@ namespace Core {
 		auto left = g_stack_instruction.get_r(2);
 		auto right = g_stack_instruction.get_r(0);
 
-		ValueType* ptr = (ValueType*)malloc(sizeof(ValueType) + g_specification->type.size[right.value]);
+		ValueType* ptr = (ValueType*)malloc(sizeof(ValueType) + g_specification->type.size[(uint8)right.value]);
 		*ptr = right.value;
-		memcpy(ptr + 1, g_memory.content + right.shift, g_specification->type.size[right.value]);
+		memcpy(ptr + 1, g_memory.content + right.shift, (uint8)g_specification->type.size[(uint8)right.value]);
 
 		g_namespaces.get_r(0)[g_memory.get<String>(left.shift)] = ptr;
 	}
@@ -230,9 +232,9 @@ namespace Core {
 		auto left = g_stack_instruction.get_r(2);
 		auto right = g_stack_instruction.get_r(0);
 
-		ValueType* ptr = (ValueType*)malloc(sizeof(ValueType) + g_specification->type.size[right.value]);
+		ValueType* ptr = (ValueType*)malloc(sizeof(ValueType) + g_specification->type.size[(uint8)right.value]);
 		*ptr = right.value;
-		memcpy(ptr + 1, g_memory.content + right.shift, g_specification->type.size[right.value]);
+		memcpy(ptr + 1, g_memory.content + right.shift, g_specification->type.size[(uint8)right.value]);
 
 		g_namespaces.get_r(0)[g_memory.get<String>(left.shift)] = ptr;
 	}

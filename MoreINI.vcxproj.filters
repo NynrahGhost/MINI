@@ -36,6 +36,9 @@
     <ClCompile Include="core_io.cpp">
       <Filter>Source Files\core</Filter>
     </ClCompile>
+    <ClCompile Include="core_destructors.cpp">
+      <Filter>Source Files\core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="core.h">

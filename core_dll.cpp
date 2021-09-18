@@ -5,6 +5,7 @@
 //constexpr auto unloadDLL = FreeLibrary;
 
 #include "core.h"
+#include <iostream>
 
 namespace Core {
 	void loadLibrary() {
@@ -19,6 +20,7 @@ namespace Core {
 #elif ENCODING == 32
 #error not implemented
 #endif
+		std::cout << dll << std::endl;
 		g_memory_delete_span_r(2);
 		g_stack_instruction.add(Instruction::val(ValueType::dll, g_memory.max_index));
 		g_memory.add<void*>(dll);
