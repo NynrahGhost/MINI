@@ -30,6 +30,7 @@ enum class InstructionType : uint8 {
     op,
     context,
     call,
+    exception,
 };
 
 
@@ -49,6 +50,7 @@ enum class ValueType :
 {
     none,
     all,
+    instruction,
     type,
     truth, lie,             // Boolean type, but values are stored explicitly (thus it's more efficient then storing in int8).
     int8, int16, int32, int64,
@@ -61,11 +63,11 @@ enum class ValueType :
     unfunction, unmethod, unprocedure,
     bfunction, bmethod, bprocedure,
     bnfunction, bnmethod, bnprocedure,
-    arr,
+    tuple,
     dict,
     pointer,
     autoptr,           // Alike automatic storage, gets freeed when exits stack.
-    reference,
+    reference, autoref,
     smartPointer,           // Data that gets destroyed when there are no more references pointing to it.
     specification,
     dll,

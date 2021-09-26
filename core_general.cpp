@@ -113,16 +113,23 @@ namespace Core {
 
 	void getValueR0() {
 		Instruction& name = g_stack_instruction.at_r(0);
-		auto table = g_data.at_r(0);
+		auto table = g_data.at(0);	//Access global namespace
 		String str = String((charT*)(g_memory.content + name.shift), name.modifier);
 
 		if (table.count(str))
 		{
-			ValueType* ptr = g_data.at_r(0)[str];
+			ValueType* ptr = table[str];
 
 			switch (*ptr) {
 			case ValueType::string:
-				//TODO: decide whether I use null terminated string or not.
+				return;
+			case ValueType::tuple:
+			case ValueType::dict:
+			case ValueType::unprocedure:
+				g_memory.max_index -= name.modifier;
+				g_memory.add<void*>(*(void**)(ptr + 1));
+				//g_memory.add<uintptr_t>((uintptr_t)(ptr + 1));
+				name.value = *ptr;
 				return;
 			default:
 				g_memory.replace(ptr + 1, g_specification->type.size[(uint8)*ptr], name.shift, sizeof(void*));
@@ -138,17 +145,27 @@ namespace Core {
 	}
 
 	void getValueR1() {
-		Instruction& name = g_stack_instruction.at_r(1);
+		Instruction name = g_stack_instruction.at_r(1);
 		auto table = g_data.at_r(0);
 		String str = String((charT*)(g_memory.content + name.shift), name.modifier);
 
 		if (table.count(str))
 		{
-			ValueType* ptr = g_data.at_r(0)[str];
+			ValueType* ptr = table[str];
 
 			switch (*ptr) {
 			case ValueType::string:
-				//TODO: decide whether I use null terminated string or not.
+				return;
+			case ValueType::tuple:
+			case ValueType::dict:
+			case ValueType::unprocedure:
+				memcpy(g_memory.content + name.shift + sizeof(void*), g_memory.content + name.shift + name.modifier, g_memory.max_index - name.shift + name.modifier);
+				*(Procedure*)(g_memory.content + name.shift) = *(Procedure*)(ptr + 1);
+				g_memory.max_index += sizeof(void*) - name.modifier;
+				g_stack_instruction.at_r(0).shift += sizeof(void*) - name.modifier;
+				name.value = *ptr;
+				name.modifier = 0;
+				g_stack_instruction.at_r(1) = name;
 				return;
 			default:
 				g_memory.replace(ptr + 1, g_specification->type.size[(uint8)*ptr], name.shift, sizeof(void*));
@@ -217,6 +234,38 @@ namespace Core {
 	}
 
 
+	void invokeResolve() {
+
+	}
+
+	void invokeProcedure() {
+		((Procedure)g_memory.get<void*>(g_stack_instruction.get_r(1).shift))();
+	}
+
+	void invokeFunction() {
+		Instruction parameter = g_stack_instruction.get_r(0);
+		Instruction function = g_stack_instruction.get_r(2);
+
+		/*if (context.value == ValueType::dll)
+		{
+			GetProcAddress(memory.get<HMODULE>(context.shift), memory.get<String>(function.shift).c_str());
+			g_stack_array.get_r(parameter.modifier).content;
+		}*/
+
+		g_stack_instruction.max_index -= 2;
+
+		//TODO: add a function to add value
+		g_stack_instruction.add(Instruction::call(parameter.value, parameter.shift));	//TODO: make a 'call' instruction that specifies change of executable string
+		g_stack_instruction.add(Instruction::context(parameter.value, parameter.shift));
+
+
+	}
+
+	void invokeNativeFunction() {
+
+	}
+
+
 	void assign() {
 		auto left = g_stack_instruction.get_r(2);
 		auto right = g_stack_instruction.get_r(0);
@@ -225,7 +274,7 @@ namespace Core {
 		*ptr = right.value;
 		memcpy(ptr + 1, g_memory.content + right.shift, (uint8)g_specification->type.size[(uint8)right.value]);
 
-		g_namespaces.get_r(0)[g_memory.get<String>(left.shift)] = ptr;
+		g_stack_namespace.get_r(0)[g_memory.get<String>(left.shift)] = ptr;
 	}
 
 	void assignToReference() {
@@ -236,7 +285,7 @@ namespace Core {
 		*ptr = right.value;
 		memcpy(ptr + 1, g_memory.content + right.shift, g_specification->type.size[(uint8)right.value]);
 
-		g_namespaces.get_r(0)[g_memory.get<String>(left.shift)] = ptr;
+		g_stack_namespace.get_r(0)[g_memory.get<String>(left.shift)] = ptr;
 	}
 
 

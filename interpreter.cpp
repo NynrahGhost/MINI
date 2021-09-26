@@ -1,6 +1,7 @@
 #include "interpreter.h"
 #include "core.h"
 #include <iostream>
+#include <fstream>
 #include <functional>
 #include "common_types.h"
 #include "common_utils.h"
@@ -11,7 +12,8 @@ int main()
 
 	script = T("!<<('Input ''text: \n'), !>>ref, !<<'Your text: \n', !<<ref , !<<'\n'");
 	//script = T("1234.print['well'; 'World!'];");
-	//script = T("!<<'here';");
+	script = T("print['Hello';'World';'!'];");	
+	//script = T("load_library('C:\\Users\\Ghost\\source\\repos\\TestDll\\x64\\Debug\\TestDll.dll');");
 
 	g_data.init();// = *(new Array<Table<String, ValueType*>>());
 	g_data.add(Core::initCoreData());//Table<String, ValueType*>();
@@ -28,12 +30,13 @@ int main()
 }
 
 Array<Table<String, ValueType*>> g_data = Array<Table<String, ValueType*>>(16);
-Array<Table<String, ValueType*>> g_namespaces = Array<Table<String, ValueType*>>(16);
-Module* g_specification = Core::initCore();
-Array<Instruction> g_stack_instruction = Array<Instruction>(16);
-Array<Array<Instruction>> g_stack_array = Array<Array<Instruction>>(16);
-_context g_context = _context{ 0, 0, ValueType::none };
-Span g_memory = Span(1024);
+thread_local Array<Table<String, ValueType*>> g_stack_namespace = Array<Table<String, ValueType*>>(16);
+thread_local Module* g_specification = Core::initCore();
+thread_local Array<Instruction> g_stack_instruction = Array<Instruction>(16);
+thread_local Array<Array<Instruction>*> g_stack_array = Array<Array<Instruction>*>(16);
+//thread_local _context g_context = _context{ 0, 0, ValueType::none };
+thread_local Array<Instruction> g_stack_context = Array<Instruction>(16);
+thread_local Span g_memory = Span(1024);
 
 
 Status run(const charT* script)
@@ -51,7 +54,6 @@ Status run(const charT* script)
 	Instruction instruction_r1; //Pre-top instruction
 	Instruction instruction_r2; //Pre-pre-top instruction
 	Instruction instruction_r3; //Pre-pre-pre-top instruction
-
 
 	if (!g_memory.content)
 		g_memory.init(256);
@@ -256,23 +258,6 @@ Status run(const charT* script)
 			}
 		}
 	}
-	/*
-		print[arg0;arg1;arg2]
-
-		|   |   | ] | //Check close left
-		|   | ] |val| //Array coalescing 
-		| ] |o p| _ | //Array postfix
-		|   | ] | _ | //Parse
-	| ] | - |val| _ | //Binary long
-
-
-		+table{ arg0:123; function:"@0" }
-	
-		ref = +table { 
-			
-		}
-
-	*/
 
 	skip: {
 		switch (script[++scriptIndex]) {
@@ -333,14 +318,14 @@ Status run(const charT* script)
 			switch (instruction_r1.instr) {                                   //   |   | x | ; |
 			case InstructionType::ignore_separator: goto eval_delete_r0r1;    //   |   |/;/| ; | :eval_delete_r0r1
 			case InstructionType::ignore_array_start: goto parse;             //   |   |/[/| ; | :parse
-			case InstructionType::separator: goto eval_array_add_empty;       //   |   | ; | ; | :eval_array_add_empty
-			case InstructionType::start_array: goto eval_array_add_empty;     //   |   | [ | ; | :eval_array_add_empty
+			case InstructionType::separator: goto eval_tuple_add_empty;       //   |   | ; | ; | :eval_tuple_add_empty
+			case InstructionType::start_array: goto eval_tuple_add_empty;     //   |   | [ | ; | :eval_tuple_add_empty
 			case InstructionType::op: goto eval_postfix;                      //   |   |o p| ; | :eval_postfix		//TODO: Better to do another level to check for val
 			case InstructionType::value:                                      
 				switch (instruction_r2.instr) {                               //   | x |val| ; |
 				case InstructionType::start: goto parse;                      //   |s t|val| ; | :parse
 				case InstructionType::op: goto eval_prefix;                   //   |o p|val| ; | :eval_prefix
-				case InstructionType::start_array: goto eval_array_add;       //   | [ |val| ; | :eval_array_add
+				case InstructionType::start_array: goto eval_tuple_add;       //   | [ |val| ; | :eval_tuple_add
 				case InstructionType::spacing: goto eval_binary_long;         //   | _ |val| ; | :eval_binary_long
 				case InstructionType::skip_after_next: goto eval_skip_after_next;//|s->|val| ; | :eval_skip_after_next
 				case InstructionType::ignore_separator: goto eval_leave_r1;   //   |/;/|val| ; | :eval_leave_r1
@@ -359,25 +344,26 @@ Status run(const charT* script)
 		case InstructionType::start_array:                                    //   |   | x | [ | 
 			switch (instruction_r1.instr) {
 			case InstructionType::ignore_array_start: goto eval_delete_r0r1;  //   |   |/[/| [ | :eval_delete_r0r1
-			default: goto eval_array_start;}                                  //   |   |all| [ | :eval_array_start
+			default: goto eval_tuple_start;}                                  //   |   |all| [ | :eval_tuple_start
 		case InstructionType::end_array:                                      
 			switch (instruction_r1.instr) {                                   //   |   | x | ] |
-			case InstructionType::start_array: goto eval_array_empty;         //   |   | [ | ] | :eval_array_empty
+			case InstructionType::start_array: goto eval_tuple_empty;         //   |   | [ | ] | :eval_tuple_empty
 			case InstructionType::value:                                      //   | x |val| ] |
 				switch (instruction_r2.instr) {
-				case InstructionType::start_array: goto eval_array_end;       //   | [ |val| ] | :eval_array_end
+				case InstructionType::start_array: goto eval_tuple_end;       //   | [ |val| ] | :eval_tuple_end
 				case InstructionType::spacing: goto eval_binary_long;         //   | _ |val| ] | :eval_binary_long
 				default: goto error_syntax;}
 			default: goto error_syntax;}
 		case InstructionType::start_context:                                  
             switch (instruction_r1.instr) {                                   //   |   | x | { |
-            case InstructionType::spacing: goto eval_context_new;             //   |   | _ | { | :eval_context_new
-            case InstructionType::value: goto eval_context_of;                //   |   |val| { | :eval_context_of
+            case InstructionType::spacing: goto eval_delete_r1;               //   |   | _ | { | :eval_delete_r1
+            case InstructionType::value: goto eval_context_start;             //   |   |val| { | :eval_context_start
 			case InstructionType::context: goto parse;                        //   |   |ctx| { | :parse
             default: goto error_syntax; }
         case InstructionType::end_context:                                    //   |   | x | } |
             switch (instruction_r1.instr) {
-            case InstructionType::value: goto eval_context_finish;            //   | x |val| } |
+			case InstructionType::start_context: goto eval_context_finish_empty;// |   | { | } | :eval_context_finish_empty
+            case InstructionType::value:                                      //   | x |val| } |
                 switch (instruction_r2.instr) {
                 case InstructionType::op: goto eval_prefix;                   //   |o p|val| } | :eval_prefix
                 case InstructionType::start_context: goto eval_context_finish;//   | { |val| } | :eval_context_finish
@@ -445,7 +431,7 @@ Status run(const charT* script)
 			case InstructionType::start_context: goto parse;                  //   |   | { |val| :parse
 			case InstructionType::start_array: goto parse;                    //   |   | [ |val| :parse
 			case InstructionType::start_group: goto parse;                    //   |   | ( |val| :parse
-            case InstructionType::start: goto parse;                          //   |   |s t|val| :parse
+			case InstructionType::start: goto parse;                          //   |   |s t|val| :parse
             case InstructionType::value: goto eval_coalescing;                //   |   |val|val| :eval_coalescing
 			case InstructionType::spacing: goto parse;                        //   |   | _ |val| :parse
             //    switch (instruction_r2.instr) {
@@ -474,6 +460,13 @@ Status run(const charT* script)
 			--g_stack_instruction.max_index;
 			goto parse;
 		}
+
+		eval_delete_r1: {
+			g_stack_instruction.at_r(1) = g_stack_instruction.get_r(0);
+			--g_stack_instruction.max_index;
+			goto parse;
+		}
+
 		eval_delete_r0r1: {
 			g_stack_instruction.max_index -= 2;
 			goto parse;
@@ -516,75 +509,58 @@ Status run(const charT* script)
 			}
 		}
 
-
-		eval_context_new: {
-			g_stack_instruction.add(Instruction::context(g_context.value, g_context.shift));
-
-			g_memory.add<void*>((void*)new Table<String, ValueType*>());
-			//*(void**)(memory.data + memory.currentSize) = new Table<String, ValueType*>();
-			//memory.currentSize += sizeof(void*);
-
-			g_stack_instruction.add(Instruction::atom(InstructionType::start_context));
-
-			goto parse;
-		}
-
-		eval_context_of: {
-			g_stack_instruction.at_r(0) = Instruction::context(g_context.value, g_context.shift);
-
-			g_context.shift = instruction_r1.shift;
-			g_context.value = instruction_r2.value;
-
-			g_stack_instruction.add(Instruction::atom(InstructionType::start_context));
-
+		eval_context_start: {
+			g_stack_context.add(g_stack_instruction.get_r(1));	//TODO: onEnterContext
 			goto parse;
 		}
 
 		eval_context_finish: {
-			/*context = stack[iterator - 2].location;
-			stack[iterator - 2] = stack[iterator - 1];
-			stack.pop_back();*/
-			g_context.shift = g_stack_instruction.get_r(3).shift;
-			g_context.value = g_stack_instruction.get_r(3).value;
-			g_context.modifier = g_stack_instruction.get_r(3).modifier;
-			g_stack_instruction.get_r(3) = instruction_r1;
-
-			g_stack_instruction.max_index -= 3;// resize(iterator - 4);
+			--g_stack_context.max_index; //TODO: onExitContext
+			//TODO: delete context and leave r1.
 			goto parse;
 		}
 
-		eval_array_start: {
-			++g_stack_array.max_index;
-			g_stack_array.at_r(0).init();
-			g_stack_instruction.at_r(0).shift = g_stack_array.max_index;
+		eval_context_finish_empty: {
+			g_stack_context.max_index -= 2;
 			goto parse;
 		}
 
-		eval_array_add: {
-			g_stack_array[instruction_r2.shift].add(instruction_r1);
-			//memory.max_index -= specification->type.size[instruction_r1.value];
+		eval_tuple_start: {
+			g_stack_instruction.at_r(0) = Instruction::pos(InstructionType::start_array, g_memory.max_index);
+			g_memory.add<Array<Instruction>*>(new Array<Instruction>());
+			goto parse;
+		}
+
+		eval_tuple_add: {
+			instruction_r1.shift -= instruction_r2.shift + 8;
+			g_memory.get<Array<Instruction>*>(instruction_r2.shift)->add(instruction_r1);
 			g_stack_instruction.max_index -= 2;
 			goto parse;
 		}
 
-		eval_array_add_empty: {
-			g_stack_array[instruction_r2.shift].add(Instruction::val(ValueType::arr, 0));
+		eval_tuple_add_empty: { //Possibly have no reason to add this instead of using [ ...; (); ... ] //TODO: remove
+			g_stack_array.get(instruction_r2.shift)->add(Instruction::val(ValueType::tuple, 0));
 			g_stack_instruction.max_index -= 1;
 			goto parse;
 		}
 
-		eval_array_empty: {
-			g_stack_instruction.max_index -= 1;
-			g_stack_instruction.at_r(0).instr = InstructionType::value;
+		eval_tuple_empty: { //TODO: redo
+			Array<Instruction>* tuple = new Array<Instruction>();
+			g_memory.add<Array<Instruction>*>(tuple);
+			--g_stack_instruction.max_index;
+			g_stack_instruction.add(Instruction::val(ValueType::tuple, g_memory.max_index));
 			goto parse;
 		}
 
-		eval_array_end: {
-			g_stack_array[instruction_r2.shift].add(instruction_r1);
-			//memory.max_index -= specification->type.size[instruction_r1.value];
+		eval_tuple_end: {
+			instruction_r1.shift -= instruction_r2.shift + 8;
+ 			g_memory.get<Array<Instruction>*>(instruction_r2.shift)->add(instruction_r1);	
+			instruction_r2.instr = InstructionType::value;
+			instruction_r2.value = ValueType::tuple;
+			g_stack_instruction.at_r(2) = instruction_r2; 
+
 			g_stack_instruction.max_index -= 2;
-			g_stack_instruction.at_r(0).instr = InstructionType::value;
-			g_stack_instruction.at_r(0).value = ValueType::arr;
+
 			goto evaluate; //goto parse;
 		}
 

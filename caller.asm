@@ -1,16 +1,14 @@
 .data
 extern g_memory:qword
 extern g_stack_instruction:qword	; pointer to instruction stack's content
-extern g_stack_array:qword			; pointer to array stack's content
 
 .code
-
 ; rcx - size of array
 ; r10 - pointer to function
 ; r11 - pointer to array's content
 native_call proc
-	mov rcx, qword ptr [g_stack_array + 8]	; Array count
-	mov r11, g_stack_array
+	;mov rcx, qword ptr [g_stack_array + 8]	; Array count
+	;mov r11, g_stack_array
 	mov r11, [r11+rcx*8]			; Top array's content
 	mov rcx, qword ptr [r11 + 8]	; Top array's max_index
 

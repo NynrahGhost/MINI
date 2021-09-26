@@ -21,11 +21,6 @@ enum class Status
     error_syntax,
 };
 
-enum class ProcedureResult {
-    success,
-    repeat,
-};
-
 using Procedure = void (*) ();
 using Destructor = void (*) (void*);
 using DestructorProcedure = void (*) (void*, Instruction&);
@@ -57,21 +52,22 @@ struct Module {
 };
 
 
-extern "C" Array<Table<String, ValueType*>> g_data;// = Array<Table<String, ValueType*>>(16);
-extern "C" Array<Table<String, ValueType*>> g_namespaces;// = Array<Table<String, ValueType*>>(16);
-extern "C" Module* g_specification;// = NULL;// = Core::initCore();
-extern "C" Array<Instruction> g_stack_instruction;
-extern "C" Array<Array<Instruction>> g_stack_array;
+extern "C" Array<Table<String, ValueType*>> g_data;
+extern "C" thread_local Module* g_specification;
+extern "C" thread_local Array<Table<String, ValueType*>> g_stack_namespace;
+extern "C" thread_local Array<Instruction> g_stack_context;
+extern "C" thread_local Array<Instruction> g_stack_instruction;
+//extern "C" thread_local Array<Array<Instruction>*> g_stack_array;
 
-struct _context {
+/*struct _context {
     int32 shift;
     int16 modifier;
     ValueType value;
-};
+};*/
 
-extern "C" _context g_context;// = _context{ 0, 0, ValueType::none };
+//extern "C" thread_local _context g_context;
 
-extern "C" Span g_memory;// = Span(1024);
+extern "C" thread_local Span g_memory;
 
 void g_memory_delete_top();
 void g_memory_delete_r(size_t index);

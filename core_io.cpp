@@ -61,7 +61,7 @@ namespace Core {
 			}
 			result.append(T("}"));
 			return result;
-		case ValueType::arr:
+		case ValueType::tuple:
 			result.append(T("["));
 			for (int i = 0; i < (*(Array<ValueType*>*)(value + 1)).max_index; ++i)
 			{
@@ -113,14 +113,22 @@ namespace Core {
 			}
 			result.append(T("}"));
 			return result;
-		case ValueType::arr:
+		case ValueType::tuple:
 			result.append(T("["));
-			for (int i = 0; i < g_stack_array.at(instruction.shift).max_index; ++i)
 			{
-				result.append(toStringLocal(g_stack_array.at(instruction.shift).at(i)));
-				result.append(T("; "));
+				Array<Instruction> tuple = *(Array<Instruction>*)g_memory.get<void*>(instruction.shift);
+				Instruction element;
+				for (int i = 0; i < tuple.max_index; ++i)
+				{
+					element = tuple.get(i);
+					element.shift += instruction.shift + sizeof(void*);
+					result.append(toStringLocal(element));
+					result.append(T("; "));
+				}
+				element = tuple.get_r(0);
+				element.shift += instruction.shift + sizeof(void*);
+				result.append(toStringLocal(element));
 			}
-			result.append(toStringLocal(g_stack_array.at(instruction.shift).at_r(0)));
 			result.append(T("]"));
 			return result;
 		case ValueType::reference:
@@ -138,15 +146,19 @@ namespace Core {
 
 	String toStringLocalArray(Instruction instruction) {
 		String result = String();
-		auto arr = g_stack_array.get(instruction.shift);
 
-		result.append(T("[ "));
-		for (int i = 0; i < arr.max_index; ++i) {
-			instruction = arr.get(i);
-			result.append(g_specification->type.stringLocal[instruction.value](instruction));
-			result.append(T(", "));
+		result.append(T("["));
+		{
+			Array<Instruction> tuple = *(Array<Instruction>*)g_memory.get<void*>(instruction.shift);
+			for (int i = 0; i < tuple.max_index; ++i)
+			{
+				result.append(toStringLocal(tuple.get(i)));
+				result.append(T("; "));
+			}
+			result.append(toStringLocal(tuple.get_r(0)));
 		}
-		result.append(T("] "));
+		result.append(T("]"));
+
 		return result;
 	}
 
@@ -156,7 +168,7 @@ namespace Core {
 		ToStringLocal function = 0;
 		if (g_specification->type.stringLocal.count(instruction_r0.value))
 			function = g_specification->type.stringLocal.at(instruction_r0.value);
-		if (g_specification->type.stringLocal.count(ValueType::all))
+		else if (g_specification->type.stringLocal.count(ValueType::all))
 			function = g_specification->type.stringLocal.at(ValueType::all);
 #if ENCODING == 8
 		std::cout << function(instruction_r0);

@@ -3,7 +3,7 @@
 namespace Core {
 
 	void destructorArr(ValueType* ptr, Instruction& instr, void* efficient0, Instruction& efficient1) {
-		auto arr = g_stack_array.get(instr.shift);
+		/*auto arr = g_stack_array.get(instr.shift);
 
 		efficient0 = &g_specification->type.destructor;
 
@@ -19,7 +19,7 @@ namespace Core {
 				((Table<ValueType, Destructor>&)efficient0)[ValueType::all](g_memory.content + efficient1.shift);
 			}
 			--arr.max_index;
-		}
+		}*/
 	}
 
 }

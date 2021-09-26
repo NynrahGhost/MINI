@@ -72,7 +72,7 @@ namespace Core {
 			{T("float32"), ValueType::float32},
 			{T("string"), ValueType::string},
 			{T("name"), ValueType::name},
-			{T("array"), ValueType::arr},
+			{T("array"), ValueType::tuple},
 			{T("expression"), ValueType::expression},
 		});
 		core->type.name = Table<ValueType, String>({	//typeID : type.name
@@ -89,12 +89,13 @@ namespace Core {
 			{ValueType::float32, T("float32")},
 			{ValueType::string, T("string")},
 			{ValueType::name, T("name")},
-			{ValueType::arr, T("array")},
+			{ValueType::tuple, T("array")},
 			{ValueType::expression, T("expression")},
 		});
-		core->type.size = new uint8[46]{
+		core->type.size = new uint8[48]{
 			0,
 			(uint8)-1,
+			1,
 			1,
 			0, 0,
 			1, 2, 3, 4,
@@ -111,7 +112,7 @@ namespace Core {
 			8,
 			8,
 			8,
-			8,
+			8, 8,
 			8,
 			8,
 			8
@@ -143,12 +144,12 @@ namespace Core {
 		core->type.stringLocal = Table<ValueType, ToStringLocal>();
 		{
 			toStrLocal(all, toStringLocal);
-			toStrLocal(arr, toStringLocalArray);
+			//toStrLocal(tuple, toStringLocalArray);
 		}
 		core->type.destructor = Table<ValueType, DestructorProcedure>();
 		{
 			destr(all, (DestructorProcedure)doNothing); //TODO: Fill with string, table and stuff
-			destr(arr, (DestructorProcedure)destructorArr);
+			destr(tuple, (DestructorProcedure)destructorArr);
 			destr(autoptr, (DestructorProcedure)free);
 		}
 		core->op.prefix = Table<String, Table<ValueType, Procedure>>();
@@ -200,7 +201,7 @@ namespace Core {
 			uFun(int64, atContextByIndex);
 			uFun(name, atContextByName);
 			uFun(string, atContextByName);
-			uFun(arr, renameArrayContext);
+			uFun(tuple, renameArrayContext);
 
 			table = &core->op.prefix[T(".")];
 			uFun(int64, contextMethod);
@@ -234,8 +235,14 @@ namespace Core {
 		{
 			Table<ValueTypeBinary, Procedure>* table;
 
+			table = &core->op.binary[T("?,")]; //Null coalesceing
+
+			table = &core->op.binary[T("?=")]; //Null conditional assignment
+
+			table = &core->op.binary[T("?.")]; //Null conditional method call
+
 			table = &core->op.binary[T("@")];
-			bFun(unfunction, arr, callWithContext);
+			bFun(unfunction, tuple, callWithContext);
 
 			table = &core->op.binary[T(",")];
 			bFun(all, all, commaBinary);
@@ -287,11 +294,11 @@ namespace Core {
 		{
 			Table<ValueTypeBinary, Procedure>* table = &core->op.coalescing;
 
-			bFun(name, all, (getValueR1)); //arr
-			bFun(reference, arr, (getValueR1));
-			bFun(unprocedure, all, invokeProcedure); //arr
-			bFun(parameter_pattern, arr, invokeFunction);
-			bFun(unfunction, arr, invokeNativeFunction);
+			bFun(name, all, (getValueR1)); //tuple
+			bFun(reference, tuple, (getValueR1));
+			bFun(unprocedure, all, invokeProcedure); //tuple
+			bFun(parameter_pattern, tuple, invokeFunction);
+			bFun(unfunction, tuple, invokeNativeFunction);
 
 			bFun(string, string, concatenate);
 
@@ -356,6 +363,12 @@ namespace Core {
 		data["uint8"] = alloc1(ValueType::type, (uint8)ValueType::uint8);
 		data["float32"] = alloc1(ValueType::type, (uint8)ValueType::float32);
 		data["float64"] = alloc1(ValueType::type, (uint8)ValueType::float64);
+		
+		data["string"] = alloc1(ValueType::type, (uint8)ValueType::string);
+		data["Group"] = alloc1(ValueType::type, (uint8)ValueType::tuple);
+		data["Table"] = alloc1(ValueType::type, (uint8)ValueType::dict);
+		data["Auto"] = alloc1(ValueType::type, (uint8)ValueType::dict);
+		
 
 		data["print"] = allocPtr(ValueType::unprocedure, print);
 		data["scan"] = allocPtr(ValueType::unprocedure, scan);
@@ -378,21 +391,21 @@ namespace Core {
 
 
 	void callThis() {
-		++g_stack_array.max_index;
-		g_stack_array.at_r(0).init(); //allocate new array
+		g_memory.max_index = g_stack_instruction.get_r(1).shift; //We know that the right value is procedure pointer, so no special destructor should be.
+		//g_memory.add<void*>(*g_memory.get<void**>(g_stack_instruction.get_r(0).shift));
+		g_memory.add<void*>(g_memory.get<void*>(g_stack_instruction.get_r(0).shift));
 
-		void* method = g_memory.at<void*>(g_stack_instruction.get_r(0).shift);
-		g_memory.max_index -= sizeof(void*) + sizeof(charT); //erase operator and method pointer.
+		Array<Instruction>* tuple = new Array<Instruction>();
+		Instruction instruction = g_stack_instruction.get_r(2);
+		instruction.shift -= g_memory.max_index + sizeof(void*);
+		tuple->add(instruction);
 
-		g_memory.move_relative(g_stack_instruction.get_r(2).shift, g_stack_array.max_index, sizeof(void*));
-		g_memory.at<void*>(g_stack_instruction.at_r(2).shift) = method;
-		g_stack_instruction.at_r(0).shift = g_stack_instruction.get_r(2).shift;
-		g_stack_instruction.at_r(2).shift += sizeof(void*); // Move method pointer to object position, and shift object
-
-		g_stack_array.at_r(0).add(g_stack_instruction.get_r(2));
-
-		g_stack_instruction.at_r(2) = g_stack_instruction.get_r(0);
-		g_stack_instruction.at_r(1) = Instruction::pos(InstructionType::start_array, g_stack_array.max_index);
+		instruction = g_stack_instruction.get_r(0);
+		//instruction.shift = g_memory.max_index - (sizeof(void*) + 1);	//Fixes shift of procedure after it's moving
+		instruction.shift -= sizeof(charT);
+		g_stack_instruction.at_r(2) = instruction;
+		g_stack_instruction.at_r(1) = Instruction::pos(InstructionType::start_array, g_memory.max_index);
+		g_memory.add<Array<Instruction>*>(tuple);
 		g_stack_instruction.at_r(0) = Instruction::atom(InstructionType::ignore_array_start);
 	}
 
@@ -402,15 +415,19 @@ namespace Core {
 
 
 	void contextAtIndex() {
-		if (g_context.value == ValueType::arr) {
-			Instruction instr = g_stack_array.at(g_context.shift).at(g_memory.at<int64>(g_stack_instruction.at_r(1).shift));
+		Instruction top = g_stack_context.get_r(0);
+		if (top.value == ValueType::tuple) {
+			Array<Instruction> arr = g_memory.get<Array<Instruction>>(top.shift);
+			//arr.max_index;
+
+			//Instruction instr = g_stack_array.at(g_context.shift).at(g_memory.at<int64>(g_stack_instruction.at_r(1).shift));
 			//if(instr.value == ValueType::
 		}
 	}
 
-	void contextAtName() {
-		if (g_context.value == ValueType::dict) {
-			auto var = &(*g_memory.at<Table<String, ValueType*>*>(g_context.shift))[String(g_memory.at<charT*>(g_stack_instruction.at_r(0).shift))];
+	void contextAtName() {	//TODO: delete or think whether it's still needed.
+		if (g_stack_context.get(0).value == ValueType::dict) {
+			auto var = &(*g_memory.at<Table<String, ValueType*>*>(g_stack_context.get(0).shift))[String(g_memory.at<charT*>(g_stack_instruction.at_r(0).shift))];
 			g_memory.max_index = g_stack_instruction.at_r(1).shift;
 			g_memory.add<ValueType**>(var);
 		}
@@ -428,36 +445,6 @@ namespace Core {
 
 	void callWithContext() {}
 	void renameArrayContext() {}
-
-
-	void invokeResolve() {}
-
-	void invokeProcedure() {
-		g_memory.at<Procedure>(g_stack_instruction.at_r(1).shift)();
-	}
-
-	void invokeFunction() {
-		Instruction parameter = g_stack_instruction.get_r(0);
-		Instruction function = g_stack_instruction.get_r(2);
-
-		/*if (context.value == ValueType::dll)
-		{
-			GetProcAddress(memory.get<HMODULE>(context.shift), memory.get<String>(function.shift).c_str());
-			g_stack_array.get_r(parameter.modifier).content;
-		}*/
-
-		g_stack_instruction.max_index -= 2;
-
-																									//TODO: add a function to add value
-		g_stack_instruction.add(Instruction::call(parameter.value, parameter.shift));	//TODO: make a 'call' instruction that specifies change of executable string
-		g_stack_instruction.add(Instruction::context(parameter.value, parameter.shift));
-
-
-	}
-
-	void invokeNativeFunction() {
-
-	}
 
 
 	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult, ValueType type, _TypeResult (*function) (_TypeLeft, _TypeRight)>
