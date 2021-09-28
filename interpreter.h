@@ -49,6 +49,11 @@ struct Module {
         Table<String, Table<ValueTypeBinary, Procedure>> binary;
         Table<ValueTypeBinary, Procedure> coalescing;
     } op;
+
+    struct {
+        Table<ValueType, Procedure> onEnter;
+        Table<ValueType, Procedure> onExit;
+    } context;
 };
 
 
@@ -75,7 +80,7 @@ void g_memory_delete_span_r(size_t index);
 void g_memory_delete_span_r(size_t indexBegin, size_t indexEnd);
 
 
-Status run(const charT* script);
+Status run(std::istream& stream);
 
 int main();
 

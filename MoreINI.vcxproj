@@ -148,6 +148,7 @@
     <ClCompile Include="core_general.cpp" />
     <ClCompile Include="interpreter.cpp" />
     <ClCompile Include="core_dll.cpp" />
+    <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common_types.h" />

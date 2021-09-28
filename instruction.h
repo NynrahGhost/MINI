@@ -30,7 +30,7 @@ enum class InstructionType : uint8 {
     op,
     context,
     call,
-    exception,
+    error,
 };
 
 

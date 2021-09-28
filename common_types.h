@@ -153,6 +153,26 @@ struct Array {
 	}
 };
 
+template <typename _T>
+struct Queue : public Array<_T> {
+	size_t min_index;
+
+	Queue() : Array() {
+		min_index = -1;
+	}
+
+	inline _T dequeue(){
+		if (min_index == this->max_index)
+		{
+			_T result = this->content[min_index];
+			min_index = -1;
+			this->max_index = -1;
+			return result;
+		}
+		return this->content[++min_index];
+	}
+};
+
 struct Span : Array<uint8> {
 
 	const static size_t INITIAL_CAPACITY = 1024;

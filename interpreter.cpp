@@ -1,50 +1,43 @@
 #include "interpreter.h"
 #include "core.h"
 #include <iostream>
+#include <istream>
 #include <fstream>
+#include <sstream>
 #include <functional>
 #include "common_types.h"
 #include "common_utils.h"
-
-int main()
-{
-	const charT* script;
-
-	script = T("!<<('Input ''text: \n'), !>>ref, !<<'Your text: \n', !<<ref , !<<'\n'");
-	//script = T("1234.print['well'; 'World!'];");
-	script = T("print['Hello';'World';'!'];");	
-	//script = T("load_library('C:\\Users\\Ghost\\source\\repos\\TestDll\\x64\\Debug\\TestDll.dll');");
-
-	g_data.init();// = *(new Array<Table<String, ValueType*>>());
-	g_data.add(Core::initCoreData());//Table<String, ValueType*>();
-	g_stack_instruction.init();// = *(new Array<Instruction>());
-	g_stack_instruction.add(Instruction::atom(InstructionType::start));
-	//context;
-	//specification = Core::initCore();
-
-	int result = (int)run(script);
-	//std::cout << g_memory.max_index << std::endl;
-	//std::cout << Core::call_test() << std::endl;
-	return result;
-	/**/
-}
 
 Array<Table<String, ValueType*>> g_data = Array<Table<String, ValueType*>>(16);
 thread_local Array<Table<String, ValueType*>> g_stack_namespace = Array<Table<String, ValueType*>>(16);
 thread_local Module* g_specification = Core::initCore();
 thread_local Array<Instruction> g_stack_instruction = Array<Instruction>(16);
 thread_local Array<Array<Instruction>*> g_stack_array = Array<Array<Instruction>*>(16);
-//thread_local _context g_context = _context{ 0, 0, ValueType::none };
 thread_local Array<Instruction> g_stack_context = Array<Instruction>(16);
 thread_local Span g_memory = Span(1024);
 
-
-Status run(const charT* script)
+Status run(std::istream& stream)
 {
-	//String* buffer = new String();
-	//buffer->reserve(256);
-	
+	const size_t memory_init_size = 1024;
+	const size_t string_buffer_init_size = 1024;
+
 	int scriptIndex = -1;
+	charT script[string_buffer_init_size+1];
+	charT substitute;
+
+	script[string_buffer_init_size] = T('\1');
+
+	if (!g_memory.content)
+		g_memory.init(memory_init_size);
+
+	stream.read(script, string_buffer_init_size);
+	if (stream.eof())
+		script[stream.gcount()] = T('\0');
+
+	/*if (stream.rdstate() & stream.failbit) {
+		substitute = script[string_buffer_init_size-1];
+		script[string_buffer_init_size-1] = T('\1'); //TODO: implement substitution in case line didn't fit.
+	}*/
 
 	//temporary variables
 	uint8* tmpPtr;
@@ -55,8 +48,6 @@ Status run(const charT* script)
 	Instruction instruction_r2; //Pre-pre-top instruction
 	Instruction instruction_r3; //Pre-pre-pre-top instruction
 
-	if (!g_memory.content)
-		g_memory.init(256);
 
 	parse: {
 		switch (script[++scriptIndex])
@@ -64,12 +55,19 @@ Status run(const charT* script)
 		case T('\0'):
 			if (g_stack_instruction.get_r(0).instr != InstructionType::end)
 			{
-				//--scriptIndex;
+				--scriptIndex;
 				g_stack_instruction.add(Instruction::atom(InstructionType::end));
 				goto evaluate;
 			}
 			else
 				goto ending;
+
+		case T('\1'):
+			stream.read(script, string_buffer_init_size);
+			if (stream.eof())
+				script[stream.gcount()] = T('\0');
+			scriptIndex = -1;
+			goto parse;
 
 		case T(';'):
 			g_stack_instruction.add(Instruction::atom(InstructionType::separator));
@@ -133,6 +131,13 @@ Status run(const charT* script)
 		spacing_loop:
 			switch (script[++scriptIndex])
 			{
+			case T('\1'):
+				stream.read(script, string_buffer_init_size);
+				if (stream.eof())
+					script[stream.gcount()] = T('\0');
+				scriptIndex = -1;
+				goto spacing_loop;
+
 			case char_space_character:
 				//Currently MoreINI doesn't specify any behaviour depending on spacing signature, though it's possible to make one.
 				goto spacing_loop;
@@ -148,6 +153,12 @@ Status run(const charT* script)
 		operation_loop:
 			switch (script[++scriptIndex])
 			{
+			case T('\1'):
+				stream.read(script, string_buffer_init_size);
+				if (stream.eof())
+					script[stream.gcount()] = T('\0');
+				scriptIndex = -1;
+				goto operation_loop;
 			case char_operator:
 				g_memory.add<charT>(script[scriptIndex]);
 				goto operation_loop;
@@ -164,8 +175,14 @@ Status run(const charT* script)
 			g_stack_instruction.add(Instruction::val(ValueType::name, g_memory.max_index));
 		name_loop:
 			switch (script[++scriptIndex])
-			{	// if special character then name finished.
-			case char_space_character:
+			{
+			case T('\1'):
+				stream.read(script, string_buffer_init_size);
+				if (stream.eof())
+					script[stream.gcount()] = T('\0');
+				scriptIndex = -1;
+				goto name_loop;
+			case char_space_character: // if special character then name finished.
 			case char_operator:
 			case char_special_character:
 			case T('`'):
@@ -189,6 +206,12 @@ Status run(const charT* script)
 		number_loop:
 			switch (script[++scriptIndex])
 			{
+			case T('\1'):
+				stream.read(script, string_buffer_init_size);
+				if (stream.eof())
+					script[stream.gcount()] = T('\0');
+				scriptIndex = -1;
+				goto number_loop;
 			case char_number:
 				number *= 10;
 				number += script[scriptIndex] - T('0');
@@ -211,8 +234,39 @@ Status run(const charT* script)
 				instruction.modifier = g_memory.max_index - instruction.shift;}
 				goto evaluate;
 
+			string_loop_escape:
+			case T('\\'):
+				switch (script[++scriptIndex]) {
+				case T('\0'):
+					goto error_string_missing_closing_quote;
+				case T('\1'):
+					stream.read(script, string_buffer_init_size);
+					if (stream.eof())
+						script[stream.gcount()] = T('\0');
+					scriptIndex = -1;
+					goto string_loop_escape;
+				case T('\"'):
+					g_memory.add<charT>('\"');
+				case T('0'):
+					g_memory.add<charT>('\0');
+				case T('n'):
+					g_memory.add<charT>('\n');
+				case T('t'):
+					g_memory.add<charT>('\t');
+				case T('r'):
+					g_memory.add<charT>('\r');
+				}
+				goto string_loop;
+
 			case T('\0'):
 				goto error_string_missing_closing_quote;
+
+			case T('\1'):
+				stream.read(script, string_buffer_init_size);
+				if (stream.eof())
+					script[stream.gcount()] = T('\0');
+				scriptIndex = -1;
+				goto string_loop;
 
 			default:
 				g_memory.add<charT>(script[scriptIndex]);
@@ -225,6 +279,28 @@ Status run(const charT* script)
 		link_loop:
 			switch (script[++scriptIndex])
 			{
+			link_loop_escape:
+			case T('\\'):
+				switch (script[++scriptIndex]) {
+				case T('\0'):
+					goto error_string_missing_closing_quote;
+				case T('\1'):
+					stream.read(script, string_buffer_init_size);
+					scriptIndex = -1;
+					goto link_loop_escape;
+				case T('\''):
+					g_memory.add<charT>('\'');
+				case T('0'):
+					g_memory.add<charT>('\0');
+				case T('n'):
+					g_memory.add<charT>('\n');
+				case T('t'):
+					g_memory.add<charT>('\t');
+				case T('r'):
+					g_memory.add<charT>('\r');
+				}
+				goto link_loop;
+
 			case T('\''):
 				{Instruction& instruction = g_stack_instruction.at_r(0);
 				instruction.modifier = g_memory.max_index - instruction.shift;}
@@ -232,6 +308,11 @@ Status run(const charT* script)
 
 			case T('\0'):
 				goto error_string_missing_closing_quote;
+
+			case T('\1'):
+				stream.read(script, string_buffer_init_size);
+				scriptIndex = -1;
+				goto string_loop;
 
 			default:
 				g_memory.add<charT>(script[scriptIndex]);
@@ -244,6 +325,28 @@ Status run(const charT* script)
 		expression_loop:
 			switch (script[++scriptIndex])
 			{
+			expression_loop_escape:
+			case T('\\'):
+				switch (script[++scriptIndex]) {
+				case T('\0'):
+					goto error_string_missing_closing_quote;
+				case T('\1'):
+					stream.read(script, string_buffer_init_size);
+					scriptIndex = -1;
+					goto expression_loop_escape;
+				case T('`'):
+					g_memory.add<charT>('`');
+				case T('0'):
+					g_memory.add<charT>('\0');
+				case T('n'):
+					g_memory.add<charT>('\n');
+				case T('t'):
+					g_memory.add<charT>('\t');
+				case T('r'):
+					g_memory.add<charT>('\r');
+				}
+				goto expression_loop;
+
 			case T('\`'):
 				{Instruction& instruction = g_stack_instruction.at_r(0);
 				instruction.modifier = g_memory.max_index - instruction.shift;}
@@ -251,6 +354,11 @@ Status run(const charT* script)
 
 			case T('\0'):
 				goto error_string_missing_closing_quote;
+
+			case T('\1'):
+				stream.read(script, string_buffer_init_size);
+				scriptIndex = -1;
+				goto string_loop;
 
 			default:
 				g_memory.add<charT>(script[scriptIndex]);
@@ -309,6 +417,7 @@ Status run(const charT* script)
                                                                               //   Decision tree 
         switch (instruction_r0.instr) {                                       //    ___________
         case InstructionType::start: goto parse;                              //   |   |   |s t| :parse
+		case InstructionType::error: goto parse;                              //   |   |   |err| :error
         case InstructionType::op: goto parse;                                 //   |   |   |o p| :parse //TODO: op val op :eval_prefix
 		case InstructionType::skip_next: goto eval_skip_next;                 //   |   |   |s>-| :eval_skip_next
 		case InstructionType::skip_after_next: goto parse;                    //   |   |   |s->| :parse
@@ -316,14 +425,15 @@ Status run(const charT* script)
 		case InstructionType::ignore_array_start: goto parse;                 //   |   |   |/[/| :parse
 		case InstructionType::separator:
 			switch (instruction_r1.instr) {                                   //   |   | x | ; |
-			case InstructionType::ignore_separator: goto eval_delete_r0r1;    //   |   |/;/| ; | :eval_delete_r0r1
+			case InstructionType::ignore_separator: goto eval_erase_r0r1;     //   |   |/;/| ; | :eval_delete_r0r1
 			case InstructionType::ignore_array_start: goto parse;             //   |   |/[/| ; | :parse
-			case InstructionType::separator: goto eval_tuple_add_empty;       //   |   | ; | ; | :eval_tuple_add_empty
+			case InstructionType::separator: goto eval_tuple_add_empty;       //   |   | ; | ; | :eval_tuple_add_empty //Possibly unreachable
 			case InstructionType::start_array: goto eval_tuple_add_empty;     //   |   | [ | ; | :eval_tuple_add_empty
 			case InstructionType::op: goto eval_postfix;                      //   |   |o p| ; | :eval_postfix		//TODO: Better to do another level to check for val
 			case InstructionType::value:                                      
 				switch (instruction_r2.instr) {                               //   | x |val| ; |
-				case InstructionType::start: goto parse;                      //   |s t|val| ; | :parse
+				case InstructionType::start: goto eval_delete_r0r1;           //   |s t|val| ; | :eval_delete_r0r1
+				case InstructionType::start_context: goto eval_delete_r0r1;   //   | { |val| ; | :eval_delete_r0r1
 				case InstructionType::op: goto eval_prefix;                   //   |o p|val| ; | :eval_prefix
 				case InstructionType::start_array: goto eval_tuple_add;       //   | [ |val| ; | :eval_tuple_add
 				case InstructionType::spacing: goto eval_binary_long;         //   | _ |val| ; | :eval_binary_long
@@ -343,7 +453,7 @@ Status run(const charT* script)
 			default: goto error_syntax; }
 		case InstructionType::start_array:                                    //   |   | x | [ | 
 			switch (instruction_r1.instr) {
-			case InstructionType::ignore_array_start: goto eval_delete_r0r1;  //   |   |/[/| [ | :eval_delete_r0r1
+			case InstructionType::ignore_array_start: goto eval_erase_r0r1;   //   |   |/[/| [ | :eval_erase_r0r1
 			default: goto eval_tuple_start;}                                  //   |   |all| [ | :eval_tuple_start
 		case InstructionType::end_array:                                      
 			switch (instruction_r1.instr) {                                   //   |   | x | ] |
@@ -356,7 +466,7 @@ Status run(const charT* script)
 			default: goto error_syntax;}
 		case InstructionType::start_context:                                  
             switch (instruction_r1.instr) {                                   //   |   | x | { |
-            case InstructionType::spacing: goto eval_delete_r1;               //   |   | _ | { | :eval_delete_r1
+            case InstructionType::spacing: goto eval_erase_r1;                //   |   | _ | { | :eval_erase_r1
             case InstructionType::value: goto eval_context_start;             //   |   |val| { | :eval_context_start
 			case InstructionType::context: goto parse;                        //   |   |ctx| { | :parse
             default: goto error_syntax; }
@@ -377,6 +487,7 @@ Status run(const charT* script)
 			switch (instruction_r1.instr) {
 			case InstructionType::start: goto parse;                          //   |   |s t|end| :eval_add_none
 			case InstructionType::separator: goto eval_cleanup_separator;     //   |   | ; |end| :eval_cleanup_separator
+			case InstructionType::spacing: goto eval_erase_r1;                //   |   | _ |end| :eval_erase_r1
 			case InstructionType::op:                                         //   | x |o p|end|
 				switch (instruction_r2.instr) {
 				case InstructionType::spacing: goto parse;                    //   | _ |o p|end| :parse
@@ -391,24 +502,24 @@ Status run(const charT* script)
 			}
         case InstructionType::spacing:                                        //   |   | x | _ |
             switch (instruction_r1.instr) {
-            case InstructionType::start: goto eval_delete_r0;                 //   |   |s t| _ | :eval_delete_r0
-			case InstructionType::skip_after_next: goto eval_delete_r0;       //   |   |s->| _ | :eval_delete_r0
-			case InstructionType::ignore_separator: goto eval_delete_r0;      //   |   |/;/| _ | :eval_delete_r0
-			case InstructionType::start_group: goto eval_delete_r0;           //   |   | ( | _ | :eval_delete_r0
-			case InstructionType::start_array: goto eval_delete_r0;           //   |   | [ | _ | :eval_delete_r0
-			case InstructionType::start_context: goto eval_delete_r0;         //   |   | { | _ | :eval_delete_r0
-			case InstructionType::spacing: goto eval_delete_r0;               //   |   | _ | _ | :eval_delete_r0
+            case InstructionType::start: goto eval_erase_r0;                  //   |   |s t| _ | :eval_erase_r0
+			case InstructionType::skip_after_next: goto eval_erase_r0;        //   |   |s->| _ | :eval_erase_r0
+			case InstructionType::ignore_separator: goto eval_erase_r0;       //   |   |/;/| _ | :eval_erase_r0
+			case InstructionType::start_group: goto eval_erase_r0;            //   |   | ( | _ | :eval_erase_r0
+			case InstructionType::start_array: goto eval_erase_r0;            //   |   | [ | _ | :eval_erase_r0
+			case InstructionType::start_context: goto eval_erase_r0;          //   |   | { | _ | :eval_erase_r0
+			case InstructionType::spacing: goto eval_erase_r0;                //   |   | _ | _ | :eval_erase_r0
             case InstructionType::op:                                         //   | x |o p| _ |
                 switch (instruction_r2.instr) {
-				case InstructionType::start: goto eval_delete_r0;             //   |s t|o p| _ | :eval_delete_r0
-				case InstructionType::skip_after_next: goto eval_delete_r0;   //   |s->|o p| _ | :eval_delete_r0
-				case InstructionType::skip_next: goto eval_delete_r0;         //   |s>-|o p| _ | :eval_delete_r0
-				case InstructionType::ignore_separator: goto eval_delete_r0;  //   |/;/|o p| _ | :eval_delete_r0
-				case InstructionType::ignore_array_start: goto eval_delete_r0;//   |/[/|o p| _ | :eval_delete_r0
-				case InstructionType::start_group: goto eval_delete_r0;       //   | ( |o p| _ | :eval_delete_r0
-				case InstructionType::start_array: goto eval_delete_r0;       //   | [ |o p| _ | :eval_delete_r0
-				case InstructionType::start_context: goto eval_delete_r0;     //   | { |o p| _ | :eval_delete_r0
-				case InstructionType::op: goto eval_delete_r0;                //   |o p|o p| _ | :parse
+				case InstructionType::start: goto eval_erase_r0;              //   |s t|o p| _ | :eval_erase_r0
+				case InstructionType::skip_after_next: goto eval_erase_r0;    //   |s->|o p| _ | :eval_erase_r0
+				case InstructionType::skip_next: goto eval_erase_r0;          //   |s>-|o p| _ | :eval_erase_r0
+				case InstructionType::ignore_separator: goto eval_erase_r0;   //   |/;/|o p| _ | :eval_erase_r0
+				case InstructionType::ignore_array_start: goto eval_erase_r0; //   |/[/|o p| _ | :eval_erase_r0
+				case InstructionType::start_group: goto eval_erase_r0;        //   | ( |o p| _ | :eval_erase_r0
+				case InstructionType::start_array: goto eval_erase_r0;        //   | [ |o p| _ | :eval_erase_r0
+				case InstructionType::start_context: goto eval_erase_r0;      //   | { |o p| _ | :eval_erase_r0
+				case InstructionType::op: goto eval_erase_r0;                 //   |o p|o p| _ | :parse
                 case InstructionType::spacing: goto parse;                    //   | _ |o p| _ | :parse
                 case InstructionType::value: goto eval_postfix;               //   |val|o p| _ | :eval_postfix
                 default: goto error_syntax; }
@@ -456,21 +567,27 @@ Status run(const charT* script)
             default: goto error_syntax; }
         default: goto error_syntax; }
 
-		eval_delete_r0: {
+		eval_erase_r0: {
 			--g_stack_instruction.max_index;
 			goto parse;
 		}
 
-		eval_delete_r1: {
+		eval_erase_r1: {
 			g_stack_instruction.at_r(1) = g_stack_instruction.get_r(0);
 			--g_stack_instruction.max_index;
 			goto parse;
 		}
 
-		eval_delete_r0r1: {
+		eval_erase_r0r1: {
 			g_stack_instruction.max_index -= 2;
 			goto parse;
 		}
+
+		eval_delete_r0r1: {
+			g_memory_delete_span_r(2);
+			goto parse;
+		}
+
 		eval_leave_r1: {
 			g_stack_instruction.at_r(2) = instruction_r1;
 			g_stack_instruction.max_index -= 2;
@@ -727,16 +844,20 @@ Status run(const charT* script)
 	//Errors
 	{
 	error_memory_allocation: //TODO: Before throwing error should try freeing up memory
-		return Status::error_memory_allocation;
+		g_stack_instruction.add(Instruction{ InstructionType::error, ValueType::none, (int16)Status::error_memory_allocation });
+		goto evaluate;
 
 	error_string_missing_closing_quote:
-		return Status::error_string_missing_closing_quote;
+		g_stack_instruction.add(Instruction{ InstructionType::error, ValueType::none, (int16)Status::error_string_missing_closing_quote });
+		goto evaluate;
 
 	error_operator_name_exceeded:
-		return Status::error_operator_name_exceeded;
+		g_stack_instruction.add(Instruction{ InstructionType::error, ValueType::none, (int16)Status::error_operator_name_exceeded });
+		goto evaluate;
 
 	error_syntax:
-		return Status::error_syntax;
+		g_stack_instruction.add(Instruction{ InstructionType::error, ValueType::none, (int16)Status::error_syntax });
+		goto evaluate;
 	}
 
 ending:
@@ -745,11 +866,18 @@ ending:
 
 void g_memory_delete_top() {
 	Instruction instr = g_stack_instruction.get_r(0);
-	if (g_specification->type.destructor.count(instr.value)) {
-		((Destructor)g_specification->type.destructor[instr.value])(g_memory.content + instr.shift);
+	switch (instr.instr) {
+	case InstructionType::value:
+		if (g_specification->type.destructor.count(instr.value)) {
+			((Destructor)g_specification->type.destructor[instr.value])(g_memory.content + instr.shift);
+		}
+		--g_stack_instruction.max_index;
+		g_memory.max_index = instr.shift;
+		break;
+	default:
+		--g_stack_instruction.max_index;
+		break;
 	}
-	--g_stack_instruction.max_index;
-	g_memory.max_index = instr.shift;
 }
 
 void g_memory_delete_r(size_t index) {
@@ -758,13 +886,20 @@ void g_memory_delete_r(size_t index) {
 
 void g_memory_delete_span_r(size_t index) {
 	Instruction instr;
-	while (--index) {
+	while(--index){	// We get the top element of stack and then pop it, so no need for direct index of the instruction.
 		instr = g_stack_instruction.get_r(0);
-		if (g_specification->type.destructor.count(instr.value)) {
-			((Destructor)g_specification->type.destructor[instr.value])(g_memory.content + instr.shift);
+		switch (instr.instr) {
+		case InstructionType::value:
+			if (g_specification->type.destructor.count(instr.value)) {
+				((Destructor)g_specification->type.destructor[instr.value])(g_memory.content + instr.shift);
+			}
+			g_memory.max_index = instr.shift;
+			--g_stack_instruction.max_index;
+			break;
+		default:
+			--g_stack_instruction.max_index;
+			break;
 		}
-		g_memory.max_index = instr.shift; //Destruction may depend on the rest of memory allocated
-		--g_stack_instruction.max_index;
 	}
 }
 
