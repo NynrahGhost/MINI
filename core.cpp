@@ -171,6 +171,7 @@ namespace Core {
 			
 			table = &core->op.prefix[T("?")];
 			uFun(all, conditional);
+			uFun(name, findValueR0);
 			uFun(truth, conditionalTrue);
 			uFun(lie, conditionalFalse);
 
@@ -199,11 +200,11 @@ namespace Core {
 			uFun(name, (getReferenceR1));
 
 			table = &core->op.prefix[T("*")];
-			uFun(name, (findValueR1));
+			uFun(name, findValueR0);
 
 			table = &core->op.prefix[T("*&")];
-			uFun(name, (findValueR1));
-			uFun(reference, (getValueR1));
+			uFun(name, (findValueR0));
+			uFun(reference, (getValueR0));
 
 			table = &core->op.prefix[T(">")];
 			uFun(all, allArrayInclusive);

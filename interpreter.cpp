@@ -432,6 +432,7 @@ Status run(std::istream& stream)
 		case InstructionType::separator:
 			switch (instruction_r1.instr) {                                   //   |   | x | ; |
 			case InstructionType::ignore_separator: goto eval_erase_r0r1;     //   |   |/;/| ; | :eval_delete_r0r1
+			case InstructionType::spacing: goto eval_erase_r1;                //   |   | _ | ; | :eval_delete_r1
 			case InstructionType::ignore_array_start: goto parse;             //   |   |/[/| ; | :parse
 			case InstructionType::separator: goto eval_tuple_add_empty;       //   |   | ; | ; | :eval_tuple_add_empty //Possibly unreachable
 			case InstructionType::start_array: goto eval_tuple_add_empty;     //   |   | [ | ; | :eval_tuple_add_empty
@@ -511,6 +512,7 @@ Status run(std::istream& stream)
             case InstructionType::start: goto eval_erase_r0;                  //   |   |s t| _ | :eval_erase_r0
 			case InstructionType::skip_after_next: goto eval_erase_r0;        //   |   |s->| _ | :eval_erase_r0
 			case InstructionType::ignore_separator: goto eval_erase_r0;       //   |   |/;/| _ | :eval_erase_r0
+			case InstructionType::separator: goto eval_erase_r0;              //   |   | ; | _ | :eval_erase_r0
 			case InstructionType::start_group: goto eval_erase_r0;            //   |   | ( | _ | :eval_erase_r0
 			case InstructionType::start_array: goto eval_erase_r0;            //   |   | [ | _ | :eval_erase_r0
 			case InstructionType::start_context: goto eval_erase_r0;          //   |   | { | _ | :eval_erase_r0
