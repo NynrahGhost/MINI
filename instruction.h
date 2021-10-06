@@ -64,7 +64,7 @@ enum class ValueType :
     bfunction, bmethod, bprocedure,
     bnfunction, bnmethod, bnprocedure,
     tuple,
-    dict,
+    dict, autodict,
     pointer,
     autoptr,           // Alike automatic storage, gets freeed when exits stack.
     reference, autoref,

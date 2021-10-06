@@ -24,9 +24,11 @@ namespace Core
 	String toStringGlobal(ValueType* value);
 	String toStringLocal(Instruction instruction);
 	String toStringLocalArray(Instruction instruction);
+	
 	void print();
 	void scan();
 
+	void declareVariable();
 
 	void conditional();
 	void conditionalTrue();
@@ -34,8 +36,6 @@ namespace Core
 
 	void loadLibrary();
 	void freeLibrary();
-
-	void getValueProcedure();
 
 	void getNamespace();
 	void atContextByIndex();
@@ -54,7 +54,9 @@ namespace Core
 	void invokeFunction();
 	void invokeNativeFunction();
 
-	void assign();
+	void assignToName();
+	void assignToReference();
+	bool assign(void* toValue, ValueType toType, void* fromValue, ValueType fromType);
 
 	void ignore();
 
@@ -65,8 +67,17 @@ namespace Core
 	void getReferenceR0();
 	void getReferenceR1();
 
+	void findValueR0();
+	void findValueR1();
+	void findValueR2();
+	void findValueR0R2();
+
 	void getValueR0();
 	void getValueR1();
+	void getValueR2();
+	void getValueR0R2();
+
+	ValueType* findName(String name);
 
 
 	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult, ValueType type, _TypeResult(*function) (_TypeLeft, _TypeRight) >

@@ -17,8 +17,10 @@ enum class Status
     success,
     error_memory_allocation,
     error_string_missing_closing_quote,
-    error_operator_name_exceeded,
     error_syntax,
+    error_invalid_op,
+    error_no_context_onEnter,
+    error_no_context_onExit,
 };
 
 using Procedure = void (*) ();
@@ -57,9 +59,10 @@ struct Module {
 };
 
 
-extern "C" Array<Table<String, ValueType*>> g_data;
+extern "C" Table<String, ValueType*> g_data;
 extern "C" thread_local Module* g_specification;
-extern "C" thread_local Array<Table<String, ValueType*>> g_stack_namespace;
+extern "C" thread_local Array<Table<String, ValueType*>*> g_stack_namespace;
+extern "C" thread_local Array<Table<String, ValueType*>> g_stack_local;
 extern "C" thread_local Array<Instruction> g_stack_context;
 extern "C" thread_local Array<Instruction> g_stack_instruction;
 //extern "C" thread_local Array<Array<Instruction>*> g_stack_array;

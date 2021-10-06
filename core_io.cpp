@@ -132,10 +132,13 @@ namespace Core {
 			result.append(T("]"));
 			return result;
 		case ValueType::reference:
+
+			result.append(toStringGlobal(*(ValueType**)(g_memory.content + instruction.shift)));
+
 			//result.append(fromInt(*(uintptr_t*)(memory.content + instruction.shift)));
 			//result.append("(");
 			//result.append("ref(");
-			result.append(toStringGlobal(**(ValueType***)(g_memory.content + instruction.shift)));
+			//result.append(toStringGlobal(**(ValueType***)(g_memory.content + instruction.shift)));
 			//result.append(")");
 			return result;
 		default:
@@ -182,36 +185,31 @@ namespace Core {
 
 	void scan() {
 		String input = String();
-#if ENCODING == 8
-		std::getline(std::cin, input);
-#elif ENCODING == 16
-		std::getline(std::wcin, input); //Doesn't work yet
-#elif ENCODING == 32
-#error Not implemented yet.
-#endif
+
 		Instruction instruction_r0 = g_stack_instruction.get_r(0);
 		Instruction instruction_r1 = g_stack_instruction.get_r(1);
 
-		ValueType*** ref = (ValueType***)(g_memory.content + instruction_r0.shift);
+		ValueType* ref = *(ValueType**)(g_memory.content + instruction_r0.shift);
 
-		ValueType* ptr = (ValueType*)malloc(sizeof(ValueType) + sizeof(uint16) + input.size() - 1);
-
-		*ptr = ValueType::string;
-		*(uint16*)(ptr + 1) = input.size();
-		memcpy(ptr + sizeof(ValueType) + sizeof(uint16), input.data(), input.size());
-
-		if (!g_specification->type.destructor.count(***ref))
-			if (!g_specification->type.destructor.count(ValueType::all))
-				return;
-			else
-				((Destructor)g_specification->type.destructor[ValueType::all])(**ref);
-		else
-			((Destructor)g_specification->type.destructor[***ref])(**ref);
-
-		**ref = ptr;
-
-		g_memory.move_absolute(instruction_r0.shift, g_memory.max_index, instruction_r1.shift);
-		//memory.move_relative(instruction_r0.shift, specification->type.size[instruction_r0.value], -(int64)sizeof(String**));
+#if ENCODING == 8
+		switch (*ref) {
+		case ValueType::int64: {
+			int64 result;
+			std::cin >> result;
+			*(int64*)(ref + 1) = result;
+			break;}
+		case ValueType::string: {
+			String result;
+			std::cin >> result;
+			*(String*)(ref + 1) = result;
+			break;}
+		}
+#elif ENCODING == 16
+#error Not implemented yet.
+#elif ENCODING == 32
+#error Not implemented yet.
+#endif
+		instruction_r0.shift -= instruction_r1.modifier;
 		g_stack_instruction.at_r(1) = instruction_r0;
 		--g_stack_instruction.max_index;
 	}

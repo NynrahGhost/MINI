@@ -17,10 +17,13 @@ int main()
 	script = T("print['Hello';'World';'!'];");
 	//script = T("load_library('C:\\Users\\Ghost\\source\\repos\\TestDll\\x64\\Debug\\TestDll.dll');");
 
+	//auto table = new Table<String, ValueType*>();
 
-
-	g_data.init();// = *(new Array<Table<String, ValueType*>>());
-	g_data.add(Core::initCoreData());//Table<String, ValueType*>();
+	//g_data.init();// = *(new Array<Table<String, ValueType*>>());
+	g_data = Core::initCoreData();//Table<String, ValueType*>();
+	g_stack_namespace.add(&g_data);
+	//g_memory.add<Table<String, ValueType*>*>(table);
+	g_stack_context.add(Instruction::val(ValueType::autodict, 0));
 	g_stack_instruction.init();// = *(new Array<Instruction>());
 	g_stack_instruction.add(Instruction::atom(InstructionType::start));
 

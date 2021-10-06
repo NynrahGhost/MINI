@@ -8,11 +8,11 @@
 #include "common_types.h"
 #include "common_utils.h"
 
-Array<Table<String, ValueType*>> g_data = Array<Table<String, ValueType*>>(16);
-thread_local Array<Table<String, ValueType*>> g_stack_namespace = Array<Table<String, ValueType*>>(16);
+Table<String, ValueType*> g_data = Table<String, ValueType*>();
+thread_local Array<Table<String, ValueType*>*> g_stack_namespace = Array<Table<String, ValueType*>*>(16);
 thread_local Module* g_specification = Core::initCore();
 thread_local Array<Instruction> g_stack_instruction = Array<Instruction>(16);
-thread_local Array<Array<Instruction>*> g_stack_array = Array<Array<Instruction>*>(16);
+thread_local Array<Table<String, ValueType*>> g_stack_local = Array<Table<String, ValueType*>>(16);
 thread_local Array<Instruction> g_stack_context = Array<Instruction>(16);
 thread_local Span g_memory = Span(1024);
 
@@ -29,6 +29,12 @@ Status run(std::istream& stream)
 
 	if (!g_memory.content)
 		g_memory.init(memory_init_size);
+
+	{
+		auto table = new Table<String, ValueType*>();
+		g_stack_namespace.add(table);				//TODO: consider making namespace stack of pointers to tables.
+		g_memory.add<Table<String, ValueType*>*>(table);
+	}
 
 	stream.read(script, string_buffer_init_size);
 	if (stream.eof())
@@ -627,7 +633,20 @@ Status run(std::istream& stream)
 		}
 
 		eval_context_start: {
-			g_stack_context.add(g_stack_instruction.get_r(1));	//TODO: onEnterContext
+			g_stack_context.add(instruction_r1);
+
+			Procedure lc_value;
+
+			if (!g_specification->context.onEnter.count(instruction_r1.value))
+				if (!g_specification->context.onEnter.count(ValueType::all))
+					goto error_no_context_onEnter;
+				else
+					lc_value = g_specification->context.onEnter[ValueType::all];
+			else
+				lc_value = g_specification->context.onEnter[instruction_r1.value];
+
+			lc_value();
+
 			goto parse;
 		}
 
@@ -638,7 +657,22 @@ Status run(std::istream& stream)
 		}
 
 		eval_context_finish_empty: {
-			g_stack_context.max_index -= 2;
+			Procedure lc_value;
+
+			if (!g_specification->context.onEnter.count(instruction_r2.value))
+				if (!g_specification->context.onEnter.count(ValueType::all))
+					goto error_no_context_onExit;
+				else
+					lc_value = g_specification->context.onEnter[ValueType::all];
+			else
+				lc_value = g_specification->context.onEnter[instruction_r2.value];
+
+			lc_value();
+
+			--g_stack_context.max_index;
+
+			g_stack_instruction.max_index -= 2;
+
 			goto parse;
 		}
 
@@ -656,7 +690,7 @@ Status run(std::istream& stream)
 		}
 
 		eval_tuple_add_empty: { //Possibly have no reason to add this instead of using [ ...; (); ... ] //TODO: remove
-			g_stack_array.get(instruction_r2.shift)->add(Instruction::val(ValueType::tuple, 0));
+			//g_stack_array.get(instruction_r2.shift)->add(Instruction::val(ValueType::tuple, 0));
 			g_stack_instruction.max_index -= 1;
 			goto parse;
 		}
@@ -692,13 +726,13 @@ Status run(std::istream& stream)
 			String opString = String((charT*)(g_memory.content + instruction_r1.shift), instruction_r1.modifier);
 
 			if (!g_specification->op.prefix.count(opString))
-				goto error_syntax;
+				goto error_invalid_op;
 
 			Procedure lc_value;
 
 			if (!g_specification->op.prefix[opString].count(instruction_r0.value))
 				if (!g_specification->op.prefix[opString].count(ValueType::all))
-					goto error_syntax;
+					goto error_invalid_op;
 				else
 					lc_value = g_specification->op.prefix[opString][ValueType::all];
 			else
@@ -713,13 +747,13 @@ Status run(std::istream& stream)
 			String opString = String((charT*)(g_memory.content + instruction_r1.shift), instruction_r1.modifier);
 
 			if (!g_specification->op.postfix.count(opString))
-				goto error_syntax;
+				goto error_invalid_op;
 
 			Procedure lc_value;
 
 			if (!g_specification->op.postfix[opString].count(instruction_r2.value))
 				if (!g_specification->op.postfix[opString].count(ValueType::all))
-					goto error_syntax;
+					goto error_invalid_op;
 				else
 					lc_value = g_specification->op.postfix[opString][ValueType::all];
 			else
@@ -734,7 +768,7 @@ Status run(std::istream& stream)
 			String opString = String((charT*)(g_memory.content + instruction_r1.shift), instruction_r1.modifier);
 
 			if (!g_specification->op.binary.count(opString))
-				goto error_syntax;
+				goto error_invalid_op;
 
 			Procedure lc_value;// = specification->op.binary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
 
@@ -742,7 +776,7 @@ Status run(std::istream& stream)
 				if (!g_specification->op.binary[opString].count(ValueTypeBinary(instruction_r2.value, ValueType::all)))
 					if (!g_specification->op.binary[opString].count(ValueTypeBinary(ValueType::all, instruction_r0.value)))
 						if (!g_specification->op.binary[opString].count(ValueTypeBinary(ValueType::all, ValueType::all)))
-							goto error_syntax;
+							goto error_invalid_op;
 						else
 							lc_value = g_specification->op.binary[opString][ValueTypeBinary(ValueType::all, ValueType::all)];
 					else
@@ -811,7 +845,7 @@ Status run(std::istream& stream)
 				if (!g_specification->op.coalescing.count(ValueTypeBinary(instruction_r1.value, ValueType::all)))
 					if (!g_specification->op.coalescing.count(ValueTypeBinary(ValueType::all, instruction_r0.value)))
 						if (!g_specification->op.coalescing.count(ValueTypeBinary(ValueType::all, ValueType::all)))
-							goto error_syntax;
+							goto error_invalid_op;
 						else
 							lc_value = g_specification->op.coalescing[ValueTypeBinary(ValueType::all, ValueType::all)];
 					else
@@ -851,12 +885,20 @@ Status run(std::istream& stream)
 		g_stack_instruction.add(Instruction{ InstructionType::error, ValueType::none, (int16)Status::error_string_missing_closing_quote });
 		goto evaluate;
 
-	error_operator_name_exceeded:
-		g_stack_instruction.add(Instruction{ InstructionType::error, ValueType::none, (int16)Status::error_operator_name_exceeded });
-		goto evaluate;
-
 	error_syntax:
 		g_stack_instruction.add(Instruction{ InstructionType::error, ValueType::none, (int16)Status::error_syntax });
+		goto evaluate;
+
+	error_invalid_op:
+		g_stack_instruction.add(Instruction{ InstructionType::error, ValueType::none, (int16)Status::error_invalid_op });
+		goto evaluate;
+
+	error_no_context_onEnter:
+		g_stack_instruction.add(Instruction{ InstructionType::error, ValueType::none, (int16)Status::error_no_context_onEnter });
+		goto evaluate;
+
+	error_no_context_onExit:
+		g_stack_instruction.add(Instruction{ InstructionType::error, ValueType::none, (int16)Status::error_no_context_onExit });
 		goto evaluate;
 	}
 
@@ -885,6 +927,7 @@ void g_memory_delete_r(size_t index) {
 }
 
 void g_memory_delete_span_r(size_t index) {
+	++index;
 	Instruction instr;
 	while(--index){	// We get the top element of stack and then pop it, so no need for direct index of the instruction.
 		instr = g_stack_instruction.get_r(0);
@@ -894,6 +937,10 @@ void g_memory_delete_span_r(size_t index) {
 				((Destructor)g_specification->type.destructor[instr.value])(g_memory.content + instr.shift);
 			}
 			g_memory.max_index = instr.shift;
+			--g_stack_instruction.max_index;
+			break;
+		case InstructionType::op:
+			g_memory.max_index = instr.modifier;
 			--g_stack_instruction.max_index;
 			break;
 		default:

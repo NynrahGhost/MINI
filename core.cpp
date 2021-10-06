@@ -51,6 +51,16 @@ core->type.destructor[ValueType::TYPE] = FUNCTION;
 #define bFunInterfaceMatch(LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, FUNCTION) \
 (*table)[ValueTypeBinary(ValueType::LEFT_TYPE, ValueType::RIGHT_TYPE)] = binaryFunctionInterface<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, ValueType::RESULT_TYPE, FUNCTION>;
 
+#define bFunInterfaceNameRefDowncast(TYPE) \
+bFun(name, name, findValueR0R2); \
+bFun(name, TYPE, findValueR2); \
+bFun(TYPE, name, findValueR0); \
+bFun(reference, reference, getValueR0R2); \
+bFun(reference, TYPE, getValueR2); \
+bFun(TYPE, reference, getValueR0); \
+bFun(reference, name, findValueR0); \
+bFun(name, reference, getValueR0); \
+
 
 namespace Core {
 	Module* initCore() {
@@ -189,7 +199,11 @@ namespace Core {
 			uFun(name, (getReferenceR1));
 
 			table = &core->op.prefix[T("*")];
-			uFun(name, (getValueR1));
+			uFun(name, (findValueR1));
+
+			table = &core->op.prefix[T("*&")];
+			uFun(name, (findValueR1));
+			uFun(reference, (getValueR1));
 
 			table = &core->op.prefix[T(">")];
 			uFun(all, allArrayInclusive);
@@ -214,7 +228,7 @@ namespace Core {
 			uFun(all, commaPostfix);
 			
 			table = &core->op.postfix[T("*")];
-			uFun(all, getValueProcedure);
+			//uFun(all, getValueProcedure);
 
 			table = &core->op.postfix[T(">")];
 			uFun(all, allArrayExclusive);
@@ -248,18 +262,21 @@ namespace Core {
 			bFun(all, all, commaBinary);
 
 			table = &core->op.binary[T("+")];
+			bFunInterfaceNameRefDowncast(int64);
 			bFunInterfaceMatch(int64, int64, int64, add);
 			bFunInterfaceMatch(float64, int64, float64, add);
 			bFunInterfaceMatch(int64, float64, float64, add);
 			bFunInterfaceMatch(float64, float64, float64, add);
 
 			table = &core->op.binary[T("-")];
+			bFunInterfaceNameRefDowncast(int64);
 			bFunInterfaceMatch(int64, int64, int64, sub);
 			bFunInterfaceMatch(float64, int64, float64, sub);
 			bFunInterfaceMatch(int64, float64, float64, sub);
 			bFunInterfaceMatch(float64, float64, float64, sub);
 
 			table = &core->op.binary[T("*")];
+			bFunInterfaceNameRefDowncast(int64);
 			bFunInterfaceMatch(int64, int64, int64, mul);
 			bFunInterfaceMatch(float64, int64, float64, mul);
 			bFunInterfaceMatch(int64, float64, float64, mul);
@@ -267,18 +284,24 @@ namespace Core {
 			//bFun(type, none, allocHeap);
 
 			table = &core->op.binary[T("/")];
+			bFunInterfaceNameRefDowncast(int64);
 			bFunInterfaceMatch(int64, int64, int64, div);
 			bFunInterfaceMatch(float64, int64, float64, div);
 			bFunInterfaceMatch(int64, float64, float64, div);
 			bFunInterfaceMatch(float64, float64, float64, div);
 
 			table = &core->op.binary[T("=")];
-			bFun(name, all, assign);
-			bFun(pointer, all, assign);
+			bFun(name, all, assignToName);
+			bFun(reference, all, assignToReference);
+			//bFun(pointer, all, assignToName);
+
+			table = &core->op.binary[T("<=")];
+			bFun(name, all, assignToName);
+			bFun(reference, all, assignToReference);
 
 			table = &core->op.binary[T(".")];
 			bFun(int64, int64, (createFloat<int64, int64, float64, ValueType::float64>));
-			bFun(all, name, getValueR0);
+			bFun(all, name, findValueR0);
 			bFun(all, unprocedure, callThis);
 
 			table = &core->op.binary[T(":")];
@@ -294,11 +317,13 @@ namespace Core {
 		{
 			Table<ValueTypeBinary, Procedure>* table = &core->op.coalescing;
 
-			bFun(name, all, (getValueR1)); //tuple
-			bFun(reference, tuple, (getValueR1));
+			bFun(name, all, (findValueR1)); //tuple
+			bFun(reference, tuple, (findValueR1));
 			bFun(unprocedure, all, invokeProcedure); //tuple
 			bFun(parameter_pattern, tuple, invokeFunction);
 			bFun(unfunction, tuple, invokeNativeFunction);
+
+			bFun(type, name, declareVariable);
 
 			bFun(string, string, concatenate);
 
@@ -452,14 +477,24 @@ namespace Core {
 		_TypeLeft left = g_memory.get<_TypeLeft>(g_stack_instruction.get_r(2).shift);
 		_TypeRight right = g_memory.get<_TypeRight>(g_stack_instruction.get_r(0).shift);
 
-		g_memory.max_index -= sizeof(_TypeLeft);
+		_TypeResult result = ((_TypeResult(*) (_TypeLeft, _TypeRight))function)(left, right);
+
+		Instruction resultInstruction = g_stack_instruction.get_r(2);
+		resultInstruction.value = type;
+
+		g_memory_delete_span_r(3);
+		g_memory.add<_TypeResult>(result);
+
+		g_stack_instruction.add(resultInstruction);
+
+		/*g_memory.max_index -= sizeof(_TypeLeft);
 		g_memory.max_index -= sizeof(void*);
 		g_memory.max_index -= sizeof(_TypeRight);
 
 		g_memory.add<_TypeResult>(((_TypeResult(*) (_TypeLeft, _TypeRight))function)(left, right));
 
 		g_stack_instruction.max_index -= 2;
-		g_stack_instruction.at_r(0).value = type;
+		g_stack_instruction.at_r(0).value = type;*/
 	}
 
 
