@@ -431,8 +431,8 @@ Status run(std::istream& stream)
 		case InstructionType::ignore_array_start: goto parse;                 //   |   |   |/[/| :parse
 		case InstructionType::separator:
 			switch (instruction_r1.instr) {                                   //   |   | x | ; |
-			case InstructionType::ignore_separator: goto eval_erase_r0r1;     //   |   |/;/| ; | :eval_delete_r0r1
-			case InstructionType::spacing: goto eval_erase_r1;                //   |   | _ | ; | :eval_delete_r1
+			case InstructionType::ignore_separator: goto eval_erase_r0r1;     //   |   |/;/| ; | :eval_erase_r0r1
+			case InstructionType::spacing: goto eval_erase_r1;                //   |   | _ | ; | :eval_erase_r1
 			case InstructionType::ignore_array_start: goto parse;             //   |   |/[/| ; | :parse
 			case InstructionType::separator: goto eval_tuple_add_empty;       //   |   | ; | ; | :eval_tuple_add_empty //Possibly unreachable
 			case InstructionType::start_array: goto eval_tuple_add_empty;     //   |   | [ | ; | :eval_tuple_add_empty
@@ -452,6 +452,7 @@ Status run(std::istream& stream)
         case InstructionType::start_group: goto parse;                        //   |   |   | ( | :parse
 		case InstructionType::end_group:                                      //   |   | x | ) |
 			switch (instruction_r1.instr) {
+			case InstructionType::spacing: goto eval_erase_r1;                //   |   | _ | ) | :eval_erase_r1
 			case InstructionType::value:                                      //   | x |val| ) |
 				switch (instruction_r2.instr) {
 				case InstructionType::start_group: goto eval_group;           //   | ( |val| ) | :eval_group
@@ -464,6 +465,7 @@ Status run(std::istream& stream)
 			default: goto eval_tuple_start;}                                  //   |   |all| [ | :eval_tuple_start
 		case InstructionType::end_array:                                      
 			switch (instruction_r1.instr) {                                   //   |   | x | ] |
+			case InstructionType::spacing: goto eval_erase_r1;                //   |   | _ | ] | :eval_erase_r1
 			case InstructionType::start_array: goto eval_tuple_empty;         //   |   | [ | ] | :eval_tuple_empty
 			case InstructionType::value:                                      //   | x |val| ] |
 				switch (instruction_r2.instr) {
@@ -480,9 +482,11 @@ Status run(std::istream& stream)
         case InstructionType::end_context:                                    //   |   | x | } |
             switch (instruction_r1.instr) {
 			case InstructionType::start_context: goto eval_context_finish_empty;// |   | { | } | :eval_context_finish_empty
+			case InstructionType::spacing: goto eval_erase_r1;                //   |   | _ | } | :eval_erase_r1
             case InstructionType::value:                                      //   | x |val| } |
                 switch (instruction_r2.instr) {
                 case InstructionType::op: goto eval_prefix;                   //   |o p|val| } | :eval_prefix
+				case InstructionType::spacing: goto eval_erase_r2;            //   | _ |val| } | :eval_erase_r2
                 case InstructionType::start_context: goto eval_context_finish;//   | { |val| } | :eval_context_finish
                 default: goto error_syntax; }
             case InstructionType::op:                                         //   | x |o p| } |
@@ -513,9 +517,9 @@ Status run(std::istream& stream)
 			case InstructionType::skip_after_next: goto eval_erase_r0;        //   |   |s->| _ | :eval_erase_r0
 			case InstructionType::ignore_separator: goto eval_erase_r0;       //   |   |/;/| _ | :eval_erase_r0
 			case InstructionType::separator: goto eval_erase_r0;              //   |   | ; | _ | :eval_erase_r0
-			case InstructionType::start_group: goto eval_erase_r0;            //   |   | ( | _ | :eval_erase_r0
-			case InstructionType::start_array: goto eval_erase_r0;            //   |   | [ | _ | :eval_erase_r0
-			case InstructionType::start_context: goto eval_erase_r0;          //   |   | { | _ | :eval_erase_r0
+			case InstructionType::start_group: goto eval_erase_skip_r0;       //   |   | ( | _ | :eval_erase_skip_r0
+			case InstructionType::start_array: goto eval_erase_skip_r0;       //   |   | [ | _ | :eval_erase_skip_r0
+			case InstructionType::start_context: goto eval_erase_skip_r0;     //   |   | { | _ | :eval_erase_skip_r0
 			case InstructionType::spacing: goto eval_erase_r0;                //   |   | _ | _ | :eval_erase_r0
             case InstructionType::op:                                         //   | x |o p| _ |
                 switch (instruction_r2.instr) {
@@ -539,7 +543,8 @@ Status run(std::istream& stream)
 				case InstructionType::start_group: goto parse;                //   | ( |val| _ | :parse
 				case InstructionType::skip_after_next: goto parse;            //   |s->|val| _ | :parse
                 case InstructionType::spacing: goto eval_binary_long;         //   | _ |val| _ | :eval_binary_long
-                case InstructionType::op: goto eval_prefix; }                 //   |o p|val| _ | :eval_prefix	//Possibly unreachable
+                case InstructionType::op: goto eval_prefix;                   //   |o p|val| _ | :eval_prefix	//Possibly unreachable
+				case InstructionType::value: goto eval_erase_r0;}             //   |val|val| _ | :eval_erase_r0
             default: goto error_syntax; 
 			}
         case InstructionType::value:                                          //   |   | x |val|
@@ -577,18 +582,43 @@ Status run(std::istream& stream)
 
 		eval_erase_r0: {
 			--g_stack_instruction.max_index;
-			goto parse;
+			goto evaluate; //goto parse;
 		}
 
 		eval_erase_r1: {
 			g_stack_instruction.at_r(1) = g_stack_instruction.get_r(0);
 			--g_stack_instruction.max_index;
+			goto evaluate; //goto parse;
+		}
+
+		eval_erase_r2: {
+			g_stack_instruction.at_r(2) = g_stack_instruction.get_r(1);
+			g_stack_instruction.at_r(1) = g_stack_instruction.get_r(0);
+			g_stack_instruction.max_index -= 2;
+			goto evaluate; //goto parse;
+		}
+
+		eval_erase_skip_r0: {
+			--g_stack_instruction.max_index;
+			goto parse;
+		}
+
+		eval_erase_skip_r1: {
+			g_stack_instruction.at_r(1) = g_stack_instruction.get_r(0);
+			--g_stack_instruction.max_index;
+			goto parse;
+		}
+
+		eval_erase_skip_r2: {
+			g_stack_instruction.at_r(2) = g_stack_instruction.get_r(1);
+			g_stack_instruction.at_r(1) = g_stack_instruction.get_r(0);
+			g_stack_instruction.max_index -= 2;
 			goto parse;
 		}
 
 		eval_erase_r0r1: {
 			g_stack_instruction.max_index -= 2;
-			goto parse;
+			goto evaluate; //goto parse;
 		}
 
 		eval_delete_r0r1: {
@@ -653,21 +683,29 @@ Status run(std::istream& stream)
 		}
 
 		eval_context_finish: {
-			--g_stack_context.max_index; //TODO: onExitContext
-			//TODO: delete context and leave r1.
-			goto parse;
+			if (g_specification->context.onExit.count(instruction_r1.value))
+				g_specification->context.onExit[instruction_r1.value]();
+			else if(g_specification->context.onExit.count(ValueType::all))
+				g_specification->context.onExit[ValueType::all]();
+			else
+				goto error_invalid_op;
+			
+			g_stack_context.max_index -= 1;
+			g_memory_delete_r(3);
+
+			goto eval_leave_r1;
 		}
 
 		eval_context_finish_empty: {
 			Procedure lc_value;
 
-			if (!g_specification->context.onEnter.count(instruction_r2.value))
-				if (!g_specification->context.onEnter.count(ValueType::all))
+			if (!g_specification->context.onExit.count(instruction_r2.value))
+				if (!g_specification->context.onExit.count(ValueType::all))
 					goto error_no_context_onExit;
 				else
-					lc_value = g_specification->context.onEnter[ValueType::all];
+					lc_value = g_specification->context.onExit[ValueType::all];
 			else
-				lc_value = g_specification->context.onEnter[instruction_r2.value];
+				lc_value = g_specification->context.onExit[instruction_r2.value];
 
 			lc_value();
 
@@ -815,14 +853,29 @@ Status run(std::istream& stream)
 				goto eval_coalescing;
 
 			case InstructionType::op:
-				// [val sp] op sp val x
-				g_stack_instruction.at_r(4) = instruction_r3;
-				g_stack_instruction.at_r(3) = instruction_r1;
-				g_stack_instruction.max_index -= 3;
+
+				if (g_stack_instruction.get_r(4).instr == InstructionType::spacing)
+				{
+					// [val sp] op sp val x
+					g_stack_instruction.at_r(4) = instruction_r3;
+					g_stack_instruction.at_r(3) = instruction_r1;
+					g_stack_instruction.max_index -= 3;
+
+					instruction_r0 = instruction_r1;
+					instruction_r1 = instruction_r3;
+					instruction_r2 = g_stack_instruction.get_r(2);
+
+					goto eval_binary;
+				}
+
+				// [st] op sp val x
+				g_stack_instruction.at_r(2) = instruction_r1;
+				g_stack_instruction.at_r(1) = instruction_r0;
+				g_stack_instruction.max_index -= 2;
 
 				instruction_r0 = instruction_r1;
-				instruction_r1 = instruction_r3;
-				instruction_r2 = g_stack_instruction.at_r(2);
+				instruction_r1 = instruction_r2;
+				//instruction_r2 = g_stack_instruction.at_r(2);
 
 				goto eval_binary;
 			default:
@@ -925,7 +978,44 @@ void g_memory_delete_top() {
 }
 
 void g_memory_delete_r(size_t index) {
-	//stack.i
+	Instruction instr = g_stack_instruction.get_r(index);
+	size_t iter = index;
+
+	switch (instr.instr) {
+	case InstructionType::value:
+		if (g_specification->type.destructor.count(instr.value)) {
+			((Destructor)g_specification->type.destructor[instr.value])(g_memory.content + instr.shift);
+		}
+	case InstructionType::op:
+		size_t size;
+		switch (instr.value) {
+		case ValueType::string:
+		case ValueType::name:
+			size = instr.modifier;
+			g_memory.erase(instr.shift, size);
+			break;
+		default:
+			size = g_specification->type.size[(size_t)instr.value];
+			g_memory.erase(instr.shift,size);
+			break;
+		}
+
+		while (iter) {
+			instr = g_stack_instruction.get_r(--iter);
+			switch (instr.instr) {
+			case InstructionType::value:
+			case InstructionType::op:
+				instr.shift -= size;
+			default:
+				g_stack_instruction.at_r(iter+1) = instr;
+				break;
+			}
+		}
+		g_stack_instruction.at_r(1) = g_stack_instruction.get_r(0);
+	default:
+		--g_stack_instruction.max_index;
+		break;
+	}
 }
 
 void g_memory_delete_span_r(size_t index) {

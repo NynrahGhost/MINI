@@ -52,17 +52,31 @@ core->type.destructor[ValueType::TYPE] = FUNCTION;
 (*table)[ValueTypeBinary(ValueType::LEFT_TYPE, ValueType::RIGHT_TYPE)] = binaryFunctionInterface<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, ValueType::RESULT_TYPE, FUNCTION>;
 
 #define bFunInterfaceNameRefDowncast(TYPE) \
-bFun(name, name, findValueR0R2); \
-bFun(name, TYPE, findValueR2); \
-bFun(TYPE, name, findValueR0); \
-bFun(reference, reference, getValueR0R2); \
-bFun(reference, TYPE, getValueR2); \
-bFun(TYPE, reference, getValueR0); \
-bFun(reference, name, findValueR0); \
-bFun(name, reference, getValueR0); \
+	bFun(name, name, findValueR0R2); \
+	bFun(name, TYPE, findValueR2); \
+	bFun(TYPE, name, findValueR0); \
+	bFun(reference, reference, getValueR0R2); \
+	bFun(reference, TYPE, getValueR2); \
+	bFun(TYPE, reference, getValueR0); \
+	bFun(reference, name, findValueR0); \
+	bFun(name, reference, getValueR0);
+
+#define bFunInterfaceNameRefDowncastTricketry \
+	bFunInterfaceNameRefDowncast(int8); \
+	bFunInterfaceNameRefDowncast(int16); \
+	bFunInterfaceNameRefDowncast(int32); \
+	bFunInterfaceNameRefDowncast(int64); \
+	bFunInterfaceNameRefDowncast(uint8); \
+	bFunInterfaceNameRefDowncast(uint16); \
+	bFunInterfaceNameRefDowncast(uint32); \
+	bFunInterfaceNameRefDowncast(uint64); \
+	bFunInterfaceNameRefDowncast(float32); \
+	bFunInterfaceNameRefDowncast(float64);
 
 
 namespace Core {
+	ValueType none = ValueType::none;
+
 	Module* initCore() {
 		//if (Core::core != 0)
 		//	return *Core::core;
@@ -177,9 +191,19 @@ namespace Core {
 
 			table = &core->op.prefix[T("?.")];
 			//uFun(all, conditionalShort);
-
+			
 			table = &core->op.prefix[T("?|")];
 			//uFun(all, loopWhile);
+
+			table = &core->op.prefix[T("?:")];
+			//uFun(all, conditionalSwitch);
+			//uFun(tuple, conditionalSwitch);
+
+			table = &core->op.prefix[T("?<")];
+			//uFun(all, conditionalComparator);
+
+			table = &core->op.prefix[T("?:<")];
+			//uFun(all, conditionalSwitchPredicate);
 
 			table = &core->op.prefix[T("!<<")];
 			uFun(name, getReferenceR0);
@@ -191,6 +215,10 @@ namespace Core {
 
 			table = &core->op.prefix[T(",")];
 			uFun(all, commaPrefix);
+
+			table = &core->op.prefix[T("+")];
+			uFun(name, findValueR0);
+			uFun(type, instantiate);
 
 			//table = &core->op.prefix[T("-")];
 			//u uFun(int64, (negate<int64>));
@@ -220,6 +248,22 @@ namespace Core {
 
 			table = &core->op.prefix[T(".")];
 			uFun(int64, contextMethod);
+
+			table = &core->op.prefix[T("::")];
+			uFun(string, getNamespaceEntry);
+			//uFun(tuple, getApplication);
+
+			table = &core->op.prefix[T("::<")];
+			uFun(string, getNamespacePrefix);
+
+			table = &core->op.prefix[T("::>")];
+			uFun(string, getNamespacePostfix);
+
+			table = &core->op.prefix[T("::.^")];
+			uFun(string, getNamespaceBinaryRight);
+
+			table = &core->op.prefix[T("::^.")];
+			uFun(string, getNamespaceBinaryLeft);
 		}
 		core->op.postfix = Table<String, Table<ValueType, Procedure>>();
 		{
@@ -238,7 +282,7 @@ namespace Core {
 			uFun(all, allGroupExclusive);
 
 			table = &core->op.postfix[T(":")];
-			uFun(dict, allContext);
+			uFun(table, allContext);
 			uFun(name, allContext);
 			//uFun(type, allocDynamicArrayStack);
 
@@ -263,21 +307,21 @@ namespace Core {
 			bFun(all, all, commaBinary);
 
 			table = &core->op.binary[T("+")];
-			bFunInterfaceNameRefDowncast(int64);
+			bFunInterfaceNameRefDowncastTricketry
 			bFunInterfaceMatch(int64, int64, int64, add);
 			bFunInterfaceMatch(float64, int64, float64, add);
 			bFunInterfaceMatch(int64, float64, float64, add);
 			bFunInterfaceMatch(float64, float64, float64, add);
 
 			table = &core->op.binary[T("-")];
-			bFunInterfaceNameRefDowncast(int64);
+			bFunInterfaceNameRefDowncastTricketry
 			bFunInterfaceMatch(int64, int64, int64, sub);
 			bFunInterfaceMatch(float64, int64, float64, sub);
 			bFunInterfaceMatch(int64, float64, float64, sub);
 			bFunInterfaceMatch(float64, float64, float64, sub);
 
 			table = &core->op.binary[T("*")];
-			bFunInterfaceNameRefDowncast(int64);
+			bFunInterfaceNameRefDowncastTricketry
 			bFunInterfaceMatch(int64, int64, int64, mul);
 			bFunInterfaceMatch(float64, int64, float64, mul);
 			bFunInterfaceMatch(int64, float64, float64, mul);
@@ -285,11 +329,22 @@ namespace Core {
 			//bFun(type, none, allocHeap);
 
 			table = &core->op.binary[T("/")];
-			bFunInterfaceNameRefDowncast(int64);
-			bFunInterfaceMatch(int64, int64, int64, div);
+			bFunInterfaceNameRefDowncastTricketry
+			bFunInterfaceMatch(int64, int64, float64, div);
 			bFunInterfaceMatch(float64, int64, float64, div);
 			bFunInterfaceMatch(int64, float64, float64, div);
 			bFunInterfaceMatch(float64, float64, float64, div);
+
+			table = &core->op.binary[T("/.")];
+			bFunInterfaceNameRefDowncastTricketry
+			bFunInterfaceMatch(int64, int64, int64, div);
+			bFunInterfaceMatch(float64, int64, int64, div);
+			bFunInterfaceMatch(int64, float64, int64, div);
+			bFunInterfaceMatch(float64, float64, int64, div);
+
+			table = &core->op.binary[T("%")];
+			bFunInterfaceNameRefDowncastTricketry
+			bFunInterfaceMatch(int64, int64, int64, mod);
 
 			table = &core->op.binary[T("=")];
 			bFun(name, all, assignToName);
@@ -305,10 +360,29 @@ namespace Core {
 			bFun(all, name, findValueR0);
 			bFun(all, unprocedure, callThis);
 
-			table = &core->op.binary[T(":")];
-			bFun(name, name, getChild);
-			bFun(dict, name, getChild);
+			table = &core->op.binary[T("::")];
+			bFun(name, name, findValueR2);
+			bFun(name, string, findValueR2);
+			bFun(table, name, getTableEntry);
+			//bFun(table, tuple, getTable);
+			bFun(table, string, getTableEntry);
 			//bFun(type, int64, allocArrayStack);
+
+			table = &core->op.binary[T("::<")];
+			bFun(name, name, findValueR0R2);
+			bFun(table, string, getTablePrefix);
+
+			table = &core->op.binary[T("::>")];
+			bFun(name, name, findValueR0R2);
+			bFun(table, string, getTablePostfix);
+
+			table = &core->op.binary[T("::.^")];
+			bFun(name, name, findValueR0R2);
+			bFun(table, string, getTableBinaryRight);
+
+			table = &core->op.binary[T("::^.")];
+			bFun(name, name, findValueR0R2);
+			bFun(table, string, getTableBinaryLeft);
 
 			table = &core->op.binary[T("*:")];
 			//bFun(type, int64, allocArrayHeap);
@@ -329,6 +403,23 @@ namespace Core {
 			bFun(string, string, concatenate);
 
 			//bFun(type, none, allocStack);
+		}
+
+		core->context.onEnter = Table<ValueType, Procedure>();
+		{
+			Table<ValueType, Procedure>* table = &core->context.onEnter;
+
+			uFun(all, doNothing);
+			uFun(reference, onEnterContextReference);
+			uFun(table, onEnterContextNamespace);
+		}
+
+		core->context.onExit = Table<ValueType, Procedure>();
+		{
+			Table<ValueType, Procedure>* table = &core->context.onExit;
+
+			uFun(all, doNothing);
+			uFun(table, onExitContextNamespace);
 		}
 
 		return core;
@@ -391,9 +482,9 @@ namespace Core {
 		data["float64"] = alloc1(ValueType::type, (uint8)ValueType::float64);
 		
 		data["string"] = alloc1(ValueType::type, (uint8)ValueType::string);
-		data["Group"] = alloc1(ValueType::type, (uint8)ValueType::tuple);
-		data["Table"] = alloc1(ValueType::type, (uint8)ValueType::dict);
-		data["Auto"] = alloc1(ValueType::type, (uint8)ValueType::dict);
+		data["group"] = alloc1(ValueType::type, (uint8)ValueType::tuple);
+		data["table"] = alloc1(ValueType::type, (uint8)ValueType::table);
+		data["auto"] = alloc1(ValueType::type, (uint8)ValueType::table);
 		
 
 		data["print"] = allocPtr(ValueType::unprocedure, print);
@@ -452,7 +543,7 @@ namespace Core {
 	}
 
 	void contextAtName() {	//TODO: delete or think whether it's still needed.
-		if (g_stack_context.get(0).value == ValueType::dict) {
+		if (g_stack_context.get(0).value == ValueType::table) {
 			auto var = &(*g_memory.at<Table<String, ValueType*>*>(g_stack_context.get(0).shift))[String(g_memory.at<charT*>(g_stack_instruction.at_r(0).shift))];
 			g_memory.max_index = g_stack_instruction.at_r(1).shift;
 			g_memory.add<ValueType**>(var);

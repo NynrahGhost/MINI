@@ -161,6 +161,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="test.mini" />
+    <None Include="tests.mini" />
   </ItemGroup>
   <ItemGroup>
     <MASM Include="caller.asm" />

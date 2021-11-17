@@ -3,8 +3,12 @@
 
 namespace Core {
 	String fromInt(int64 num) {
+		if (num == 0)
+			return "0";
+
 		String result;
 		bool negative = num < 0;
+
 		while (num != 0) {
 			result.push_back((charT)((num % 10) + T('0')));
 			num /= 10;
@@ -15,8 +19,13 @@ namespace Core {
 		return result;
 	}
 	String fromUint(uint64 num) {
+		if (num == 0)
+			return "0";
+
 		String result;
+
 		while ((num / 10) != 0) {
+
 			result.push_back((charT)((num % 10) + T('0')));
 			num /= 10;
 		}
@@ -39,20 +48,20 @@ namespace Core {
 		case ValueType::int64:
 			return fromInt(*(int64*)(value + 1));
 		case ValueType::uint8:
-			return fromInt(*(uint8*)(value + 1));
+			return fromUint(*(uint8*)(value + 1));
 		case ValueType::uint16:
-			return fromInt(*(uint16*)(value + 1));
+			return fromUint(*(uint16*)(value + 1));
 		case ValueType::uint32:
-			return fromInt(*(uint32*)(value + 1));
+			return fromUint(*(uint32*)(value + 1));
 		case ValueType::uint64:
-			return fromInt(*(uint64*)(value + 1));
+			return fromUint(*(uint64*)(value + 1));
 		case ValueType::string:
 		case ValueType::name:
 		case ValueType::link:
 			return String((charT*)(value + 3), (*(uint16*)(value + 1)));
-		case ValueType::dict:
+		case ValueType::table:
 			result.append(T("{\n"));
-			for (auto var : *(Table<String, ValueType*>*)(value + 1))
+			for (auto var : **(Table<String, ValueType*>**)(value + 1))
 			{
 				result.append(var.first);
 				result.append(T(" : "));
@@ -102,16 +111,16 @@ namespace Core {
 		case ValueType::name:
 		case ValueType::link:
 			return String((charT*)(g_memory.content + instruction.shift), instruction.modifier);
-		case ValueType::dict:
+		case ValueType::table:
 			result.append(T("{\n"));
-			for (auto var : *(Table<String, ValueType*>*)(g_memory.content + instruction.shift))
+			for (auto var : **(Table<String, ValueType*>**)(g_memory.content + instruction.shift))
 			{
 				result.append(var.first);
 				result.append(T(" : "));
 				result.append(toStringGlobal(var.second));
 				result.append(T("; "));
 			}
-			result.append(T("}"));
+			result.append(T("\n}"));
 			return result;
 		case ValueType::tuple:
 			result.append(T("["));

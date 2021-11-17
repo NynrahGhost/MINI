@@ -23,11 +23,12 @@ int main()
 	g_data = Core::initCoreData();//Table<String, ValueType*>();
 	g_stack_namespace.add(&g_data);
 	//g_memory.add<Table<String, ValueType*>*>(table);
-	g_stack_context.add(Instruction::val(ValueType::autodict, 0));
+	g_stack_context.add(Instruction::val(ValueType::autotable, 0));
 	g_stack_instruction.init();// = *(new Array<Instruction>());
 	g_stack_instruction.add(Instruction::atom(InstructionType::start));
 
 
+	//std::ifstream stream = std::ifstream("tests.mini");
 	std::ifstream stream = std::ifstream("test.mini");
 	//std::istringstream stream = std::istringstream(script);
 

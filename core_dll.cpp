@@ -12,8 +12,9 @@ namespace Core {
 		auto instr = g_stack_instruction.get(0);
 		void* dll;
 #if ENCODING == 8
-		wchar_t* wideName;	//TODO: check if succeeded
-		mbstowcs(wideName, (charT*)(g_memory.content + instr.shift), instr.modifier);
+		wchar_t* wideName = (wchar_t*)alloca(instr.modifier);	//TODO: check if succeeded
+		size_t charConvertedNum;
+		mbstowcs_s(&charConvertedNum, wideName, instr.modifier, (charT*)(g_memory.content + instr.shift), instr.modifier);
 		dll = LoadLibraryW(wideName);
 #elif ENCODING == 16
 		dll = LoadLibraryW((charT*)(g_memory.content + shift));

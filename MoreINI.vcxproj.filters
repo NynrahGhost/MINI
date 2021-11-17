@@ -40,7 +40,7 @@
       <Filter>Source Files\core</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp">
-      <Filter>Source Files\core</Filter>
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -68,10 +68,11 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="test.mini" />
+    <None Include="tests.mini" />
   </ItemGroup>
   <ItemGroup>
     <MASM Include="caller.asm">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\core</Filter>
     </MASM>
   </ItemGroup>
 </Project>

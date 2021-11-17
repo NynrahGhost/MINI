@@ -33,6 +33,10 @@ enum class InstructionType : uint8 {
     error,
 };
 
+enum class InstructionErrorType : uint16 {
+    invalid_type,
+};
+
 
 
 enum class ValueType : 
@@ -64,11 +68,11 @@ enum class ValueType :
     bfunction, bmethod, bprocedure,
     bnfunction, bnmethod, bnprocedure,
     tuple,
-    dict, autodict,
+    object,
+    table, autotable,
     pointer,
     autoptr,           // Alike automatic storage, gets freeed when exits stack.
     reference, autoref,
-    smartPointer,           // Data that gets destroyed when there are no more references pointing to it.
     specification,
     dll,
 };

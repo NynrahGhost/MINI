@@ -22,4 +22,38 @@ namespace Core {
 		}*/
 	}
 
+	void onEnterContextReference() {
+		Instruction context = g_stack_instruction.get_r(1);
+		switch (**(ValueType**)(g_memory.content + context.shift))
+		{
+		case ValueType::table:
+			/*auto ptr = *(ValueType**)(g_memory.content + context.shift);
+			auto ptr1 = ptr + 1;
+			auto ptr2 = (Table<String, ValueType*>**)ptr1;*/
+			//auto ptr3 = (Table<String, ValueType*>*)(g_memory.content + context.shift) + 1;
+			g_stack_namespace.add(
+				*(Table<String, ValueType*>**)
+					(*(ValueType**)(g_memory.content + context.shift) + 1)
+			);
+			return;
+		}
+	}
+
+	void onExitContextReference() {
+		Instruction context = g_stack_instruction.get_r(1);
+		switch ((ValueType)context.modifier)
+		{
+		case ValueType::table:
+			--g_stack_namespace.max_index;
+			return;
+		}
+	}
+
+	void onEnterContextNamespace() {
+		g_stack_namespace.add(g_memory.at<Table<String, ValueType*>*>(g_stack_instruction.get_r(1).shift));
+	}
+
+	void onExitContextNamespace() {
+		--g_stack_namespace.max_index;
+	}
 }

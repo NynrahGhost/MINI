@@ -6,6 +6,8 @@ namespace Core
 	Module* initCore();
 	Table<String, ValueType*> initCoreData();
 
+	extern ValueType none;
+
 	void doNothing();
 	void destructorArr(ValueType* ptr, Instruction& instr, void* efficient0, Instruction& efficient1);
 
@@ -28,6 +30,7 @@ namespace Core
 	void print();
 	void scan();
 
+	void instantiate();
 	void declareVariable();
 
 	void conditional();
@@ -109,6 +112,9 @@ namespace Core
 	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult>
 	_TypeResult div(_TypeLeft l, _TypeRight r) { return l / r; }
 
+	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult>
+	_TypeResult mod(_TypeLeft l, _TypeRight r) { return l % r; }
+
 	template<typename _Type, typename _TypeResult>
 	_TypeResult negate(_Type t) { return -t; }
 
@@ -138,6 +144,29 @@ namespace Core
 
 	void concatenate();
 
+	enum class EntryPrefix : charT {
+		reserved,
+		prefix,
+		postfix,
+		binaryLeft,
+		binaryRight,
+		enterContext,
+		exitContext,
+	};
+	void getTableEntryLiteral(String);
+	void getTableEntry();
+	void getTablePrefix();
+	void getTablePostfix();
+	void getTableBinaryLeft();
+	void getTableBinaryRight();
+
+	void getNamespaceEntryLiteral(String);
+	void getNamespaceEntry();
+	void getNamespacePrefix();
+	void getNamespacePostfix();
+	void getNamespaceBinaryLeft();
+	void getNamespaceBinaryRight();
+
 	void allArrayInclusive();
 	void allArrayExclusive();
 	void allGroupInclusive();
@@ -150,4 +179,7 @@ namespace Core
 
 	void getChild();
 
+	void onEnterContextNamespace();
+	void onEnterContextReference();
+	void onExitContextNamespace();
 }
