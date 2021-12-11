@@ -7,22 +7,23 @@
 #include <functional>
 #include "common_types.h"
 #include "common_utils.h"
+#include <intrin.h>
 
 Table<String, ValueType*> g_data = Table<String, ValueType*>();
+thread_local std::istream* stream;
+thread_local charT* script = new charT[string_buffer_init_size + 1];
+thread_local int scriptIndex = -1;
 thread_local Array<Table<String, ValueType*>*> g_stack_namespace = Array<Table<String, ValueType*>*>(16);
 thread_local Module* g_specification = Core::initCore();
 thread_local Array<Instruction> g_stack_instruction = Array<Instruction>(16);
 thread_local Array<Table<String, ValueType*>> g_stack_local = Array<Table<String, ValueType*>>(16);
 thread_local Array<Instruction> g_stack_context = Array<Instruction>(16);
-thread_local Span g_memory = Span(1024);
+thread_local Span g_memory = Span(1024*1024);
 
-Status run(std::istream& stream)
+Status run()
 {
-	const size_t memory_init_size = 1024;
-	const size_t string_buffer_init_size = 1024;
-
-	int scriptIndex = -1;
-	charT script[string_buffer_init_size+1];
+	//int scriptIndex = -1;
+	//charT* script = new charT[string_buffer_init_size+1];
 	charT substitute;
 
 	script[string_buffer_init_size] = T('\1');
@@ -32,18 +33,14 @@ Status run(std::istream& stream)
 
 	{
 		auto table = new Table<String, ValueType*>();
-		g_stack_namespace.add(table);				//TODO: consider making namespace stack of pointers to tables.
+		g_stack_namespace.add(table);
 		g_memory.add<Table<String, ValueType*>*>(table);
 	}
 
-	stream.read(script, string_buffer_init_size);
-	if (stream.eof())
-		script[stream.gcount()] = T('\0');
+	stream->read(script, string_buffer_init_size);
+	if (stream->eof())
+		script[stream->gcount()] = T('\0');
 
-	/*if (stream.rdstate() & stream.failbit) {
-		substitute = script[string_buffer_init_size-1];
-		script[string_buffer_init_size-1] = T('\1'); //TODO: implement substitution in case line didn't fit.
-	}*/
 
 	//temporary variables
 	uint8* tmpPtr;
@@ -69,9 +66,9 @@ Status run(std::istream& stream)
 				goto ending;
 
 		case T('\1'):
-			stream.read(script, string_buffer_init_size);
-			if (stream.eof())
-				script[stream.gcount()] = T('\0');
+			stream->read(script, string_buffer_init_size);
+			if (stream->eof())
+				script[stream->gcount()] = T('\0');
 			scriptIndex = -1;
 			goto parse;
 
@@ -138,9 +135,9 @@ Status run(std::istream& stream)
 			switch (script[++scriptIndex])
 			{
 			case T('\1'):
-				stream.read(script, string_buffer_init_size);
-				if (stream.eof())
-					script[stream.gcount()] = T('\0');
+				stream->read(script, string_buffer_init_size);
+				if (stream->eof())
+					script[stream->gcount()] = T('\0');
 				scriptIndex = -1;
 				goto spacing_loop;
 
@@ -160,9 +157,9 @@ Status run(std::istream& stream)
 			switch (script[++scriptIndex])
 			{
 			case T('\1'):
-				stream.read(script, string_buffer_init_size);
-				if (stream.eof())
-					script[stream.gcount()] = T('\0');
+				stream->read(script, string_buffer_init_size);
+				if (stream->eof())
+					script[stream->gcount()] = T('\0');
 				scriptIndex = -1;
 				goto operation_loop;
 			case char_operator:
@@ -183,9 +180,9 @@ Status run(std::istream& stream)
 			switch (script[++scriptIndex])
 			{
 			case T('\1'):
-				stream.read(script, string_buffer_init_size);
-				if (stream.eof())
-					script[stream.gcount()] = T('\0');
+				stream->read(script, string_buffer_init_size);
+				if (stream->eof())
+					script[stream->gcount()] = T('\0');
 				scriptIndex = -1;
 				goto name_loop;
 			case char_space_character: // if special character then name finished.
@@ -213,9 +210,9 @@ Status run(std::istream& stream)
 			switch (script[++scriptIndex])
 			{
 			case T('\1'):
-				stream.read(script, string_buffer_init_size);
-				if (stream.eof())
-					script[stream.gcount()] = T('\0');
+				stream->read(script, string_buffer_init_size);
+				if (stream->eof())
+					script[stream->gcount()] = T('\0');
 				scriptIndex = -1;
 				goto number_loop;
 			case char_number:
@@ -246,9 +243,9 @@ Status run(std::istream& stream)
 				case T('\0'):
 					goto error_string_missing_closing_quote;
 				case T('\1'):
-					stream.read(script, string_buffer_init_size);
-					if (stream.eof())
-						script[stream.gcount()] = T('\0');
+					stream->read(script, string_buffer_init_size);
+					if (stream->eof())
+						script[stream->gcount()] = T('\0');
 					scriptIndex = -1;
 					goto string_loop_escape;
 				case T('\"'):
@@ -268,9 +265,9 @@ Status run(std::istream& stream)
 				goto error_string_missing_closing_quote;
 
 			case T('\1'):
-				stream.read(script, string_buffer_init_size);
-				if (stream.eof())
-					script[stream.gcount()] = T('\0');
+				stream->read(script, string_buffer_init_size);
+				if (stream->eof())
+					script[stream->gcount()] = T('\0');
 				scriptIndex = -1;
 				goto string_loop;
 
@@ -291,7 +288,7 @@ Status run(std::istream& stream)
 				case T('\0'):
 					goto error_string_missing_closing_quote;
 				case T('\1'):
-					stream.read(script, string_buffer_init_size);
+					stream->read(script, string_buffer_init_size);
 					scriptIndex = -1;
 					goto link_loop_escape;
 				case T('\''):
@@ -316,7 +313,7 @@ Status run(std::istream& stream)
 				goto error_string_missing_closing_quote;
 
 			case T('\1'):
-				stream.read(script, string_buffer_init_size);
+				stream->read(script, string_buffer_init_size);
 				scriptIndex = -1;
 				goto string_loop;
 
@@ -337,7 +334,7 @@ Status run(std::istream& stream)
 				case T('\0'):
 					goto error_string_missing_closing_quote;
 				case T('\1'):
-					stream.read(script, string_buffer_init_size);
+					stream->read(script, string_buffer_init_size);
 					scriptIndex = -1;
 					goto expression_loop_escape;
 				case T('`'):
@@ -362,7 +359,7 @@ Status run(std::istream& stream)
 				goto error_string_missing_closing_quote;
 
 			case T('\1'):
-				stream.read(script, string_buffer_init_size);
+				stream->read(script, string_buffer_init_size);
 				scriptIndex = -1;
 				goto string_loop;
 
@@ -423,12 +420,14 @@ Status run(std::istream& stream)
                                                                               //   Decision tree 
         switch (instruction_r0.instr) {                                       //    ___________
         case InstructionType::start: goto parse;                              //   |   |   |s t| :parse
+		case InstructionType::call: goto parse;                               //   |   |   |fun| :parse
 		case InstructionType::error: goto parse;                              //   |   |   |err| :error
         case InstructionType::op: goto parse;                                 //   |   |   |o p| :parse //TODO: op val op :eval_prefix
 		case InstructionType::skip_next: goto eval_skip_next;                 //   |   |   |s>-| :eval_skip_next
 		case InstructionType::skip_after_next: goto parse;                    //   |   |   |s->| :parse
 		case InstructionType::ignore_separator: goto parse;                   //   |   |   |/;/| :parse
 		case InstructionType::ignore_array_start: goto parse;                 //   |   |   |/[/| :parse
+		//case InstructionType::call: goto eval_call;
 		case InstructionType::separator:
 			switch (instruction_r1.instr) {                                   //   |   | x | ; |
 			case InstructionType::ignore_separator: goto eval_erase_r0r1;     //   |   |/;/| ; | :eval_erase_r0r1
@@ -441,7 +440,8 @@ Status run(std::istream& stream)
 				switch (instruction_r2.instr) {                               //   | x |val| ; |
 				case InstructionType::start: goto eval_delete_r0r1;           //   |s t|val| ; | :eval_delete_r0r1
 				case InstructionType::start_context: goto eval_delete_r0r1;   //   | { |val| ; | :eval_delete_r0r1
-				case InstructionType::op: goto eval_prefix;                   //   |o p|val| ; | :eval_prefix
+				case InstructionType::call: goto eval_delete_r0r1;            //   |fun|val| ; | :eval_delete_r0r1
+				case InstructionType::op: goto eval_prefix;                   //   |o p|val| ; | :eval_prefix		//TODO: shift to match signature.
 				case InstructionType::start_array: goto eval_tuple_add;       //   | [ |val| ; | :eval_tuple_add
 				case InstructionType::spacing: goto eval_binary_long;         //   | _ |val| ; | :eval_binary_long
 				case InstructionType::skip_after_next: goto eval_skip_after_next;//|s->|val| ; | :eval_skip_after_next
@@ -453,6 +453,10 @@ Status run(std::istream& stream)
 		case InstructionType::end_group:                                      //   |   | x | ) |
 			switch (instruction_r1.instr) {
 			case InstructionType::spacing: goto eval_erase_r1;                //   |   | _ | ) | :eval_erase_r1
+			case InstructionType::op:  
+				switch (instruction_r2.instr) {                               //   | x |o p| ) |
+				case InstructionType::value: goto eval_postfix;               //   |val|o p| ) | :eval_postfix
+				default: goto error_syntax;}
 			case InstructionType::value:                                      //   | x |val| ) |
 				switch (instruction_r2.instr) {
 				case InstructionType::start_group: goto eval_group;           //   | ( |val| ) | :eval_group
@@ -462,6 +466,7 @@ Status run(std::istream& stream)
 		case InstructionType::start_array:                                    //   |   | x | [ | 
 			switch (instruction_r1.instr) {
 			case InstructionType::ignore_array_start: goto eval_erase_r0r1;   //   |   |/[/| [ | :eval_erase_r0r1
+			case InstructionType::call: goto parse;                           //   |   |fun| [ | :parse
 			default: goto eval_tuple_start;}                                  //   |   |all| [ | :eval_tuple_start
 		case InstructionType::end_array:                                      
 			switch (instruction_r1.instr) {                                   //   |   | x | ] |
@@ -475,8 +480,20 @@ Status run(std::istream& stream)
 			default: goto error_syntax;}
 		case InstructionType::start_context:                                  
             switch (instruction_r1.instr) {                                   //   |   | x | { |
-            case InstructionType::spacing: goto eval_erase_r1;                //   |   | _ | { | :eval_erase_r1
+			case InstructionType::call: goto eval_expr;                       //   |   |fun| { | :eval_expr
+            case InstructionType::spacing:                                    
+				switch (instruction_r2.instr) {                               //   | x | _ | { |
+				case InstructionType::start: goto eval_expr;                  //   |s t| _ | { | :eval_erase_r1
+				case InstructionType::value:  goto eval_erase_r1;             //   |val| _ | { | :eval_erase_r1
+				case InstructionType::op: goto eval_expr;                     //   |o p| _ | { | :eval_expr
+				case InstructionType::start_group: goto eval_expr;            //   | ( | _ | { | :eval_expr
+				case InstructionType::start_array: goto eval_expr;            //   | [ | _ | { | :eval_expr
+				case InstructionType::start_context: goto eval_expr;          //   | { | _ | { | :eval_expr
+				default: goto error_syntax;}
             case InstructionType::value: goto eval_context_start;             //   |   |val| { | :eval_context_start
+			case InstructionType::start: goto eval_expr;                      //   |   |s t| { | :eval_expr
+			case InstructionType::start_group: goto eval_expr;                //   |   | ( | { | :eval_expr
+			case InstructionType::op: goto eval_expr;                         //   |   |o p| { | :eval_expr
 			case InstructionType::context: goto parse;                        //   |   |ctx| { | :parse
             default: goto error_syntax; }
         case InstructionType::end_context:                                    //   |   | x | } |
@@ -507,6 +524,7 @@ Status run(std::istream& stream)
 			case InstructionType::value:                                      //   | x |val|end|
 				switch (instruction_r2.instr) {
 				case InstructionType::start: goto ending;                     //   |s t|val|end| :ending
+				case InstructionType::call: goto eval_finish_call;            //   |fun|val|end| :eval_finish_call
 				case InstructionType::spacing: goto eval_binary_long;         //   | _ |val|end| :eval_binary_long
 				case InstructionType::op: goto eval_prefix;	}                 //   |o p|val|end| :eval_prefix	//Possibly unreachable
 			default: goto error_syntax;
@@ -521,6 +539,7 @@ Status run(std::istream& stream)
 			case InstructionType::start_array: goto eval_erase_skip_r0;       //   |   | [ | _ | :eval_erase_skip_r0
 			case InstructionType::start_context: goto eval_erase_skip_r0;     //   |   | { | _ | :eval_erase_skip_r0
 			case InstructionType::spacing: goto eval_erase_r0;                //   |   | _ | _ | :eval_erase_r0
+			case InstructionType::call: goto eval_erase_r0;                   //   |   |fun| _ | :eval_erase_r0
             case InstructionType::op:                                         //   | x |o p| _ |
                 switch (instruction_r2.instr) {
 				case InstructionType::start: goto eval_erase_r0;              //   |s t|o p| _ | :eval_erase_r0
@@ -531,6 +550,7 @@ Status run(std::istream& stream)
 				case InstructionType::start_group: goto eval_erase_r0;        //   | ( |o p| _ | :eval_erase_r0
 				case InstructionType::start_array: goto eval_erase_r0;        //   | [ |o p| _ | :eval_erase_r0
 				case InstructionType::start_context: goto eval_erase_r0;      //   | { |o p| _ | :eval_erase_r0
+				case InstructionType::call: goto parse;                       //   |fun|o p| _ | :eval_erase_r0
 				case InstructionType::op: goto eval_erase_r0;                 //   |o p|o p| _ | :parse
                 case InstructionType::spacing: goto parse;                    //   | _ |o p| _ | :parse
                 case InstructionType::value: goto eval_postfix;               //   |val|o p| _ | :eval_postfix
@@ -544,6 +564,7 @@ Status run(std::istream& stream)
 				case InstructionType::skip_after_next: goto parse;            //   |s->|val| _ | :parse
                 case InstructionType::spacing: goto eval_binary_long;         //   | _ |val| _ | :eval_binary_long
                 case InstructionType::op: goto eval_prefix;                   //   |o p|val| _ | :eval_prefix	//Possibly unreachable
+				case InstructionType::call: goto parse;                       //   |fun|val| _ | :parse
 				case InstructionType::value: goto eval_erase_r0;}             //   |val|val| _ | :eval_erase_r0
             default: goto error_syntax; 
 			}
@@ -558,6 +579,7 @@ Status run(std::istream& stream)
 			case InstructionType::start: goto parse;                          //   |   |s t|val| :parse
             case InstructionType::value: goto eval_coalescing;                //   |   |val|val| :eval_coalescing
 			case InstructionType::spacing: goto parse;                        //   |   | _ |val| :parse
+			case InstructionType::call: goto parse;                           //   |   |fun|val| :parse
             //    switch (instruction_r2.instr) {
             //    case InstructionType::value: goto eval_binary_coalescing;     //   |val| _ |val| :eval_binary_coalescing //TODO: Priority at the right operand
             //    case InstructionType::op: goto parse;                         //   |o p| _ |val| :parse //Possibly unreachable
@@ -575,6 +597,7 @@ Status run(std::istream& stream)
                 case InstructionType::start_array: goto eval_prefix;          //   | [ |o p|val| :eval_prefix
                 case InstructionType::start_context: goto eval_prefix;        //   | { |o p|val| :eval_prefix
                 case InstructionType::spacing: goto eval_prefix;              //   | { |o p|val| :eval_prefix
+				case InstructionType::call: goto eval_prefix;                 //   |fun|o p|val| :eval_prefix
                 case InstructionType::separator: goto eval_prefix;            //   | ; |o p|val| :eval_prefix   //Possibly unreachable
                 default: goto error_syntax; }
             default: goto error_syntax; }
@@ -764,69 +787,141 @@ Status run(std::istream& stream)
 
 		eval_prefix: {
 			String opString = String((charT*)(g_memory.content + instruction_r1.shift), instruction_r1.modifier);
+			Table<ValueType, Procedure>* table;
 
-			if (!g_specification->op.prefix.count(opString))
+			if (!g_specification->op.prefixForward.count(opString))
+				goto eval_prefix_general_case;
+
+			table = &g_specification->op.prefixForward[opString];
+
+			if (table->count(instruction_r0.value))	//By string concrete value
+			{
+				table->at(instruction_r0.value)();
+				goto evaluate;
+			}
+			else if (table->count(ValueType::all))	//By string general value
+			{
+				table->at(ValueType::all)();
+				goto evaluate;
+			}
+
+			eval_prefix_general_case:
+
+			table = &g_specification->op.prefixGeneral;
+
+			if (table->count(instruction_r0.value))	//By type concrete value
+			{
+				table->at(instruction_r0.value)();
+				goto evaluate;
+			}
+			else if (table->count(ValueType::all))	//By type general value
+			{
+				table->at(ValueType::all)();
+				goto evaluate;
+			}
+			else
 				goto error_invalid_op;
 
-			Procedure lc_value;
-
-			if (!g_specification->op.prefix[opString].count(instruction_r0.value))
-				if (!g_specification->op.prefix[opString].count(ValueType::all))
-					goto error_invalid_op;
-				else
-					lc_value = g_specification->op.prefix[opString][ValueType::all];
-			else
-				lc_value = g_specification->op.prefix[opString][instruction_r0.value];
-
-			lc_value();
-
-			goto evaluate; //goto parse;
+			goto evaluate;
 		}
 
 		eval_postfix: {
 			String opString = String((charT*)(g_memory.content + instruction_r1.shift), instruction_r1.modifier);
+			Table<ValueType, Procedure>* table;
 
-			if (!g_specification->op.postfix.count(opString))
+			if (!g_specification->op.postfixForward.count(opString))
+				goto eval_postfix_general_case;
+
+			table = &g_specification->op.postfixForward[opString];
+
+			if (table->count(instruction_r2.value))	//By string concrete value
+			{
+				table->at(instruction_r2.value)();
+				goto evaluate;
+			}
+			else if (table->count(ValueType::all))	//By string general value
+			{
+				table->at(ValueType::all)();
+				goto evaluate;
+			}
+
+			eval_postfix_general_case:
+
+			table = &g_specification->op.postfixGeneral;
+
+			if (table->count(instruction_r2.value))	//By type concrete value
+			{
+				table->at(instruction_r2.value)();
+				goto evaluate;
+			}
+			else if (table->count(ValueType::all))	//By type general value
+			{
+				table->at(ValueType::all)();
+				goto evaluate;
+			}
+			else 
 				goto error_invalid_op;
-
-			Procedure lc_value;
-
-			if (!g_specification->op.postfix[opString].count(instruction_r2.value))
-				if (!g_specification->op.postfix[opString].count(ValueType::all))
-					goto error_invalid_op;
-				else
-					lc_value = g_specification->op.postfix[opString][ValueType::all];
-			else
-				lc_value = g_specification->op.postfix[opString][instruction_r2.value];
-
-			lc_value();
-
-			goto evaluate; //goto parse;
+			
+			goto evaluate;
 		}
 
 		eval_binary: {
 			String opString = String((charT*)(g_memory.content + instruction_r1.shift), instruction_r1.modifier);
+			Table<ValueTypeBinary, Procedure>* table;
 
-			if (!g_specification->op.binary.count(opString))
-				goto error_invalid_op;
+			if (!g_specification->op.binaryForward.count(opString))
+				goto eval_binary_general_case;
 
-			Procedure lc_value;// = specification->op.binary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
+			table = &g_specification->op.binaryForward[opString];
 
-			if (!g_specification->op.binary[opString].count(ValueTypeBinary(instruction_r2.value, instruction_r0.value)))
-				if (!g_specification->op.binary[opString].count(ValueTypeBinary(instruction_r2.value, ValueType::all)))
-					if (!g_specification->op.binary[opString].count(ValueTypeBinary(ValueType::all, instruction_r0.value)))
-						if (!g_specification->op.binary[opString].count(ValueTypeBinary(ValueType::all, ValueType::all)))
-							goto error_invalid_op;
-						else
-							lc_value = g_specification->op.binary[opString][ValueTypeBinary(ValueType::all, ValueType::all)];
-					else
-						lc_value = g_specification->op.binary[opString][ValueTypeBinary(ValueType::all, instruction_r0.value)];
-				else
-					lc_value = g_specification->op.binary[opString][ValueTypeBinary(instruction_r2.value, ValueType::all)];
+			if (table->count(ValueTypeBinary(instruction_r2.value, instruction_r0.value)))	//By string concrete value
+			{
+				table->at(ValueTypeBinary(instruction_r2.value, instruction_r0.value))();
+				goto evaluate;
+			}
+			else if (table->count(ValueTypeBinary(instruction_r2.value, ValueType::all)))	//By string Lconcrete Rgeneral
+			{
+				table->at(ValueTypeBinary(instruction_r2.value, ValueType::all))();
+				goto evaluate;
+			}
+			else if (table->count(ValueTypeBinary(ValueType::all, instruction_r0.value)))	//By string Lgeneral Rconcrete
+			{
+				table->at(ValueTypeBinary(instruction_r2.value, ValueType::all))();
+				goto evaluate;
+			}
+			else if (table->count(ValueTypeBinary(ValueType::all, ValueType::all)))			//By string general
+			{
+				table->at(ValueTypeBinary(ValueType::all, ValueType::all))();
+				goto evaluate;
+			}
+
+			eval_binary_general_case:
+
+			table = &g_specification->op.binaryGeneral;
+
+			if (table->count(ValueTypeBinary(instruction_r2.value, instruction_r0.value)))	//By type concrete value
+			{
+				table->at(ValueTypeBinary(instruction_r2.value, instruction_r0.value))();
+				goto evaluate;
+			}
+			else if (table->count(ValueTypeBinary(instruction_r2.value, ValueType::all)))	//By type Lconcrete Rgeneral
+			{
+				table->at(ValueTypeBinary(instruction_r2.value, ValueType::all))();
+				goto evaluate;
+			}
+			else if (table->count(ValueTypeBinary(ValueType::all, instruction_r0.value)))	//By type Lgeneral Rconcrete
+			{
+				table->at(ValueTypeBinary(instruction_r2.value, ValueType::all))();
+				goto evaluate;
+			}
+			else if (table->count(ValueTypeBinary(ValueType::all, ValueType::all)))			//By type general
+			{
+				table->at(ValueTypeBinary(ValueType::all, ValueType::all))();
+				goto evaluate;
+			}
 			else
-				lc_value = g_specification->op.binary[opString][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
-
-			lc_value();
+				goto error_invalid_op;
+			
 
 			goto evaluate;
 		}
@@ -878,6 +973,13 @@ Status run(std::istream& stream)
 				//instruction_r2 = g_stack_instruction.at_r(2);
 
 				goto eval_binary;
+
+			case InstructionType::call:
+				++scriptIndex;
+				goto parse;
+				/*g_stack_instruction.at_r(2) = g_stack_instruction.get_r(1);
+				g_stack_instruction.max_index -= 2;
+				goto evaluate;*/
 			default:
 				goto error_syntax;
 			}
@@ -926,6 +1028,73 @@ Status run(std::istream& stream)
 			g_stack_instruction.at_r(1) = instruction_r0;
 			--g_stack_instruction.max_index;
 
+			goto evaluate;
+		}
+
+		eval_expr: {
+			charT* function = (charT*)malloc(256*sizeof(charT));
+			uint32 max_index = 255;
+			uint32 index = -1;
+
+			uint32 depth = 0;
+
+			charT ch;
+			while (true) {
+				++index;
+				switch (ch = script[++scriptIndex])
+				{
+				case T('\0'):
+					goto error_syntax;
+				case T('\1'):
+					stream->read(script, string_buffer_init_size);
+					if (stream->eof())
+						script[stream->gcount()] = T('\0');
+					scriptIndex = -1;
+					break;
+				case T('{'):
+					++depth;
+					break;
+				case T('}'):
+					if (depth == 0) {
+						function[index] = 0;
+						--g_stack_instruction.max_index;
+						g_stack_instruction.add(Instruction::val(ValueType::expression, g_memory.max_index));
+						g_memory.add(function);
+						goto evaluate;
+					}
+					else
+						--depth;
+					break;
+				default:
+					if (index > max_index)
+					{
+						max_index = ((max_index + 1) << 1) - 1;
+						realloc(function, max_index);	//TODO: check for memory
+					}
+					function[index] = ch;
+					break;
+				}
+			}
+
+			/*
+			__m128i context_finish = _mm_set1_epi8('{');
+			__m128i chunk = _mm_loadu_si128((__m128i*)(script + scriptIndex));
+			uint16 cmp_result;
+			if (cmp_result = _mm_cmpeq_epi8_mask(chunk, context_finish))
+			{
+				if ((uint8)cmp_result) {
+
+				}
+			}
+			*/
+		}
+
+		eval_finish_call: {
+			script = *(charT**)(g_memory.content + instruction_r2.shift);
+			scriptIndex = *(int*)(g_memory.content + instruction_r2.shift + sizeof(void*));
+			g_stack_instruction.at_r(2) = g_stack_instruction.get_r(3);
+			g_stack_instruction.at_r(3) = g_stack_instruction.get_r(1);
+			g_stack_instruction.max_index -= 2;
 			goto evaluate;
 		}
 	}

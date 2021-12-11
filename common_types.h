@@ -178,13 +178,13 @@ struct Span : Array<uint8> {
 	const static size_t INITIAL_CAPACITY = 1024;
 
 	Span() {
-		content = new uint8[INITIAL_CAPACITY];
+		content = (uint8*)malloc(INITIAL_CAPACITY);
 		max_index = 0;
 		capacity = INITIAL_CAPACITY;
 	}
 
 	Span(size_t initial_capacity) {
-		content = new uint8[initial_capacity];
+		content = (uint8*)malloc(initial_capacity);
 		max_index = 0;
 		capacity = initial_capacity;
 	}
@@ -194,7 +194,7 @@ struct Span : Array<uint8> {
 	}
 
 	template<typename _V>
-	inline void add(_V element) {
+	void add(_V element) {
 		if ((max_index + sizeof(_V)) < capacity)
 		{
 			*(_V*)(content+max_index) = element;
@@ -202,10 +202,11 @@ struct Span : Array<uint8> {
 		}
 		else
 		{
-			uint8* ptr = new uint8[capacity <<= 1];
+			content = (uint8*)realloc(content, capacity <<= 1);
+			/*uint8* ptr = new uint8[capacity <<= 1];
 			memcpy(ptr, content, sizeof(uint8) * (max_index + 1));
 			delete[] content;
-			content = ptr;
+			content = ptr;*/
 
 			*(_V*)(content + max_index) = element;
 			max_index += sizeof(_V);

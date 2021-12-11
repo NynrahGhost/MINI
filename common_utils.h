@@ -13,7 +13,8 @@
 	case T('-'): case T('+'): case T('*'): case T(':'):		\
 	case T('/'): case T('^'): case T('\\'): case T('%'):	\
 	case T('&'): case T('|'):								\
-	case T('.'): case T('~')								
+	case T('.'): case T('~'):								\
+	case T('$')
 
 //Case for whitespace characters
 #define char_space_character								\

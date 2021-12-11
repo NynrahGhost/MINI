@@ -176,151 +176,162 @@ namespace Core {
 			destr(tuple, (DestructorProcedure)destructorArr);
 			destr(autoptr, (DestructorProcedure)free);
 		}
-		core->op.prefix = Table<String, Table<ValueType, Procedure>>();
+		core->type.destructorGlobal = Table<ValueType, Destructor>();
+		{
+			destr(all, (DestructorProcedure)doNothing); //TODO: Fill with string, table and stuff
+			destr(tuple, (DestructorProcedure)destructorArr);
+			destr(autoptr, (DestructorProcedure)free);
+		}
+		core->op.prefixForward = Table<String, Table<ValueType, Procedure>>();
 		{
 			Table<ValueType, Procedure>* table;
 
-			table = &core->op.prefix[T("//")];
+			table = &core->op.prefixForward[T("//")];
 			uFun(all, ignore);
 			
-			table = &core->op.prefix[T("?")];
+			table = &core->op.prefixForward[T("?")];
 			uFun(all, conditional);
 			uFun(name, findValueR0);
 			uFun(truth, conditionalTrue);
 			uFun(lie, conditionalFalse);
 
-			table = &core->op.prefix[T("?.")];
+			table = &core->op.prefixForward[T("?.")];
 			//uFun(all, conditionalShort);
 			
-			table = &core->op.prefix[T("?|")];
+			table = &core->op.prefixForward[T("?|")];
 			//uFun(all, loopWhile);
 
-			table = &core->op.prefix[T("?:")];
+			table = &core->op.prefixForward[T("?:")];
 			//uFun(all, conditionalSwitch);
 			//uFun(tuple, conditionalSwitch);
 
-			table = &core->op.prefix[T("?<")];
+			table = &core->op.prefixForward[T("?<")];
 			//uFun(all, conditionalComparator);
 
-			table = &core->op.prefix[T("?:<")];
+			table = &core->op.prefixForward[T("?:<")];
 			//uFun(all, conditionalSwitchPredicate);
 
-			table = &core->op.prefix[T("!<<")];
+			table = &core->op.prefixForward[T("!<<")];
 			uFun(name, getReferenceR0);
 			uFun(all, print);
 
-			table = &core->op.prefix[T("!>>")];
+			table = &core->op.prefixForward[T("!>>")];
 			uFun(name, getReferenceR0);
 			uFun(reference, scan);
 
-			table = &core->op.prefix[T(",")];
+			table = &core->op.prefixForward[T(",")];
 			uFun(all, commaPrefix);
 
-			table = &core->op.prefix[T("+")];
+			table = &core->op.prefixForward[T("+")];
 			uFun(name, findValueR0);
 			uFun(type, instantiate);
+			uFun(table, instantiateObject);
 
 			//table = &core->op.prefix[T("-")];
 			//u uFun(int64, (negate<int64>));
 			//uFun(float64, (negate<float64>));
 
-			table = &core->op.prefix[T("&")];
+			table = &core->op.prefixForward[T("&")];
 			uFun(name, (getReferenceR1));
 
-			table = &core->op.prefix[T("*")];
+			table = &core->op.prefixForward[T("*")];
 			uFun(name, findValueR0);
 
-			table = &core->op.prefix[T("*&")];
+			table = &core->op.prefixForward[T("*&")];
 			uFun(name, (findValueR0));
 			uFun(reference, (getValueR0));
 
-			table = &core->op.prefix[T(">")];
+			table = &core->op.prefixForward[T(">")];
 			uFun(all, allArrayInclusive);
 
-			table = &core->op.prefix[T("^")];
+			table = &core->op.prefixForward[T("^")];
 			uFun(int64, getNamespace);
 
-			table = &core->op.prefix[T("@")];
+			table = &core->op.prefixForward[T("@")];
 			uFun(int64, atContextByIndex);
 			uFun(name, atContextByName);
 			uFun(string, atContextByName);
 			uFun(tuple, renameArrayContext);
 
-			table = &core->op.prefix[T(".")];
+			table = &core->op.prefixForward[T(".")];
 			uFun(int64, contextMethod);
 
-			table = &core->op.prefix[T("::")];
+			table = &core->op.prefixForward[T("::")];
 			uFun(string, getNamespaceEntry);
 			//uFun(tuple, getApplication);
 
-			table = &core->op.prefix[T("::<")];
+			table = &core->op.prefixForward[T("::<")];
 			uFun(string, getNamespacePrefix);
 
-			table = &core->op.prefix[T("::>")];
+			table = &core->op.prefixForward[T("::>")];
 			uFun(string, getNamespacePostfix);
 
-			table = &core->op.prefix[T("::.^")];
+			table = &core->op.prefixForward[T("::.^")];
 			uFun(string, getNamespaceBinaryRight);
 
-			table = &core->op.prefix[T("::^.")];
+			table = &core->op.prefixForward[T("::^.")];
 			uFun(string, getNamespaceBinaryLeft);
 		}
-		core->op.postfix = Table<String, Table<ValueType, Procedure>>();
+		core->op.postfixForward = Table<String, Table<ValueType, Procedure>>();
 		{
 			Table<ValueType, Procedure>* table;
 
-			table = &core->op.postfix[T(",")];
+			table = &core->op.postfixForward[T(",")];
 			uFun(all, commaPostfix);
 			
-			table = &core->op.postfix[T("*")];
+			table = &core->op.postfixForward[T("*")];
 			//uFun(all, getValueProcedure);
 
-			table = &core->op.postfix[T(">")];
+			table = &core->op.postfixForward[T(">")];
 			uFun(all, allArrayExclusive);
 
-			table = &core->op.postfix[T("^")];
+			table = &core->op.postfixForward[T("^")];
 			uFun(all, allGroupExclusive);
 
-			table = &core->op.postfix[T(":")];
+			table = &core->op.postfixForward[T(":")];
 			uFun(table, allContext);
 			uFun(name, allContext);
 			//uFun(type, allocDynamicArrayStack);
 
-			table = &core->op.postfix[T("*:")];
+			table = &core->op.postfixForward[T("*:")];
 			//uFun(dict, allocDynamicArrayHeap);
-		}
 
-		core->op.binary = Table<String, Table<ValueTypeBinary, Procedure>>();
+			table = &core->op.postfixForward[T(".")];
+			uFun(name, findValueR2);
+			uFun(reference, getValueR2);
+			uFun(expression, callFunction);
+		}
+		core->op.binaryForward = Table<String, Table<ValueTypeBinary, Procedure>>();
 		{
 			Table<ValueTypeBinary, Procedure>* table;
 
-			table = &core->op.binary[T("?,")]; //Null coalesceing
+			table = &core->op.binaryForward[T("?,")]; //Null coalesceing
 
-			table = &core->op.binary[T("?=")]; //Null conditional assignment
+			table = &core->op.binaryForward[T("?=")]; //Null conditional assignment
 
-			table = &core->op.binary[T("?.")]; //Null conditional method call
+			table = &core->op.binaryForward[T("?.")]; //Null conditional method call
 
-			table = &core->op.binary[T("@")];
+			table = &core->op.binaryForward[T("@")];
 			bFun(unfunction, tuple, callWithContext);
 
-			table = &core->op.binary[T(",")];
+			table = &core->op.binaryForward[T(",")];
 			bFun(all, all, commaBinary);
 
-			table = &core->op.binary[T("+")];
+			table = &core->op.binaryForward[T("+")];
 			bFunInterfaceNameRefDowncastTricketry
 			bFunInterfaceMatch(int64, int64, int64, add);
 			bFunInterfaceMatch(float64, int64, float64, add);
 			bFunInterfaceMatch(int64, float64, float64, add);
 			bFunInterfaceMatch(float64, float64, float64, add);
 
-			table = &core->op.binary[T("-")];
+			table = &core->op.binaryForward[T("-")];
 			bFunInterfaceNameRefDowncastTricketry
 			bFunInterfaceMatch(int64, int64, int64, sub);
 			bFunInterfaceMatch(float64, int64, float64, sub);
 			bFunInterfaceMatch(int64, float64, float64, sub);
 			bFunInterfaceMatch(float64, float64, float64, sub);
 
-			table = &core->op.binary[T("*")];
+			table = &core->op.binaryForward[T("*")];
 			bFunInterfaceNameRefDowncastTricketry
 			bFunInterfaceMatch(int64, int64, int64, mul);
 			bFunInterfaceMatch(float64, int64, float64, mul);
@@ -328,39 +339,46 @@ namespace Core {
 			bFunInterfaceMatch(float64, float64, float64, mul);
 			//bFun(type, none, allocHeap);
 
-			table = &core->op.binary[T("/")];
+			table = &core->op.binaryForward[T("/")];
 			bFunInterfaceNameRefDowncastTricketry
 			bFunInterfaceMatch(int64, int64, float64, div);
 			bFunInterfaceMatch(float64, int64, float64, div);
 			bFunInterfaceMatch(int64, float64, float64, div);
 			bFunInterfaceMatch(float64, float64, float64, div);
 
-			table = &core->op.binary[T("/.")];
+			table = &core->op.binaryForward[T("/.")];
 			bFunInterfaceNameRefDowncastTricketry
 			bFunInterfaceMatch(int64, int64, int64, div);
 			bFunInterfaceMatch(float64, int64, int64, div);
 			bFunInterfaceMatch(int64, float64, int64, div);
 			bFunInterfaceMatch(float64, float64, int64, div);
 
-			table = &core->op.binary[T("%")];
+			table = &core->op.binaryForward[T("%")];
 			bFunInterfaceNameRefDowncastTricketry
 			bFunInterfaceMatch(int64, int64, int64, mod);
 
-			table = &core->op.binary[T("=")];
+			table = &core->op.binaryForward[T("=")];
 			bFun(name, all, assignToName);
 			bFun(reference, all, assignToReference);
 			//bFun(pointer, all, assignToName);
 
-			table = &core->op.binary[T("<=")];
+			table = &core->op.binaryForward[T("<=")];
 			bFun(name, all, assignToName);
 			bFun(reference, all, assignToReference);
 
-			table = &core->op.binary[T(".")];
+			table = &core->op.binaryForward[T(":<=")];
+			//bFun(name, name, findValueR0);
+			bFun(name, all, declareAssign);
+
+			table = &core->op.binaryForward[T(":=")];
+			bFun(name, all, declareAssign);
+
+			table = &core->op.binaryForward[T(".")];
 			bFun(int64, int64, (createFloat<int64, int64, float64, ValueType::float64>));
 			bFun(all, name, findValueR0);
 			bFun(all, unprocedure, callThis);
 
-			table = &core->op.binary[T("::")];
+			table = &core->op.binaryForward[T("::")];
 			bFun(name, name, findValueR2);
 			bFun(name, string, findValueR2);
 			bFun(table, name, getTableEntry);
@@ -368,26 +386,44 @@ namespace Core {
 			bFun(table, string, getTableEntry);
 			//bFun(type, int64, allocArrayStack);
 
-			table = &core->op.binary[T("::<")];
+			table = &core->op.binaryForward[T("::<")];
 			bFun(name, name, findValueR0R2);
 			bFun(table, string, getTablePrefix);
 
-			table = &core->op.binary[T("::>")];
+			table = &core->op.binaryForward[T("::>")];
 			bFun(name, name, findValueR0R2);
 			bFun(table, string, getTablePostfix);
 
-			table = &core->op.binary[T("::.^")];
+			table = &core->op.binaryForward[T("::.^")];
 			bFun(name, name, findValueR0R2);
 			bFun(table, string, getTableBinaryRight);
 
-			table = &core->op.binary[T("::^.")];
+			table = &core->op.binaryForward[T("::^.")];
 			bFun(name, name, findValueR0R2);
 			bFun(table, string, getTableBinaryLeft);
 
-			table = &core->op.binary[T("*:")];
+			table = &core->op.binaryForward[T("*:")];
 			//bFun(type, int64, allocArrayHeap);
 		}
+		core->op.prefixGeneral = Table<ValueType, Procedure>();
+		{
+			Table<ValueType, Procedure>* table = &core->op.prefixGeneral;
 
+			uFun(object, callObjectPrefix);
+		}
+		core->op.postfixGeneral = Table<ValueType, Procedure>();
+		{
+			Table<ValueType, Procedure>* table = &core->op.postfixGeneral;
+
+			uFun(object, callObjectPostfix);
+		}
+		core->op.binaryGeneral = Table<ValueTypeBinary, Procedure>();
+		{
+			Table<ValueTypeBinary, Procedure>* table = &core->op.binaryGeneral;
+
+			bFun(object, all, callObjectBinaryLeft);  
+			bFun(all, object, callObjectBinaryRight);
+		}
 		core->op.coalescing = Table<ValueTypeBinary, Procedure>();
 		{
 			Table<ValueTypeBinary, Procedure>* table = &core->op.coalescing;

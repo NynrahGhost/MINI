@@ -1,4 +1,5 @@
 #include "core.h"
+#include <sstream>
 
 namespace Core {
 
@@ -8,11 +9,12 @@ namespace Core {
 		Instruction value = g_stack_instruction.get_r(0);
 		ValueType type = g_memory.at<ValueType>(value.shift);
 
-		g_memory.max_index = g_stack_instruction.get_r(1).shift;
-		Instruction& instr = g_stack_instruction.at_r(1);
+		Instruction instr = g_stack_instruction.get_r(1);
 		instr.instr = InstructionType::value;
 		instr.modifier = value.modifier;
 		instr.value = type;
+		g_memory.max_index = instr.shift;
+		g_stack_instruction.at_r(1) = instr;
 		g_stack_instruction.max_index -= 1;
 
 		switch (type) {
@@ -39,9 +41,29 @@ namespace Core {
 			//*(Table<String, ValueType*>**)(g_memory.content + instr.shift) = new Table<String, ValueType*>();
 			//g_memory.max_index += sizeof(void*);
 			break;
+		case ValueType::ufunction:
+			g_memory.max_index += sizeof(void*);
+			//g_memory.add(new Array<Instruction>());
+			//g_memory.add(new Span(512)); //Last;
 		default:
 			break;
 		}
+	}
+
+	void instantiateObject() {
+		Instruction table = g_stack_instruction.get_r(0);
+		Instruction object = g_stack_instruction.get_r(1);
+		
+		g_memory.move_relative(table.shift, sizeof(void*), -object.modifier);
+		g_memory.max_index = object.shift + sizeof(void*);
+
+		object.instr = InstructionType::value;
+		object.value = ValueType::object;
+		object.modifier = 0;
+
+		g_stack_instruction.at_r(1) = object;
+
+		g_stack_instruction.max_index -= 1;
 	}
 
 	//For postfix instatiation
@@ -164,10 +186,74 @@ namespace Core {
 	void declareAssign() {
 		auto left = g_stack_instruction.get_r(2);
 		auto right = g_stack_instruction.get_r(0);
-		String str = String((charT*)(g_memory.content + left.shift), left.modifier);
+		String strLeft = String((charT*)(g_memory.content + left.shift), left.modifier);
 
+		Table<String, ValueType*>* table = g_stack_namespace.get_r(0);
+		if (table->count(strLeft))
+		{
+			ValueType* value = (*table)[strLeft];
+			g_specification->type.destructorGlobal[ValueType::reference](value);
+			//TODO: implement destruction
+		}
 
-		//right.
+		ValueType* ptr;
+
+		switch (right.value)
+		{
+		case ValueType::type:
+			ptr = (ValueType*)malloc(sizeof(ValueType) + sizeof(ValueType));	//TODO: check for memory
+			memcpy(ptr + 1, g_memory.content + right.shift, sizeof(ValueType));
+			break;
+		case ValueType::int8:
+		case ValueType::uint8:
+			ptr = (ValueType*)malloc(sizeof(ValueType) + 1);	//TODO: check for memory
+			memcpy(ptr + 1, g_memory.content + right.shift, 1);
+			break;
+		case ValueType::int16:
+		case ValueType::uint16:
+			ptr = (ValueType*)malloc(sizeof(ValueType) + 2);	//TODO: check for memory
+			memcpy(ptr + 1, g_memory.content + right.shift, 2);
+			break;
+		case ValueType::int32:
+		case ValueType::uint32:
+			ptr = (ValueType*)malloc(sizeof(ValueType) + 4);	//TODO: check for memory
+			memcpy(ptr + 1, g_memory.content + right.shift, 4);
+			break;
+		case ValueType::int64:
+		case ValueType::uint64:
+			ptr = (ValueType*)malloc(sizeof(ValueType) + 8);	//TODO: check for memory
+			memcpy(ptr + 1, g_memory.content + right.shift, 8);
+			break;
+		case ValueType::reference:
+		case ValueType::table:
+		case ValueType::expression:
+			ptr = (ValueType*)malloc(sizeof(ValueType) + sizeof(void*));	//TODO: check for memory
+			memcpy(ptr + 1, g_memory.content + right.shift, sizeof(void*));
+			break;
+		case ValueType::name:
+		{
+			String strRight = String((charT*)(g_memory.content + right.shift), right.modifier);
+			ValueType* val = findName(strRight);
+			ptr = (ValueType*)malloc(sizeof(ValueType) + g_specification->type.size[(size_t)*val]);
+			memcpy(ptr, val, g_specification->type.size[(size_t)*val] + sizeof(ValueType));
+			(*table)[strLeft] = ptr;
+
+			g_stack_instruction.max_index -= 2;
+			left.value = ValueType::reference;
+			left.modifier = (uint16)*val;
+			g_memory.max_index = left.shift + sizeof(void*);
+			return;
+		}
+		default:
+			throw "Can't assign type";
+		}
+		*ptr = right.value;
+		(*table)[strLeft] = ptr;
+
+		g_stack_instruction.max_index -= 2;
+		left.value = ValueType::reference;
+		left.modifier = (uint16)right.value;
+		g_memory.max_index = left.shift + sizeof(void*);
 	}
 
 	void assignToName() {
@@ -526,6 +612,7 @@ namespace Core {
 		case ValueType::tuple:
 		case ValueType::table:
 		case ValueType::unprocedure:
+		case ValueType::expression:
 			*(Procedure*)(g_memory.content + ref.shift) = *(Procedure*)(ptr + 1);
 
 			ref.value = *ptr;
@@ -780,6 +867,7 @@ namespace Core {
 			case ValueType::tuple:
 			case ValueType::table:
 			case ValueType::unprocedure:
+			case ValueType::expression:
 				memcpy(g_memory.content + name.shift + sizeof(void*), g_memory.content + name.shift + name.modifier, g_memory.max_index - name.shift + name.modifier);
 				*(Procedure*)(g_memory.content + name.shift) = *(Procedure*)(ptr + 1);
 				g_memory.max_index += sizeof(void*) - name.modifier;
@@ -941,25 +1029,26 @@ namespace Core {
 
 
 	void getNamespaceEntryLiteral(String str) {
-		Instruction& instr_table = g_stack_instruction.at_r(1);
+		Instruction instr_table = g_stack_instruction.get_r(1);
 		Table<String, ValueType*>* table = g_stack_namespace.get_r(0);
 
-		if (table->count(str)) {
+		instr_table.instr = InstructionType::value;
 
-			auto val = (*table)[str];
-			instr_table.instr = InstructionType::value;
+		if (table->count(str)) {
 			instr_table.value = ValueType::reference;
+			auto val = (*table)[str];
 			instr_table.modifier = (uint16)*val;
 			*(void**)(g_memory.content + instr_table.shift) = val;
 		}
 		else
 		{
-			instr_table.instr = InstructionType::value;
-			instr_table.value = ValueType::none;
-			instr_table.modifier = 0;
-			table->insert(std::pair<String, ValueType*>(str, &Core::none));
-			g_memory.at<void*>(instr_table.shift) = &Core::none;
+			Instruction last = g_stack_instruction.get_r(0);
+			g_memory.move_relative(last.shift, last.modifier, -instr_table.modifier + sizeof(charT));
+			g_memory.at<charT>(instr_table.shift) = (charT)EntryPrefix::prefix;
+			instr_table.value = ValueType::name;
+			instr_table.modifier = last.modifier + sizeof(charT);
 		}
+		g_stack_instruction.at_r(1) = instr_table;
 		g_stack_instruction.max_index -= 1;
 	}
 
@@ -1002,15 +1091,64 @@ namespace Core {
 		getNamespaceEntryLiteral(str);
 	}
 
+	void callObjectPrefix() {
+		Table<String, ValueType*>* table = g_memory.get<Table<String, ValueType*>*>(g_stack_instruction.get_r(0).shift);
+		//Table<String, ValueType*>* table = (*(Table<String, ValueType*>**)(g_memory.content + g_stack_instruction.get_r(0).shift));
+		Instruction instr_str = g_stack_instruction.get_r(1);
+		String str = String();
+		str += ((charT)EntryPrefix::prefix);
+		str.append((charT*)(g_memory.content + instr_str.shift), instr_str.modifier);
+
+		if (table->count(str))
+		{
+			ValueType* value = table->at(str);
+			switch (*value)
+			{
+			case ValueType::unprocedure:
+				(*((Procedure*)(table->at(str) + 1)))();
+				break;
+			//case ValueType::ufunction:
+
+			}
+		}
+		else
+		{
+			g_stack_instruction.add(Instruction{ InstructionType::error, ValueType::none, (int16)Status::error_invalid_op });
+		}
+	}
+
+	void callObjectPostfix() {
+		Table<String, ValueType*>* table = g_memory.get<Table<String, ValueType*>*>(g_stack_instruction.get_r(0).shift);
+		//Table<String, ValueType*>* table = (*(Table<String, ValueType*>**)(g_memory.content + g_stack_instruction.get_r(0).shift));
+		Instruction instr_str = g_stack_instruction.get_r(1);
+		String str = String();
+		str += ((charT)EntryPrefix::postfix);
+		str.append((charT*)(g_memory.content + instr_str.shift), instr_str.modifier);
+
+		if (table->count(str))
+		{
+			(*((Procedure*)(table->at(str) + 1)))();
+		}
+		else
+		{
+			g_stack_instruction.add(Instruction{ InstructionType::error, ValueType::none, (int16)Status::error_invalid_op });
+		}
+	}
+
+	void callObjectBinaryLeft() {
+
+	}
+
+	void callObjectBinaryRight() {
+
+	}
 
 	void invokeResolve() {
 
 	}
-
 	void invokeProcedure() {
 		((Procedure)g_memory.get<void*>(g_stack_instruction.get_r(1).shift))();
 	}
-
 	void invokeFunction() {
 		Instruction parameter = g_stack_instruction.get_r(0);
 		Instruction function = g_stack_instruction.get_r(2);
@@ -1029,9 +1167,22 @@ namespace Core {
 
 
 	}
-
 	void invokeNativeFunction() {
 
+	}
+
+	void callFunction() {
+		Instruction val = g_stack_instruction.get_r(2);
+		charT* function = *(charT**)(g_memory.content + val.shift);
+		*(void**)(g_memory.content + val.shift) = script;
+		*(int*)(g_memory.content + val.shift + sizeof(void*)) = scriptIndex;
+		g_memory.max_index = val.shift + sizeof(void*) + 4;
+		script = function;
+		val.instr = InstructionType::call;
+		g_stack_instruction.at_r(1) = val;
+		g_stack_instruction.at_r(2) = g_stack_instruction.get_r(0);
+		g_stack_instruction.max_index -= 1;
+		scriptIndex = -1;
 	}
 
 

@@ -24,6 +24,7 @@ enum class Status
 };
 
 using Procedure = void (*) ();
+using Method = void (*) (String*);
 using Destructor = void (*) (void*);
 using DestructorProcedure = void (*) (void*, Instruction&);
 using ToStringGlobal = String (*) (ValueType*);
@@ -42,13 +43,23 @@ struct Module {
         Table<ValueType, ToStringGlobal> stringGlobal;
         Table<ValueType, ToStringLocal> stringLocal;
         Table<ValueType, DestructorProcedure> destructor;
+        Table<ValueType, Destructor> destructorGlobal;
         //Specification may require hasDestructor field (Currently not belonging to destructor table means type has no destructor)
     } type;
 
     struct {
-        Table<String, Table<ValueType, Procedure>> prefix;
-        Table<String, Table<ValueType, Procedure>> postfix;
-        Table<String, Table<ValueTypeBinary, Procedure>> binary;
+        Table<String, Table<ValueType, Procedure>> prefixForward;
+        Table<String, Table<ValueType, Procedure>> postfixForward;
+        Table<String, Table<ValueTypeBinary, Procedure>> binaryForward;
+
+        Table<ValueType, Table<String, Procedure>> prefixReverse;
+        Table<ValueType, Table<String, Procedure>> postfixReverse;
+        Table<ValueTypeBinary, Table<String, Procedure>> binaryReverse;
+
+        Table<ValueType, Procedure> prefixGeneral;
+        Table<ValueType, Procedure> postfixGeneral;
+        Table<ValueTypeBinary, Procedure> binaryGeneral;
+
         Table<ValueTypeBinary, Procedure> coalescing;
     } op;
 
@@ -58,8 +69,13 @@ struct Module {
     } context;
 };
 
+const size_t memory_init_size = 1024;
+const size_t string_buffer_init_size = 1024;
 
 extern "C" Table<String, ValueType*> g_data;
+extern "C" thread_local std::istream* stream;
+extern "C" thread_local charT* script;
+extern "C" thread_local int scriptIndex;
 extern "C" thread_local Module* g_specification;
 extern "C" thread_local Array<Table<String, ValueType*>*> g_stack_namespace;
 extern "C" thread_local Array<Table<String, ValueType*>> g_stack_local;
@@ -83,7 +99,7 @@ void g_memory_delete_span_r(size_t index);
 void g_memory_delete_span_r(size_t indexBegin, size_t indexEnd);
 
 
-Status run(std::istream& stream);
+Status run();
 
 int main();
 

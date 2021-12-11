@@ -29,14 +29,14 @@ int main()
 
 
 	//std::ifstream stream = std::ifstream("tests.mini");
-	std::ifstream stream = std::ifstream("test.mini");
+	stream = new std::ifstream("test.mini");
 	//std::istringstream stream = std::istringstream(script);
 
 	/*
 	std::stringstream stream = std::stringstream();
 	stream << script;/**/
 
-	int result = (int)run(stream);
+	int result = (int)run();
 	//std::cout << g_memory.max_index << std::endl;
 	//std::cout << Core::call_test() << std::endl;
 	return result;

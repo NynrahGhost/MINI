@@ -31,6 +31,7 @@ namespace Core
 	void scan();
 
 	void instantiate();
+	void instantiateObject();
 	void declareVariable();
 
 	void conditional();
@@ -43,6 +44,12 @@ namespace Core
 	void getNamespace();
 	void atContextByIndex();
 	void atContextByName();
+
+	void callObjectPrefix();
+	void callObjectPostfix();
+	void callObjectBinaryLeft();
+	void callObjectBinaryRight();
+	//void callObjectCoalescing();
 
 	void callWithContext();
 	void renameArrayContext();
@@ -57,9 +64,12 @@ namespace Core
 	void invokeFunction();
 	void invokeNativeFunction();
 
+	void callFunction();
+
 	void assignToName();
 	void assignToReference();
 	bool assign(void* toValue, ValueType toType, void* fromValue, ValueType fromType);
+	void declareAssign();
 
 	void ignore();
 
@@ -70,11 +80,13 @@ namespace Core
 	void getReferenceR0();
 	void getReferenceR1();
 
+	//Dereference a name
 	void findValueR0();
 	void findValueR1();
 	void findValueR2();
 	void findValueR0R2();
 
+	//Dereference a reference
 	void getValueR0();
 	void getValueR1();
 	void getValueR2();

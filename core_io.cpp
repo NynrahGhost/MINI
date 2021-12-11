@@ -59,6 +59,9 @@ namespace Core {
 		case ValueType::name:
 		case ValueType::link:
 			return String((charT*)(value + 3), (*(uint16*)(value + 1)));
+		case ValueType::expression:
+			result.append(*(charT**)(value + 1));
+			return result;
 		case ValueType::table:
 			result.append(T("{\n"));
 			for (auto var : **(Table<String, ValueType*>**)(value + 1))
@@ -112,6 +115,7 @@ namespace Core {
 		case ValueType::link:
 			return String((charT*)(g_memory.content + instruction.shift), instruction.modifier);
 		case ValueType::table:
+		case ValueType::object:
 			result.append(T("{\n"));
 			for (auto var : **(Table<String, ValueType*>**)(g_memory.content + instruction.shift))
 			{
@@ -149,6 +153,10 @@ namespace Core {
 			//result.append("ref(");
 			//result.append(toStringGlobal(**(ValueType***)(g_memory.content + instruction.shift)));
 			//result.append(")");
+			return result;
+		case ValueType::unprocedure:
+			result.append("Native procedure 0x");
+			result.append((charT*)(g_memory.content + instruction.shift), g_specification->type.size[(uint8)instruction.value]);
 			return result;
 		default:
 			result.append((charT*)(g_memory.content + instruction.shift), g_specification->type.size[(uint8)instruction.value]);
