@@ -166,6 +166,15 @@ struct Instruction {
         };
     }
 
+    /*inline static Instruction val(ValueType value) {
+        return Instruction{
+            InstructionType::value,
+            value,
+            0,
+            (int32)g_val_mem.max_index,
+        };
+    }*/
+
     inline static Instruction context(ValueType value, int shift) {
         return Instruction{
             InstructionType::context,

@@ -95,29 +95,29 @@ namespace Core {
 
 		switch (instruction.value) {
 		case ValueType::int8:
-			return fromInt(*(int8*)(g_memory.content + instruction.shift));
+			return fromInt(*(int8*)(g_val_mem.content + instruction.shift));
 		case ValueType::int16:
-			return fromInt(*(int16*)(g_memory.content + instruction.shift));
+			return fromInt(*(int16*)(g_val_mem.content + instruction.shift));
 		case ValueType::int32:
-			return fromInt(*(int32*)(g_memory.content + instruction.shift));
+			return fromInt(*(int32*)(g_val_mem.content + instruction.shift));
 		case ValueType::int64:
-			return fromInt(*(int64*)(g_memory.content + instruction.shift));
+			return fromInt(*(int64*)(g_val_mem.content + instruction.shift));
 		case ValueType::uint8:
-			return fromUint(*(uint8*)(g_memory.content + instruction.shift));
+			return fromUint(*(uint8*)(g_val_mem.content + instruction.shift));
 		case ValueType::uint16:
-			return fromUint(*(uint16*)(g_memory.content + instruction.shift));
+			return fromUint(*(uint16*)(g_val_mem.content + instruction.shift));
 		case ValueType::uint32:
-			return fromUint(*(uint32*)(g_memory.content + instruction.shift));
+			return fromUint(*(uint32*)(g_val_mem.content + instruction.shift));
 		case ValueType::uint64:
-			return fromUint(*(uint64*)(g_memory.content + instruction.shift));
+			return fromUint(*(uint64*)(g_val_mem.content + instruction.shift));
 		case ValueType::string:
 		case ValueType::name:
 		case ValueType::link:
-			return String((charT*)(g_memory.content + instruction.shift), instruction.modifier);
+			return String((charT*)(g_val_mem.content + instruction.shift), instruction.modifier);
 		case ValueType::table:
 		case ValueType::object:
 			result.append(T("{\n"));
-			for (auto var : **(Table<String, ValueType*>**)(g_memory.content + instruction.shift))
+			for (auto var : **(Table<String, ValueType*>**)(g_val_mem.content + instruction.shift))
 			{
 				result.append(var.first);
 				result.append(T(" : "));
@@ -129,7 +129,7 @@ namespace Core {
 		case ValueType::tuple:
 			result.append(T("["));
 			{
-				Array<Instruction> tuple = *(Array<Instruction>*)g_memory.get<void*>(instruction.shift);
+				Array<Instruction> tuple = *(Array<Instruction>*)g_val_mem.get<void*>(instruction.shift);
 				Instruction element;
 				for (int i = 0; i < tuple.max_index; ++i)
 				{
@@ -146,7 +146,7 @@ namespace Core {
 			return result;
 		case ValueType::reference:
 
-			result.append(toStringGlobal(*(ValueType**)(g_memory.content + instruction.shift)));
+			result.append(toStringGlobal(*(ValueType**)(g_val_mem.content + instruction.shift)));
 
 			//result.append(fromInt(*(uintptr_t*)(memory.content + instruction.shift)));
 			//result.append("(");
@@ -156,10 +156,10 @@ namespace Core {
 			return result;
 		case ValueType::unprocedure:
 			result.append("Native procedure 0x");
-			result.append((charT*)(g_memory.content + instruction.shift), g_specification->type.size[(uint8)instruction.value]);
+			result.append((charT*)(g_val_mem.content + instruction.shift), g_specification->type.size[(uint8)instruction.value]);
 			return result;
 		default:
-			result.append((charT*)(g_memory.content + instruction.shift), g_specification->type.size[(uint8)instruction.value]);
+			result.append((charT*)(g_val_mem.content + instruction.shift), g_specification->type.size[(uint8)instruction.value]);
 			return result;
 		}
 	}
@@ -169,7 +169,7 @@ namespace Core {
 
 		result.append(T("["));
 		{
-			Array<Instruction> tuple = *(Array<Instruction>*)g_memory.get<void*>(instruction.shift);
+			Array<Instruction> tuple = *(Array<Instruction>*)g_val_mem.get<void*>(instruction.shift);
 			for (int i = 0; i < tuple.max_index; ++i)
 			{
 				result.append(toStringLocal(tuple.get(i)));
@@ -195,7 +195,7 @@ namespace Core {
 #elif ENCODING == 16
 		std::wcout << function(program, instruction_r0);
 #endif
-		g_memory.move_absolute(instruction_r0.shift, g_memory.max_index, instruction_r1.shift);
+		//g_val_mem.move_absolute(instruction_r0.shift, g_val_mem.max_index, instruction_r1.shift);
 		g_stack_instruction.at_r(1) = instruction_r0;
 		--g_stack_instruction.max_index;
 	}
@@ -206,7 +206,7 @@ namespace Core {
 		Instruction instruction_r0 = g_stack_instruction.get_r(0);
 		Instruction instruction_r1 = g_stack_instruction.get_r(1);
 
-		ValueType* ref = *(ValueType**)(g_memory.content + instruction_r0.shift);
+		ValueType* ref = *(ValueType**)(g_val_mem.content + instruction_r0.shift);
 
 #if ENCODING == 8
 		switch (*ref) {

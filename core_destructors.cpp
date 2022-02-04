@@ -24,7 +24,7 @@ namespace Core {
 
 	void onEnterContextReference() {
 		Instruction context = g_stack_instruction.get_r(1);
-		switch (**(ValueType**)(g_memory.content + context.shift))
+		switch (**(ValueType**)(g_val_mem.content + context.shift))
 		{
 		case ValueType::table:
 			/*auto ptr = *(ValueType**)(g_memory.content + context.shift);
@@ -33,7 +33,7 @@ namespace Core {
 			//auto ptr3 = (Table<String, ValueType*>*)(g_memory.content + context.shift) + 1;
 			g_stack_namespace.add(
 				*(Table<String, ValueType*>**)
-					(*(ValueType**)(g_memory.content + context.shift) + 1)
+					(*(ValueType**)(g_val_mem.content + context.shift) + 1)
 			);
 			return;
 		}
@@ -50,7 +50,7 @@ namespace Core {
 	}
 
 	void onEnterContextNamespace() {
-		g_stack_namespace.add(g_memory.at<Table<String, ValueType*>*>(g_stack_instruction.get_r(1).shift));
+		g_stack_namespace.add(g_val_mem.at<Table<String, ValueType*>*>(g_stack_instruction.get_r(1).shift));
 	}
 
 	void onExitContextNamespace() {

@@ -32,16 +32,20 @@ core->type.destructor[ValueType::TYPE] = FUNCTION;
 	data[T(NAME)] = ptr;
 
 //Unary function
-#define uFun(LEFT_TYPE, FUNCTION) \
-(*table)[ValueType::LEFT_TYPE] = FUNCTION;
+#define uFun(LEFT_TYPE, FUNCTION, MODIFIER) \
+(*table)[ValueType::LEFT_TYPE] = Operation{FUNCTION, (ValueType::all), MODIFIER};
+
+//Unary function with return type
+#define uFun(LEFT_TYPE, FUNCTION, MODIFIER, RETURN_TYPE) \
+(*table)[ValueType::LEFT_TYPE] = Operation{FUNCTION, ValueType::RETURN_TYPE, MODIFIER};
 
 //Unary function interface
-#define uFun(LEFT_TYPE, FUNCTION) \
+//#define uFun(LEFT_TYPE, FUNCTION) \
 (*table)[ValueType::LEFT_TYPE] = FUNCTION;
 
 //Binary function
-#define bFun(LEFT_TYPE, RIGHT_TYPE, FUNCTION) \
-(*table)[ValueTypeBinary(ValueType::LEFT_TYPE, ValueType::RIGHT_TYPE)] = FUNCTION;
+#define bFun(LEFT_TYPE, RIGHT_TYPE, FUNCTION, MODIFIER, RETURN_TYPE) \
+(*table)[ValueTypeBinary(ValueType::LEFT_TYPE, ValueType::RIGHT_TYPE)] = Operation{FUNCTION, ValueType::RETURN_TYPE, MODIFIER};
 
 //Binary function interface
 #define bFunInterface(LEFT_TYPE, LEFT_CLASS, RIGHT_TYPE, RIGHT_CLASS, RESULT_TYPE, RESULT_CLASS, FUNCTION) \
@@ -52,14 +56,14 @@ core->type.destructor[ValueType::TYPE] = FUNCTION;
 (*table)[ValueTypeBinary(ValueType::LEFT_TYPE, ValueType::RIGHT_TYPE)] = binaryFunctionInterface<LEFT_TYPE, RIGHT_TYPE, RESULT_TYPE, ValueType::RESULT_TYPE, FUNCTION>;
 
 #define bFunInterfaceNameRefDowncast(TYPE) \
-	bFun(name, name, findValueR0R2); \
-	bFun(name, TYPE, findValueR2); \
-	bFun(TYPE, name, findValueR0); \
-	bFun(reference, reference, getValueR0R2); \
-	bFun(reference, TYPE, getValueR2); \
-	bFun(TYPE, reference, getValueR0); \
-	bFun(reference, name, findValueR0); \
-	bFun(name, reference, getValueR0);
+	bFun(name, name, findValueR0R2, bMod_N(), all); \
+	bFun(name, TYPE, findValueR2, bMod_N(), all); \
+	bFun(TYPE, name, findValueR0, bMod_N(), all); \
+	bFun(reference, reference, getValueR0R2, bMod_N(), all); \
+	bFun(reference, TYPE, getValueR2, bMod_N(), all); \
+	bFun(TYPE, reference, getValueR0, bMod_N(), all); \
+	bFun(reference, name, findValueR0, bMod_N(), all); \
+	bFun(name, reference, getValueR0, bMod_N(), all);
 
 #define bFunInterfaceNameRefDowncastTricketry \
 	bFunInterfaceNameRefDowncast(int8); \
@@ -73,6 +77,155 @@ core->type.destructor[ValueType::TYPE] = FUNCTION;
 	bFunInterfaceNameRefDowncast(float32); \
 	bFunInterfaceNameRefDowncast(float64);
 
+#define bFunMath_ii(FUNCTION) \
+	bFun(int64, int64, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(int64, int32, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(int64, int16, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(int64, int8, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(int32, int64, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(int32, int32, FUNCTION, bMod_N(Md, Lpd, Rpd), int32); \
+	bFun(int32, int16, FUNCTION, bMod_N(Md, Lpd, Rpd), int32); \
+	bFun(int32, int8, FUNCTION, bMod_N(Md, Lpd, Rpd), int32); \
+	bFun(int16, int64, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(int16, int32, FUNCTION, bMod_N(Md, Lpd, Rpd), int32); \
+	bFun(int16, int16, FUNCTION, bMod_N(Md, Lpd, Rpd), int16); \
+	bFun(int16, int8, FUNCTION, bMod_N(Md, Lpd, Rpd), int16); \
+	bFun(int8, int64, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(int8, int32, FUNCTION, bMod_N(Md, Lpd, Rpd), int32); \
+	bFun(int8, int16, FUNCTION, bMod_N(Md, Lpd, Rpd), int16); \
+	bFun(int8, int8, FUNCTION, bMod_N(Md, Lpd, Rpd), int8);
+
+#define bFunMath_uu(FUNCTION) \
+	bFun(uint64, uint64, FUNCTION, bMod_N(Md, Lpd, Rpd), uint64); \
+	bFun(uint64, uint32, FUNCTION, bMod_N(Md, Lpd, Rpd), uint64); \
+	bFun(uint64, uint16, FUNCTION, bMod_N(Md, Lpd, Rpd), uint64); \
+	bFun(uint64, uint8, FUNCTION, bMod_N(Md, Lpd, Rpd), uint64); \
+	bFun(uint32, uint64, FUNCTION, bMod_N(Md, Lpd, Rpd), uint64); \
+	bFun(uint32, uint32, FUNCTION, bMod_N(Md, Lpd, Rpd), uint32); \
+	bFun(uint32, uint16, FUNCTION, bMod_N(Md, Lpd, Rpd), uint32); \
+	bFun(uint32, uint8, FUNCTION, bMod_N(Md, Lpd, Rpd), uint32); \
+	bFun(uint16, uint64, FUNCTION, bMod_N(Md, Lpd, Rpd), uint64); \
+	bFun(uint16, uint32, FUNCTION, bMod_N(Md, Lpd, Rpd), uint32); \
+	bFun(uint16, uint16, FUNCTION, bMod_N(Md, Lpd, Rpd), uint16); \
+	bFun(uint16, uint8, FUNCTION, bMod_N(Md, Lpd, Rpd), uint16); \
+	bFun(uint8, uint64, FUNCTION, bMod_N(Md, Lpd, Rpd), uint64); \
+	bFun(uint8, uint32, FUNCTION, bMod_N(Md, Lpd, Rpd), uint32); \
+	bFun(uint8, uint16, FUNCTION, bMod_N(Md, Lpd, Rpd), uint16); \
+	bFun(uint8, uint8, FUNCTION, bMod_N(Md, Lpd, Rpd), uint8);
+
+#define bFunMath_ui(FUNCTION) \
+	bFun(uint64, int64, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(uint64, int32, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(uint64, int16, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(uint64, int8, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(uint32, int64, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(uint32, int32, FUNCTION, bMod_N(Md, Lpd, Rpd), int32); \
+	bFun(uint32, int16, FUNCTION, bMod_N(Md, Lpd, Rpd), int32); \
+	bFun(uint32, int8, FUNCTION, bMod_N(Md, Lpd, Rpd), int32); \
+	bFun(uint16, int64, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(uint16, int32, FUNCTION, bMod_N(Md, Lpd, Rpd), int32); \
+	bFun(uint16, int16, FUNCTION, bMod_N(Md, Lpd, Rpd), int16); \
+	bFun(uint16, int8, FUNCTION, bMod_N(Md, Lpd, Rpd), int16); \
+	bFun(uint8, int64, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(uint8, int32, FUNCTION, bMod_N(Md, Lpd, Rpd), int32); \
+	bFun(uint8, int16, FUNCTION, bMod_N(Md, Lpd, Rpd), int16); \
+	bFun(uint8, int8, FUNCTION, bMod_N(Md, Lpd, Rpd), int8); \
+
+#define bFunMath_iu(FUNCTION) \
+	bFun(int64, uint64, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(int64, uint32, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(int64, uint16, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(int64, uint8, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(int32, uint64, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(int32, uint32, FUNCTION, bMod_N(Md, Lpd, Rpd), int32); \
+	bFun(int32, uint16, FUNCTION, bMod_N(Md, Lpd, Rpd), int32); \
+	bFun(int32, uint8, FUNCTION, bMod_N(Md, Lpd, Rpd), int32); \
+	bFun(int16, uint64, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(int16, uint32, FUNCTION, bMod_N(Md, Lpd, Rpd), int32); \
+	bFun(int16, uint16, FUNCTION, bMod_N(Md, Lpd, Rpd), int16); \
+	bFun(int16, uint8, FUNCTION, bMod_N(Md, Lpd, Rpd), int16); \
+	bFun(int8, uint64, FUNCTION, bMod_N(Md, Lpd, Rpd), int64); \
+	bFun(int8, uint32, FUNCTION, bMod_N(Md, Lpd, Rpd), int32); \
+	bFun(int8, uint16, FUNCTION, bMod_N(Md, Lpd, Rpd), int16); \
+	bFun(int8, uint8, FUNCTION, bMod_N(Md, Lpd, Rpd), int8);
+
+#define bFunMath_ff(FUNCTION) \
+	bFun(float32, float32, FUNCTION, bMod_N(Md, Lpd, Rpd), float32);
+
+#define bFunMath_dd(FUNCTION) \
+	bFun(float64, float64, FUNCTION, bMod_N(Md, Lpd, Rpd), float64); \
+
+#define bFunMath_df(FUNCTION) \
+	bFun(float64, float32, FUNCTION, bMod_N(Md, Lpd, Rpd), float64);
+
+#define bFunMath_fd(FUNCTION) \
+	bFun(float32, float64, FUNCTION, bMod_N(Md, Lpd, Rpd), float64);
+
+#define bFunMath_if(FUNCTION) \
+	bFun(int64, float32, FUNCTION, bMod_N(Md, Lpd, Rpd), float32); \
+	bFun(int32, float32, FUNCTION, bMod_N(Md, Lpd, Rpd), float32); \
+	bFun(int16, float32, FUNCTION, bMod_N(Md, Lpd, Rpd), float32); \
+	bFun(int8, float32, FUNCTION, bMod_N(Md, Lpd, Rpd), float32); \
+
+#define bFunMath_fi(FUNCTION) \
+	bFun(float32, int64, FUNCTION, bMod_N(Md, Lpd, Rpd), float32); \
+	bFun(float32, int32, FUNCTION, bMod_N(Md, Lpd, Rpd), float32); \
+	bFun(float32, int16, FUNCTION, bMod_N(Md, Lpd, Rpd), float32); \
+	bFun(float32, int8, FUNCTION, bMod_N(Md, Lpd, Rpd), float32); \
+
+#define bFunMath_uf(FUNCTION) \
+	bFun(uint64, float32, FUNCTION, bMod_N(Md, Lpd, Rpd), float32); \
+	bFun(uint32, float32, FUNCTION, bMod_N(Md, Lpd, Rpd), float32); \
+	bFun(uint16, float32, FUNCTION, bMod_N(Md, Lpd, Rpd), float32); \
+	bFun(uint8, float32, FUNCTION, bMod_N(Md, Lpd, Rpd), float32); \
+
+#define bFunMath_fu(FUNCTION) \
+	bFun(float32, uint64, FUNCTION, bMod_N(Md, Lpd, Rpd), float32); \
+	bFun(float32, uint32, FUNCTION, bMod_N(Md, Lpd, Rpd), float32); \
+	bFun(float32, uint16, FUNCTION, bMod_N(Md, Lpd, Rpd), float32); \
+	bFun(float32, uint8, FUNCTION, bMod_N(Md, Lpd, Rpd), float32); \
+
+#define bFunMath_id(FUNCTION) \
+	bFun(int64, float64, FUNCTION, bMod_N(Md, Lpd, Rpd), float64); \
+	bFun(int32, float64, FUNCTION, bMod_N(Md, Lpd, Rpd), float64); \
+	bFun(int16, float64, FUNCTION, bMod_N(Md, Lpd, Rpd), float64); \
+	bFun(int8, float64, FUNCTION, bMod_N(Md, Lpd, Rpd), float64); \
+
+#define bFunMath_di(FUNCTION) \
+	bFun(float64, int64, FUNCTION, bMod_N(Md, Lpd, Rpd), float64); \
+	bFun(float64, int32, FUNCTION, bMod_N(Md, Lpd, Rpd), float64); \
+	bFun(float64, int16, FUNCTION, bMod_N(Md, Lpd, Rpd), float64); \
+	bFun(float64, int8, FUNCTION, bMod_N(Md, Lpd, Rpd), float64); \
+
+#define bFunMath_ud(FUNCTION) \
+	bFun(uint64, float64, FUNCTION, bMod_N(Md, Lpd, Rpd), float64); \
+	bFun(uint32, float64, FUNCTION, bMod_N(Md, Lpd, Rpd), float64); \
+	bFun(uint16, float64, FUNCTION, bMod_N(Md, Lpd, Rpd), float64); \
+	bFun(uint8, float64, FUNCTION, bMod_N(Md, Lpd, Rpd), float64); \
+
+#define bFunMath_du(FUNCTION) \
+	bFun(float64, uint64, FUNCTION, bMod_N(Md, Lpd, Rpd), float64); \
+	bFun(float64, uint32, FUNCTION, bMod_N(Md, Lpd, Rpd), float64); \
+	bFun(float64, uint16, FUNCTION, bMod_N(Md, Lpd, Rpd), float64); \
+	bFun(float64, uint8, FUNCTION, bMod_N(Md, Lpd, Rpd), float64); \
+
+#define bFunMath_all(FUNCTION) \
+	bFunMath_ii(FUNCTION ## _ii) \
+	bFunMath_iu(FUNCTION ## _iu) \
+	bFunMath_if(FUNCTION ## _if) \
+	bFunMath_id(FUNCTION ## _id) \
+	bFunMath_ui(FUNCTION ## _ui) \
+	bFunMath_uu(FUNCTION ## _uu) \
+	bFunMath_uf(FUNCTION ## _uf) \
+	bFunMath_ud(FUNCTION ## _ud) \
+	bFunMath_fi(FUNCTION ## _fi) \
+	bFunMath_fu(FUNCTION ## _fu) \
+	bFunMath_ff(FUNCTION ## _ff) \
+	bFunMath_fd(FUNCTION ## _fd) \
+	bFunMath_di(FUNCTION ## _di) \
+	bFunMath_du(FUNCTION ## _du) \
+	bFunMath_df(FUNCTION ## _df) \
+	bFunMath_dd(FUNCTION ## _dd) \
 
 namespace Core {
 	ValueType none = ValueType::none;
@@ -182,18 +335,18 @@ namespace Core {
 			destr(tuple, (DestructorProcedure)destructorArr);
 			destr(autoptr, (DestructorProcedure)free);
 		}
-		core->op.prefixForward = Table<String, Table<ValueType, Procedure>>();
+		core->op.prefixForward = Table<String, Table<ValueType, Operation>>();
 		{
-			Table<ValueType, Procedure>* table;
+			Table<ValueType, Operation>* table;
 
 			table = &core->op.prefixForward[T("//")];
-			uFun(all, ignore);
+			//uFun(all, ignore);
 			
 			table = &core->op.prefixForward[T("?")];
-			uFun(all, conditional);
-			uFun(name, findValueR0);
-			uFun(truth, conditionalTrue);
-			uFun(lie, conditionalFalse);
+			uFun(all, conditional, uMod_N(), all);
+			uFun(name, findValueR0, uMod_N(P), all);
+			uFun(truth, conditionalTrue, uMod_N(), all);
+			uFun(lie, conditionalFalse, uMod_N(), all);
 
 			table = &core->op.prefixForward[T("?.")];
 			//uFun(all, conditionalShort);
@@ -212,98 +365,98 @@ namespace Core {
 			//uFun(all, conditionalSwitchPredicate);
 
 			table = &core->op.prefixForward[T("!<<")];
-			uFun(name, getReferenceR0);
-			uFun(all, print);
+			uFun(name, getReferenceR0, uMod_N(), all);
+			uFun(all, print, uMod_N(), all);
 
 			table = &core->op.prefixForward[T("!>>")];
-			uFun(name, getReferenceR0);
-			uFun(reference, scan);
+			uFun(name, getReferenceR0, uMod_N(), all);
+			uFun(reference, scan, uMod_N(), all);
 
 			table = &core->op.prefixForward[T(",")];
-			uFun(all, commaPrefix);
+			uFun(all, commaPrefix, uMod_N(), all);
 
 			table = &core->op.prefixForward[T("+")];
-			uFun(name, findValueR0);
-			uFun(type, instantiate);
-			uFun(table, instantiateObject);
+			uFun(name, findValueR0, uMod_N(), all);
+			uFun(type, instantiate, uMod_N(), all);
+			uFun(table, instantiateObject, uMod_N(), all);
 
 			//table = &core->op.prefix[T("-")];
 			//u uFun(int64, (negate<int64>));
 			//uFun(float64, (negate<float64>));
 
 			table = &core->op.prefixForward[T("&")];
-			uFun(name, (getReferenceR1));
+			uFun(name, (getReferenceR1), uMod_N(), all);
 
 			table = &core->op.prefixForward[T("*")];
-			uFun(name, findValueR0);
+			uFun(name, findValueR0, uMod_N(), all);
 
 			table = &core->op.prefixForward[T("*&")];
-			uFun(name, (findValueR0));
-			uFun(reference, (getValueR0));
+			uFun(name, (findValueR0), uMod_N(), all);
+			uFun(reference, (getValueR0), uMod_N(), all);
 
 			table = &core->op.prefixForward[T(">")];
-			uFun(all, allArrayInclusive);
+			uFun(all, allArrayInclusive, uMod_N(), all);
 
 			table = &core->op.prefixForward[T("^")];
-			uFun(int64, getNamespace);
+			uFun(int64, getNamespace, uMod_N(), all);
 
 			table = &core->op.prefixForward[T("@")];
-			uFun(int64, atContextByIndex);
-			uFun(name, atContextByName);
-			uFun(string, atContextByName);
-			uFun(tuple, renameArrayContext);
+			uFun(int64, atContextByIndex, uMod_N(), all);
+			uFun(name, atContextByName, uMod_N(), all);
+			uFun(string, atContextByName, uMod_N(), all);
+			uFun(tuple, renameArrayContext, uMod_N(), all);
 
 			table = &core->op.prefixForward[T(".")];
-			uFun(int64, contextMethod);
+			uFun(int64, contextMethod, uMod_N(), all);
 
 			table = &core->op.prefixForward[T("::")];
-			uFun(string, getNamespaceEntry);
+			uFun(string, getNamespaceEntry, uMod_N(), all);
 			//uFun(tuple, getApplication);
 
 			table = &core->op.prefixForward[T("::<")];
-			uFun(string, getNamespacePrefix);
+			uFun(string, getNamespacePrefix, uMod_N(), all);
 
 			table = &core->op.prefixForward[T("::>")];
-			uFun(string, getNamespacePostfix);
+			uFun(string, getNamespacePostfix, uMod_N(), all);
 
 			table = &core->op.prefixForward[T("::.^")];
-			uFun(string, getNamespaceBinaryRight);
+			uFun(string, getNamespaceBinaryRight, uMod_N(), all);
 
 			table = &core->op.prefixForward[T("::^.")];
-			uFun(string, getNamespaceBinaryLeft);
+			uFun(string, getNamespaceBinaryLeft, uMod_N(), all);
 		}
-		core->op.postfixForward = Table<String, Table<ValueType, Procedure>>();
+		core->op.postfixForward = Table<String, Table<ValueType, Operation>>();
 		{
-			Table<ValueType, Procedure>* table;
+			Table<ValueType, Operation>* table;
 
 			table = &core->op.postfixForward[T(",")];
-			uFun(all, commaPostfix);
+			uFun(all, commaPostfix, uMod_N(), all);
 			
 			table = &core->op.postfixForward[T("*")];
 			//uFun(all, getValueProcedure);
 
 			table = &core->op.postfixForward[T(">")];
-			uFun(all, allArrayExclusive);
+			uFun(all, allArrayExclusive, uMod_N(), all);
 
 			table = &core->op.postfixForward[T("^")];
-			uFun(all, allGroupExclusive);
+			uFun(all, allGroupExclusive, uMod_N(), all);
 
 			table = &core->op.postfixForward[T(":")];
-			uFun(table, allContext);
-			uFun(name, allContext);
+			uFun(table, allContext, uMod_N(), all);
+			uFun(name, allContext, uMod_N(), all);
 			//uFun(type, allocDynamicArrayStack);
 
 			table = &core->op.postfixForward[T("*:")];
 			//uFun(dict, allocDynamicArrayHeap);
 
 			table = &core->op.postfixForward[T(".")];
-			uFun(name, findValueR2);
-			uFun(reference, getValueR2);
-			uFun(expression, callFunction);
+			uFun(name, findValueR2, uMod_N(), all);
+			uFun(reference, getValueR2, uMod_N(), all);
+			uFun(expression, callFunction, uMod_N(), all);
 		}
-		core->op.binaryForward = Table<String, Table<ValueTypeBinary, Procedure>>();
+		core->op.binaryForward = Table<String, Table<ValueTypeBinary, Operation>>();
 		{
-			Table<ValueTypeBinary, Procedure>* table;
+			Table<ValueTypeBinary, Operation>* table;
 
 			table = &core->op.binaryForward[T("?,")]; //Null coalesceing
 
@@ -312,150 +465,218 @@ namespace Core {
 			table = &core->op.binaryForward[T("?.")]; //Null conditional method call
 
 			table = &core->op.binaryForward[T("@")];
-			bFun(unfunction, tuple, callWithContext);
+			bFun(unfunction, tuple, callWithContext, bMod_N(), all);
 
 			table = &core->op.binaryForward[T(",")];
-			bFun(all, all, commaBinary);
+			bFun(all, all, commaBinary, bMod_N(), all);
 
-			table = &core->op.binaryForward[T("+")];
+
+			/*table = &core->op.binaryForward[T("+")];
 			bFunInterfaceNameRefDowncastTricketry
-			bFunInterfaceMatch(int64, int64, int64, add);
-			bFunInterfaceMatch(float64, int64, float64, add);
-			bFunInterfaceMatch(int64, float64, float64, add);
-			bFunInterfaceMatch(float64, float64, float64, add);
+			bFunInterfaceMatch(int64, int64, int64, add, bMod_N());
+			bFunInterfaceMatch(float64, int64, float64, add, bMod_N());
+			bFunInterfaceMatch(int64, float64, float64, add, bMod_N());
+			bFunInterfaceMatch(float64, float64, float64, add, bMod_N());
 
 			table = &core->op.binaryForward[T("-")];
 			bFunInterfaceNameRefDowncastTricketry
-			bFunInterfaceMatch(int64, int64, int64, sub);
-			bFunInterfaceMatch(float64, int64, float64, sub);
-			bFunInterfaceMatch(int64, float64, float64, sub);
-			bFunInterfaceMatch(float64, float64, float64, sub);
+			bFunInterfaceMatch(int64, int64, int64, sub, bMod_N());
+			bFunInterfaceMatch(float64, int64, float64, sub, bMod_N());
+			bFunInterfaceMatch(int64, float64, float64, sub, bMod_N());
+			bFunInterfaceMatch(float64, float64, float64, sub, bMod_N());
 
 			table = &core->op.binaryForward[T("*")];
 			bFunInterfaceNameRefDowncastTricketry
-			bFunInterfaceMatch(int64, int64, int64, mul);
-			bFunInterfaceMatch(float64, int64, float64, mul);
-			bFunInterfaceMatch(int64, float64, float64, mul);
-			bFunInterfaceMatch(float64, float64, float64, mul);
+			bFunInterfaceMatch(int64, int64, int64, mul, bMod_N());
+			bFunInterfaceMatch(float64, int64, float64, mul, bMod_N());
+			bFunInterfaceMatch(int64, float64, float64, mul, bMod_N());
+			bFunInterfaceMatch(float64, float64, float64, mul, bMod_N());
 			//bFun(type, none, allocHeap);
 
 			table = &core->op.binaryForward[T("/")];
 			bFunInterfaceNameRefDowncastTricketry
-			bFunInterfaceMatch(int64, int64, float64, div);
-			bFunInterfaceMatch(float64, int64, float64, div);
-			bFunInterfaceMatch(int64, float64, float64, div);
-			bFunInterfaceMatch(float64, float64, float64, div);
+			bFunInterfaceMatch(int64, int64, float64, div, bMod_N());
+			bFunInterfaceMatch(float64, int64, float64, div, bMod_N());
+			bFunInterfaceMatch(int64, float64, float64, div, bMod_N());
+			bFunInterfaceMatch(float64, float64, float64, div, bMod_N());
 
 			table = &core->op.binaryForward[T("/.")];
 			bFunInterfaceNameRefDowncastTricketry
-			bFunInterfaceMatch(int64, int64, int64, div);
-			bFunInterfaceMatch(float64, int64, int64, div);
+			bFunInterfaceMatch(int64, int64, int64, div, bMod_N());
+			bFunInterfaceMatch(float64, int64, int64, div, bMod_N());
 			bFunInterfaceMatch(int64, float64, int64, div);
 			bFunInterfaceMatch(float64, float64, int64, div);
 
 			table = &core->op.binaryForward[T("%")];
 			bFunInterfaceNameRefDowncastTricketry
-			bFunInterfaceMatch(int64, int64, int64, mod);
+			bFunInterfaceMatch(int64, int64, int64, mod);*/
 
 			table = &core->op.binaryForward[T("=")];
-			bFun(name, all, assignToName);
-			bFun(reference, all, assignToReference);
+			bFun(name, all, assignToName, bMod_N(), all);
+			bFun(reference, all, assignToReference, bMod_N(), all);
 			//bFun(pointer, all, assignToName);
 
 			table = &core->op.binaryForward[T("<=")];
-			bFun(name, all, assignToName);
-			bFun(reference, all, assignToReference);
+			bFun(name, all, assignToName, bMod_N(), all);
+			bFun(reference, all, assignToReference, bMod_N(), all);
 
 			table = &core->op.binaryForward[T(":<=")];
 			//bFun(name, name, findValueR0);
-			bFun(name, all, declareAssign);
+			bFun(name, all, declareAssign, bMod_N(), all);
 
 			table = &core->op.binaryForward[T(":=")];
-			bFun(name, all, declareAssign);
+			bFun(name, all, declareAssign, bMod_N(), all);
 
 			table = &core->op.binaryForward[T(".")];
-			bFun(int64, int64, (createFloat<int64, int64, float64, ValueType::float64>));
-			bFun(all, name, findValueR0);
-			bFun(all, unprocedure, callThis);
+			bFun(int64, int64, (createFloat<int64, int64, float64, ValueType::float64>), bMod_N(), all);
+			bFun(all, name, findValueR0, bMod_N(), all);
+			bFun(all, unprocedure, callThis, bMod_N(), all);
 
 			table = &core->op.binaryForward[T("::")];
-			bFun(name, name, findValueR2);
-			bFun(name, string, findValueR2);
-			bFun(table, name, getTableEntry);
+			bFun(name, name, findValueR2, bMod_N(), all);
+			bFun(name, string, findValueR2, bMod_N(), all);
+			bFun(table, name, getTableEntry, bMod_N(), all);
 			//bFun(table, tuple, getTable);
-			bFun(table, string, getTableEntry);
+			bFun(table, string, getTableEntry, bMod_N(), all);
 			//bFun(type, int64, allocArrayStack);
 
 			table = &core->op.binaryForward[T("::<")];
-			bFun(name, name, findValueR0R2);
-			bFun(table, string, getTablePrefix);
+			bFun(name, name, findValueR0R2, bMod_N(), all);
+			bFun(table, string, getTablePrefix, bMod_N(), all);
 
 			table = &core->op.binaryForward[T("::>")];
-			bFun(name, name, findValueR0R2);
-			bFun(table, string, getTablePostfix);
+			bFun(name, name, findValueR0R2, bMod_N(), all);
+			bFun(table, string, getTablePostfix, bMod_N(), all);
 
 			table = &core->op.binaryForward[T("::.^")];
-			bFun(name, name, findValueR0R2);
-			bFun(table, string, getTableBinaryRight);
+			bFun(name, name, findValueR0R2, bMod_N(), all);
+			bFun(table, string, getTableBinaryRight, bMod_N(), all);
 
 			table = &core->op.binaryForward[T("::^.")];
-			bFun(name, name, findValueR0R2);
-			bFun(table, string, getTableBinaryLeft);
+			bFun(name, name, findValueR0R2, bMod_N(), all);
+			bFun(table, string, getTableBinaryLeft, bMod_N(), all);
 
 			table = &core->op.binaryForward[T("*:")];
 			//bFun(type, int64, allocArrayHeap);
+
+			table = &core->op.binaryForward[T("||")];
+			bFun(string, string, concatenateStringsOp, bMod_N(), string);
+
+
+			table = &core->op.binaryForward[T("+")];
+			bFunInterfaceNameRefDowncastTricketry;
+			bFunMath_all(add);
+
+			table = &core->op.binaryForward[T("-")];
+			bFunInterfaceNameRefDowncastTricketry;
+			bFunMath_all(sub);
+
+
+			table = &core->op.binaryForward[T("*")];
+			bFunInterfaceNameRefDowncastTricketry;
+			bFunMath_all(mul);
+
+			table = &core->op.binaryForward[T("/")];
+			bFunInterfaceNameRefDowncastTricketry;
+			bFunMath_all(div);
+
+			table = &core->op.binaryForward[T("%")];
+			bFunMath_ii(mod_ii);
+			bFunMath_iu(mod_iu);
+			bFunMath_ui(mod_ui);
+			bFunMath_uu(mod_uu);
+
+			table = &core->op.binaryForward[T("^")];
+
+			table = &core->op.binaryForward[T("\\/")]; //bitwise 
+			bFunMath_ii(bitOR);
+			bFunMath_iu(bitOR);
+			bFunMath_if(bitOR);
+			bFunMath_id(bitOR);
+			bFunMath_ui(bitOR);
+			bFunMath_uu(bitOR);
+			bFunMath_uf(bitOR);
+			bFunMath_ud(bitOR);
+			bFunMath_fi(bitOR);
+			bFunMath_fu(bitOR);
+			bFunMath_ff(bitOR);
+			bFunMath_fd(bitOR);
+			bFunMath_di(bitOR);
+			bFunMath_du(bitOR);
+			bFunMath_df(bitOR);
+			bFunMath_dd(bitOR);
+
+			table = &core->op.binaryForward[T("/\\")]; //bitwise
+			bFunMath_ii(bitAND);
+			bFunMath_iu(bitAND);
+			bFunMath_if(bitAND);
+			bFunMath_id(bitAND);
+			bFunMath_ui(bitAND);
+			bFunMath_uu(bitAND);
+			bFunMath_uf(bitAND);
+			bFunMath_ud(bitAND);
+			bFunMath_fi(bitAND);
+			bFunMath_fu(bitAND);
+			bFunMath_ff(bitAND);
+			bFunMath_fd(bitAND);
+			bFunMath_di(bitAND);
+			bFunMath_du(bitAND);
+			bFunMath_df(bitAND);
+			bFunMath_dd(bitAND);
+
+			table = &core->op.binaryForward[T("\\\\/")]; //logical
 		}
-		core->op.prefixGeneral = Table<ValueType, Procedure>();
+		core->op.prefixGeneral = Table<ValueType, Operation>();
 		{
-			Table<ValueType, Procedure>* table = &core->op.prefixGeneral;
+			Table<ValueType, Operation>* table = &core->op.prefixGeneral;
 
-			uFun(object, callObjectPrefix);
+			uFun(object, callObjectPrefix, uMod_N(), all);
 		}
-		core->op.postfixGeneral = Table<ValueType, Procedure>();
+		core->op.postfixGeneral = Table<ValueType, Operation>();
 		{
-			Table<ValueType, Procedure>* table = &core->op.postfixGeneral;
+			Table<ValueType, Operation>* table = &core->op.postfixGeneral;
 
-			uFun(object, callObjectPostfix);
+			uFun(object, callObjectPostfix, uMod_N(), all);
 		}
-		core->op.binaryGeneral = Table<ValueTypeBinary, Procedure>();
+		core->op.binaryGeneral = Table<ValueTypeBinary, Operation>();
 		{
-			Table<ValueTypeBinary, Procedure>* table = &core->op.binaryGeneral;
+			Table<ValueTypeBinary, Operation>* table = &core->op.binaryGeneral;
 
-			bFun(object, all, callObjectBinaryLeft);  
-			bFun(all, object, callObjectBinaryRight);
+			bFun(object, all, callObjectBinaryLeft, bMod_N(), all);
+			bFun(all, object, callObjectBinaryRight, bMod_N(), all);
 		}
-		core->op.coalescing = Table<ValueTypeBinary, Procedure>();
+		core->op.coalescing = Table<ValueTypeBinary, Operation>();
 		{
-			Table<ValueTypeBinary, Procedure>* table = &core->op.coalescing;
+			Table<ValueTypeBinary, Operation>* table = &core->op.coalescing;
 
-			bFun(name, all, (findValueR1)); //tuple
-			bFun(reference, tuple, (findValueR1));
-			bFun(unprocedure, all, invokeProcedure); //tuple
-			bFun(parameter_pattern, tuple, invokeFunction);
-			bFun(unfunction, tuple, invokeNativeFunction);
+			bFun(name, all, (findValueR1), bMod_N(), all); //tuple
+			bFun(reference, tuple, (findValueR1), bMod_N(), all);
+			bFun(unprocedure, all, invokeProcedure, bMod_N(), all); //tuple
+			bFun(parameter_pattern, tuple, invokeFunction, bMod_N(), all);
+			bFun(unfunction, tuple, invokeNativeFunction, bMod_N(), all);
 
-			bFun(type, name, declareVariable);
+			bFun(type, name, declareVariable, bMod_N(), all);
 
-			bFun(string, string, concatenate);
+			bFun(string, string, concatenate, bMod_N(), all);
 
 			//bFun(type, none, allocStack);
 		}
 
-		core->context.onEnter = Table<ValueType, Procedure>();
+		core->context.onEnter = Table<ValueType, Operation>();
 		{
-			Table<ValueType, Procedure>* table = &core->context.onEnter;
+			Table<ValueType, Operation>* table = &core->context.onEnter;
 
-			uFun(all, doNothing);
-			uFun(reference, onEnterContextReference);
-			uFun(table, onEnterContextNamespace);
+			uFun(all, doNothing, uMod_N(), all);
+			uFun(reference, onEnterContextReference, uMod_N(), all);
+			uFun(table, onEnterContextNamespace, uMod_N(), all);
 		}
 
-		core->context.onExit = Table<ValueType, Procedure>();
+		core->context.onExit = Table<ValueType, Operation>();
 		{
-			Table<ValueType, Procedure>* table = &core->context.onExit;
+			Table<ValueType, Operation>* table = &core->context.onExit;
 
-			uFun(all, doNothing);
-			uFun(table, onExitContextNamespace);
+			uFun(all, doNothing, uMod_N(), all);
+			uFun(table, onExitContextNamespace, uMod_N(), all);
 		}
 
 		return core;
@@ -544,21 +765,21 @@ namespace Core {
 
 
 	void callThis() {
-		g_memory.max_index = g_stack_instruction.get_r(1).shift; //We know that the right value is procedure pointer, so no special destructor should be.
+		g_val_mem.max_index = g_stack_instruction.get_r(1).shift; //We know that the right value is procedure pointer, so no special destructor should be.
 		//g_memory.add<void*>(*g_memory.get<void**>(g_stack_instruction.get_r(0).shift));
-		g_memory.add<void*>(g_memory.get<void*>(g_stack_instruction.get_r(0).shift));
+		g_val_mem.add<void*>(g_val_mem.get<void*>(g_stack_instruction.get_r(0).shift));
 
 		Array<Instruction>* tuple = new Array<Instruction>();
 		Instruction instruction = g_stack_instruction.get_r(2);
-		instruction.shift -= g_memory.max_index + sizeof(void*);
+		instruction.shift -= g_val_mem.max_index + sizeof(void*);
 		tuple->add(instruction);
 
 		instruction = g_stack_instruction.get_r(0);
 		//instruction.shift = g_memory.max_index - (sizeof(void*) + 1);	//Fixes shift of procedure after it's moving
 		instruction.shift -= sizeof(charT);
 		g_stack_instruction.at_r(2) = instruction;
-		g_stack_instruction.at_r(1) = Instruction::pos(InstructionType::start_array, g_memory.max_index);
-		g_memory.add<Array<Instruction>*>(tuple);
+		g_stack_instruction.at_r(1) = Instruction::pos(InstructionType::start_array, g_val_mem.max_index);
+		g_val_mem.add<Array<Instruction>*>(tuple);
 		g_stack_instruction.at_r(0) = Instruction::atom(InstructionType::ignore_array_start);
 	}
 
@@ -570,7 +791,7 @@ namespace Core {
 	void contextAtIndex() {
 		Instruction top = g_stack_context.get_r(0);
 		if (top.value == ValueType::tuple) {
-			Array<Instruction> arr = g_memory.get<Array<Instruction>>(top.shift);
+			Array<Instruction> arr = g_val_mem.get<Array<Instruction>>(top.shift);
 			//arr.max_index;
 
 			//Instruction instr = g_stack_array.at(g_context.shift).at(g_memory.at<int64>(g_stack_instruction.at_r(1).shift));
@@ -580,14 +801,14 @@ namespace Core {
 
 	void contextAtName() {	//TODO: delete or think whether it's still needed.
 		if (g_stack_context.get(0).value == ValueType::table) {
-			auto var = &(*g_memory.at<Table<String, ValueType*>*>(g_stack_context.get(0).shift))[String(g_memory.at<charT*>(g_stack_instruction.at_r(0).shift))];
-			g_memory.max_index = g_stack_instruction.at_r(1).shift;
-			g_memory.add<ValueType**>(var);
+			auto var = &(*g_val_mem.at<Table<String, ValueType*>*>(g_stack_context.get(0).shift))[String(g_val_mem.at<charT*>(g_stack_instruction.at_r(0).shift))];
+			g_val_mem.max_index = g_stack_instruction.at_r(1).shift;
+			g_val_mem.add<ValueType**>(var);
 		}
 	}
 
 	void concatenate() {
-		g_stack_instruction.at_r(1).modifier += g_stack_instruction.at_r(0).modifier;
+		g_stack_instruction.at_r(1).modifier += g_stack_instruction.get_r(0).modifier;
 		--g_stack_instruction.max_index;
 	}
 
@@ -602,8 +823,8 @@ namespace Core {
 
 	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult, ValueType type, _TypeResult (*function) (_TypeLeft, _TypeRight)>
 	void binaryFunctionInterface() {
-		_TypeLeft left = g_memory.get<_TypeLeft>(g_stack_instruction.get_r(2).shift);
-		_TypeRight right = g_memory.get<_TypeRight>(g_stack_instruction.get_r(0).shift);
+		_TypeLeft left = g_val_mem.get<_TypeLeft>(g_stack_instruction.get_r(2).shift);
+		_TypeRight right = g_val_mem.get<_TypeRight>(g_stack_instruction.get_r(0).shift);
 
 		_TypeResult result = ((_TypeResult(*) (_TypeLeft, _TypeRight))function)(left, right);
 
@@ -611,7 +832,7 @@ namespace Core {
 		resultInstruction.value = type;
 
 		g_memory_delete_span_r(3);
-		g_memory.add<_TypeResult>(result);
+		g_val_mem.add<_TypeResult>(result);
 
 		g_stack_instruction.add(resultInstruction);
 

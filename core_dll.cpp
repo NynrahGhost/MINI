@@ -14,7 +14,7 @@ namespace Core {
 #if ENCODING == 8
 		wchar_t* wideName = (wchar_t*)alloca(instr.modifier);	//TODO: check if succeeded
 		size_t charConvertedNum;
-		mbstowcs_s(&charConvertedNum, wideName, instr.modifier, (charT*)(g_memory.content + instr.shift), instr.modifier);
+		mbstowcs_s(&charConvertedNum, wideName, instr.modifier, (charT*)(g_val_mem.content + instr.shift), instr.modifier);
 		dll = LoadLibraryW(wideName);
 #elif ENCODING == 16
 		dll = LoadLibraryW((charT*)(g_memory.content + shift));
@@ -23,12 +23,12 @@ namespace Core {
 #endif
 		std::cout << dll << std::endl;
 		g_memory_delete_span_r(2);
-		g_stack_instruction.add(Instruction::val(ValueType::dll, g_memory.max_index));
-		g_memory.add<void*>(dll);
+		g_stack_instruction.add(Instruction::val(ValueType::dll, g_val_mem.max_index));
+		g_val_mem.add<void*>(dll);
 	}
 
 	void freeLibrary() {
-		FreeLibrary(g_memory.at<HMODULE>(g_stack_instruction.get_r(0).shift));
+		FreeLibrary(g_val_mem.at<HMODULE>(g_stack_instruction.get_r(0).shift));
 		g_memory_delete_span_r(2);
 	}
 

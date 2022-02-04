@@ -23,19 +23,19 @@
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{d3f0fb1c-c0a6-438c-83ff-119c08f1322c}</ProjectGuid>
     <RootNamespace>MoreINI</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.19041.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -146,6 +146,7 @@
     <ClCompile Include="core_io.cpp" />
     <ClCompile Include="core_math.cpp" />
     <ClCompile Include="core_general.cpp" />
+    <ClCompile Include="core_string.cpp" />
     <ClCompile Include="interpreter.cpp" />
     <ClCompile Include="core_dll.cpp" />
     <ClCompile Include="main.cpp" />
@@ -155,6 +156,7 @@
     <ClInclude Include="common_utils.h" />
     <ClInclude Include="compile_options.h" />
     <ClInclude Include="core.h" />
+    <ClInclude Include="core_math.h" />
     <ClInclude Include="instruction.h" />
     <ClInclude Include="interpreter.h" />
     <ClInclude Include="subroutine_matching_pattern.h" />

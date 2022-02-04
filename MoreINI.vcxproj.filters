@@ -16,6 +16,9 @@
     <Filter Include="Source Files\core">
       <UniqueIdentifier>{40e7e131-0bba-4c67-8fad-ce17f02c3fc2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\core">
+      <UniqueIdentifier>{1cfe2dbf-3416-4f6a-9f3c-440e3c143ec6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="interpreter.cpp">
@@ -42,11 +45,11 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="core_string.cpp">
+      <Filter>Source Files\core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="core.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="interpreter.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -64,6 +67,12 @@
     </ClInclude>
     <ClInclude Include="common_utils.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="core_math.h">
+      <Filter>Header Files\core</Filter>
+    </ClInclude>
+    <ClInclude Include="core.h">
+      <Filter>Header Files\core</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -1,5 +1,6 @@
 #pragma once
 #include "interpreter.h"
+#include "core_math.h"
 
 namespace Core
 {
@@ -111,21 +112,7 @@ namespace Core
 	}*/
 
 
-
-	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult>
-	_TypeResult add(_TypeLeft l, _TypeRight r) { return l + r; }
-
-	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult>
-	_TypeResult sub(_TypeLeft l, _TypeRight r) { return l - r; }
-
-	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult>
-	_TypeResult mul(_TypeLeft l, _TypeRight r) { return l * r; }
-
-	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult>
-	_TypeResult div(_TypeLeft l, _TypeRight r) { return l / r; }
-
-	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult>
-	_TypeResult mod(_TypeLeft l, _TypeRight r) { return l % r; }
+	int64 add(int64 left, int64 right);
 
 	template<typename _Type, typename _TypeResult>
 	_TypeResult negate(_Type t) { return -t; }
@@ -136,25 +123,27 @@ namespace Core
 	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult, ValueType _valueType>
 	void createFloat() {
 		_TypeResult number = 0;
-		_TypeLeft left = g_memory.get<_TypeLeft>(g_stack_instruction.get_r(2).shift);
-		_TypeRight right = g_memory.get<_TypeLeft>(g_stack_instruction.get_r(0).shift);
+		_TypeLeft left = g_val_mem.get<_TypeLeft>(g_stack_instruction.get_r(2).shift);
+		_TypeRight right = g_val_mem.get<_TypeLeft>(g_stack_instruction.get_r(0).shift);
 
 		if (right == 0)
 			number = left * 1.0;
 		else
 			number = left * 1.0 + ((right * 1.0) / pow(10, floor(log10(right)) + 1));
 
-		g_memory.max_index -= sizeof(void*) + sizeof(_TypeLeft) + sizeof(_TypeRight);
+		g_val_mem.max_index -= sizeof(void*) + sizeof(_TypeLeft) + sizeof(_TypeRight);
 
 		g_stack_instruction.max_index -= 2;
 		g_stack_instruction.at_r(0).value = _valueType;
-		g_memory.add<_TypeResult>(number);
+		g_val_mem.add<_TypeResult>(number);
 	}
 
 	void contextAtIndex();
 	void contextAtName();
 
 	void concatenate();
+	void concatenateStrings();
+	void concatenateStringsOp();
 
 	enum class EntryPrefix : charT {
 		reserved,

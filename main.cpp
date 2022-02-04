@@ -29,7 +29,7 @@ int main()
 
 
 	//std::ifstream stream = std::ifstream("tests.mini");
-	stream = new std::ifstream("test.mini");
+	g_stream = new std::ifstream("test.mini");
 	//std::istringstream stream = std::istringstream(script);
 
 	/*

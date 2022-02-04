@@ -9,16 +9,19 @@
 #include "common_utils.h"
 #include <intrin.h>
 
+
+
 Table<String, ValueType*> g_data = Table<String, ValueType*>();
-thread_local std::istream* stream;
-thread_local charT* script = new charT[string_buffer_init_size + 1];
-thread_local int scriptIndex = -1;
+thread_local std::istream* g_stream;
+thread_local charT* g_script = new charT[string_buffer_init_size + 1];
+thread_local int g_script_index = -1;
 thread_local Array<Table<String, ValueType*>*> g_stack_namespace = Array<Table<String, ValueType*>*>(16);
 thread_local Module* g_specification = Core::initCore();
 thread_local Array<Instruction> g_stack_instruction = Array<Instruction>(16);
 thread_local Array<Table<String, ValueType*>> g_stack_local = Array<Table<String, ValueType*>>(16);
 thread_local Array<Instruction> g_stack_context = Array<Instruction>(16);
-thread_local Span g_memory = Span(1024*1024);
+thread_local Span g_val_mem = Span(1024 * 1024);
+thread_local Span g_op_mem = Span(1024 * 256);
 
 Status run()
 {
@@ -26,20 +29,20 @@ Status run()
 	//charT* script = new charT[string_buffer_init_size+1];
 	charT substitute;
 
-	script[string_buffer_init_size] = T('\1');
+	g_script[string_buffer_init_size] = T('\1');
 
-	if (!g_memory.content)
-		g_memory.init(memory_init_size);
+	if (!g_val_mem.content)
+		g_val_mem.init(memory_init_size);
 
 	{
 		auto table = new Table<String, ValueType*>();
 		g_stack_namespace.add(table);
-		g_memory.add<Table<String, ValueType*>*>(table);
+		g_val_mem.add<Table<String, ValueType*>*>(table);
 	}
 
-	stream->read(script, string_buffer_init_size);
-	if (stream->eof())
-		script[stream->gcount()] = T('\0');
+	g_stream->read(g_script, string_buffer_init_size);
+	if (g_stream->eof())
+		g_script[g_stream->gcount()] = T('\0');
 
 
 	//temporary variables
@@ -53,12 +56,12 @@ Status run()
 
 
 	parse: {
-		switch (script[++scriptIndex])
+		switch (g_script[++g_script_index])
 		{
 		case T('\0'):
 			if (g_stack_instruction.get_r(0).instr != InstructionType::end)
 			{
-				--scriptIndex;
+				--g_script_index;
 				g_stack_instruction.add(Instruction::atom(InstructionType::end));
 				goto evaluate;
 			}
@@ -66,10 +69,10 @@ Status run()
 				goto ending;
 
 		case T('\1'):
-			stream->read(script, string_buffer_init_size);
-			if (stream->eof())
-				script[stream->gcount()] = T('\0');
-			scriptIndex = -1;
+			g_stream->read(g_script, string_buffer_init_size);
+			if (g_stream->eof())
+				g_script[g_stream->gcount()] = T('\0');
+			g_script_index = -1;
 			goto parse;
 
 		case T(';'):
@@ -101,15 +104,15 @@ Status run()
 			goto evaluate;
 
 		case char_space_character:
-			--scriptIndex;
+			--g_script_index;
 			goto spacing;
 
 		case char_operator:
-			--scriptIndex;
+			--g_script_index;
 			goto operation;
 
 		case char_number:
-			--scriptIndex;
+			--g_script_index;
 			goto number;
 
 		case T('"'):
@@ -125,20 +128,20 @@ Status run()
 			goto expression;
 
 		default:
-			--scriptIndex;
+			--g_script_index;
 			goto name;
 		}
 
 		spacing: {
 			g_stack_instruction.add(Instruction::atom(InstructionType::spacing));
 		spacing_loop:
-			switch (script[++scriptIndex])
+			switch (g_script[++g_script_index])
 			{
 			case T('\1'):
-				stream->read(script, string_buffer_init_size);
-				if (stream->eof())
-					script[stream->gcount()] = T('\0');
-				scriptIndex = -1;
+				g_stream->read(g_script, string_buffer_init_size);
+				if (g_stream->eof())
+					g_script[g_stream->gcount()] = T('\0');
+				g_script_index = -1;
 				goto spacing_loop;
 
 			case char_space_character:
@@ -146,44 +149,44 @@ Status run()
 				goto spacing_loop;
 
 			default:
-				--scriptIndex;
+				--g_script_index;
 				goto evaluate;
 			}
 		}
 
 		operation: {
-			g_stack_instruction.add(Instruction::pos(InstructionType::op, g_memory.max_index));
+			g_stack_instruction.add(Instruction::pos(InstructionType::op, g_op_mem.max_index));
 		operation_loop:
-			switch (script[++scriptIndex])
+			switch (g_script[++g_script_index])
 			{
 			case T('\1'):
-				stream->read(script, string_buffer_init_size);
-				if (stream->eof())
-					script[stream->gcount()] = T('\0');
-				scriptIndex = -1;
+				g_stream->read(g_script, string_buffer_init_size);
+				if (g_stream->eof())
+					g_script[g_stream->gcount()] = T('\0');
+				g_script_index = -1;
 				goto operation_loop;
 			case char_operator:
-				g_memory.add<charT>(script[scriptIndex]);
+				g_op_mem.add<charT>(g_script[g_script_index]);
 				goto operation_loop;
 			case T('\0'):
 			default:
-				--scriptIndex;
+				--g_script_index;
 				{Instruction& instruction = g_stack_instruction.at_r(0);
-				instruction.modifier = g_memory.max_index - instruction.shift;}
+				instruction.modifier = g_op_mem.max_index - instruction.shift;}
 				goto evaluate;
 			}
 		}
 
 		name: {
-			g_stack_instruction.add(Instruction::val(ValueType::name, g_memory.max_index));
+			g_stack_instruction.add(Instruction::val(ValueType::name, g_val_mem.max_index));
 		name_loop:
-			switch (script[++scriptIndex])
+			switch (g_script[++g_script_index])
 			{
 			case T('\1'):
-				stream->read(script, string_buffer_init_size);
-				if (stream->eof())
-					script[stream->gcount()] = T('\0');
-				scriptIndex = -1;
+				g_stream->read(g_script, string_buffer_init_size);
+				if (g_stream->eof())
+					g_script[g_stream->gcount()] = T('\0');
+				g_script_index = -1;
 				goto name_loop;
 			case char_space_character: // if special character then name finished.
 			case char_operator:
@@ -192,72 +195,72 @@ Status run()
 			case T('\''):
 			case T('"'):
 			case T('\0'):
-				--scriptIndex; 
+				--g_script_index; 
 				{Instruction& instruction = g_stack_instruction.at_r(0);
-				instruction.modifier = g_memory.max_index - instruction.shift;}
+				instruction.modifier = g_val_mem.max_index - instruction.shift;}
 				goto evaluate;
 
 			default:
-				g_memory.add<charT>(script[scriptIndex]);
+				g_val_mem.add<charT>(g_script[g_script_index]);
 				goto name_loop;
 			}
 		}
 
 		number: {
-			g_stack_instruction.add(Instruction::val(ValueType::int64, g_memory.max_index));
+			g_stack_instruction.add(Instruction::val(ValueType::int64, g_val_mem.max_index));
 			int64 number = 0;
 		number_loop:
-			switch (script[++scriptIndex])
+			switch (g_script[++g_script_index])
 			{
 			case T('\1'):
-				stream->read(script, string_buffer_init_size);
-				if (stream->eof())
-					script[stream->gcount()] = T('\0');
-				scriptIndex = -1;
+				g_stream->read(g_script, string_buffer_init_size);
+				if (g_stream->eof())
+					g_script[g_stream->gcount()] = T('\0');
+				g_script_index = -1;
 				goto number_loop;
 			case char_number:
 				number *= 10;
-				number += script[scriptIndex] - T('0');
+				number += g_script[g_script_index] - T('0');
 				goto number_loop;
 
 			default:
-				--scriptIndex;
-				g_memory.add<int64>(number);
+				--g_script_index;
+				g_val_mem.add<int64>(number);
 				goto evaluate;
 			}
 		}
 
 		string: {
-			g_stack_instruction.add(Instruction::val(ValueType::string, g_memory.max_index));
+			g_stack_instruction.add(Instruction::val(ValueType::string, g_val_mem.max_index));
 		string_loop:
-			switch (script[++scriptIndex])
+			switch (g_script[++g_script_index])
 			{
 			case T('"'):
 				{Instruction& instruction = g_stack_instruction.at_r(0);
-				instruction.modifier = g_memory.max_index - instruction.shift;}
+				instruction.modifier = g_val_mem.max_index - instruction.shift;}
 				goto evaluate;
 
 			string_loop_escape:
 			case T('\\'):
-				switch (script[++scriptIndex]) {
+				switch (g_script[++g_script_index]) {
 				case T('\0'):
 					goto error_string_missing_closing_quote;
 				case T('\1'):
-					stream->read(script, string_buffer_init_size);
-					if (stream->eof())
-						script[stream->gcount()] = T('\0');
-					scriptIndex = -1;
+					g_stream->read(g_script, string_buffer_init_size);
+					if (g_stream->eof())
+						g_script[g_stream->gcount()] = T('\0');
+					g_script_index = -1;
 					goto string_loop_escape;
 				case T('\"'):
-					g_memory.add<charT>('\"');
+					g_val_mem.add<charT>('\"');
 				case T('0'):
-					g_memory.add<charT>('\0');
+					g_val_mem.add<charT>('\0');
 				case T('n'):
-					g_memory.add<charT>('\n');
+					g_val_mem.add<charT>('\n');
 				case T('t'):
-					g_memory.add<charT>('\t');
+					g_val_mem.add<charT>('\t');
 				case T('r'):
-					g_memory.add<charT>('\r');
+					g_val_mem.add<charT>('\r');
 				}
 				goto string_loop;
 
@@ -265,113 +268,113 @@ Status run()
 				goto error_string_missing_closing_quote;
 
 			case T('\1'):
-				stream->read(script, string_buffer_init_size);
-				if (stream->eof())
-					script[stream->gcount()] = T('\0');
-				scriptIndex = -1;
+				g_stream->read(g_script, string_buffer_init_size);
+				if (g_stream->eof())
+					g_script[g_stream->gcount()] = T('\0');
+				g_script_index = -1;
 				goto string_loop;
 
 			default:
-				g_memory.add<charT>(script[scriptIndex]);
+				g_val_mem.add<charT>(g_script[g_script_index]);
 				goto string_loop;
 			}
 		}
 
 		link: {
-			g_stack_instruction.add(Instruction::val(ValueType::string, g_memory.max_index));
+			g_stack_instruction.add(Instruction::val(ValueType::string, g_val_mem.max_index));
 		link_loop:
-			switch (script[++scriptIndex])
+			switch (g_script[++g_script_index])
 			{
 			link_loop_escape:
 			case T('\\'):
-				switch (script[++scriptIndex]) {
+				switch (g_script[++g_script_index]) {
 				case T('\0'):
 					goto error_string_missing_closing_quote;
 				case T('\1'):
-					stream->read(script, string_buffer_init_size);
-					scriptIndex = -1;
+					g_stream->read(g_script, string_buffer_init_size);
+					g_script_index = -1;
 					goto link_loop_escape;
 				case T('\''):
-					g_memory.add<charT>('\'');
+					g_val_mem.add<charT>('\'');
 				case T('0'):
-					g_memory.add<charT>('\0');
+					g_val_mem.add<charT>('\0');
 				case T('n'):
-					g_memory.add<charT>('\n');
+					g_val_mem.add<charT>('\n');
 				case T('t'):
-					g_memory.add<charT>('\t');
+					g_val_mem.add<charT>('\t');
 				case T('r'):
-					g_memory.add<charT>('\r');
+					g_val_mem.add<charT>('\r');
 				}
 				goto link_loop;
 
 			case T('\''):
 				{Instruction& instruction = g_stack_instruction.at_r(0);
-				instruction.modifier = g_memory.max_index - instruction.shift;}
+				instruction.modifier = g_val_mem.max_index - instruction.shift;}
 				goto evaluate;
 
 			case T('\0'):
 				goto error_string_missing_closing_quote;
 
 			case T('\1'):
-				stream->read(script, string_buffer_init_size);
-				scriptIndex = -1;
+				g_stream->read(g_script, string_buffer_init_size);
+				g_script_index = -1;
 				goto string_loop;
 
 			default:
-				g_memory.add<charT>(script[scriptIndex]);
+				g_val_mem.add<charT>(g_script[g_script_index]);
 				goto link_loop;
 			}
 		}
 
 		expression: {
-			g_stack_instruction.add(Instruction::val(ValueType::string, g_memory.max_index));
+			g_stack_instruction.add(Instruction::val(ValueType::string, g_val_mem.max_index));
 		expression_loop:
-			switch (script[++scriptIndex])
+			switch (g_script[++g_script_index])
 			{
 			expression_loop_escape:
 			case T('\\'):
-				switch (script[++scriptIndex]) {
+				switch (g_script[++g_script_index]) {
 				case T('\0'):
 					goto error_string_missing_closing_quote;
 				case T('\1'):
-					stream->read(script, string_buffer_init_size);
-					scriptIndex = -1;
+					g_stream->read(g_script, string_buffer_init_size);
+					g_script_index = -1;
 					goto expression_loop_escape;
 				case T('`'):
-					g_memory.add<charT>('`');
+					g_val_mem.add<charT>('`');
 				case T('0'):
-					g_memory.add<charT>('\0');
+					g_val_mem.add<charT>('\0');
 				case T('n'):
-					g_memory.add<charT>('\n');
+					g_val_mem.add<charT>('\n');
 				case T('t'):
-					g_memory.add<charT>('\t');
+					g_val_mem.add<charT>('\t');
 				case T('r'):
-					g_memory.add<charT>('\r');
+					g_val_mem.add<charT>('\r');
 				}
 				goto expression_loop;
 
 			case T('\`'):
 				{Instruction& instruction = g_stack_instruction.at_r(0);
-				instruction.modifier = g_memory.max_index - instruction.shift;}
+				instruction.modifier = g_val_mem.max_index - instruction.shift;}
 				goto evaluate;
 
 			case T('\0'):
 				goto error_string_missing_closing_quote;
 
 			case T('\1'):
-				stream->read(script, string_buffer_init_size);
-				scriptIndex = -1;
+				g_stream->read(g_script, string_buffer_init_size);
+				g_script_index = -1;
 				goto string_loop;
 
 			default:
-				g_memory.add<charT>(script[scriptIndex]);
+				g_val_mem.add<charT>(g_script[g_script_index]);
 				goto expression_loop;
 			}
 		}
 	}
 
 	skip: {
-		switch (script[++scriptIndex]) {
+		switch (g_script[++g_script_index]) {
 		case T(';'): goto evaluate;	//Maybe :parse?
 		case T('('): goto skip_group;
 		case T('['): goto skip_array;
@@ -379,13 +382,13 @@ Status run()
 		case T(')'):
 		case T(']'):
 		case T('}'): 
-			--scriptIndex;
+			--g_script_index;
 			goto evaluate; //Need for proper removal of skip instruction.
 		default: goto skip;
 		}
 
 		skip_group: {
-			switch(script[++scriptIndex]) {
+			switch(g_script[++g_script_index]) {
 			case T(')'): goto skip;
 			case T(']'): goto error_syntax;
 			case T('}'): goto error_syntax;
@@ -394,7 +397,7 @@ Status run()
 		}
 
 		skip_array: {
-			switch(script[++scriptIndex]) {
+			switch(g_script[++g_script_index]) {
 			case T(']'): goto skip;
 			case T(')'): goto error_syntax;
 			case T('}'): goto error_syntax;
@@ -403,7 +406,7 @@ Status run()
 		}
 
 		skip_context: {
-			switch(script[++scriptIndex]) {
+			switch(g_script[++g_script_index]) {
 			case T('}'): goto skip;
 			case T(')'): goto error_syntax;
 			case T(']'): goto error_syntax;
@@ -690,64 +693,123 @@ Status run()
 		eval_context_start: {
 			g_stack_context.add(instruction_r1);
 
-			Procedure lc_value;
+			Operation op;
 
 			if (!g_specification->context.onEnter.count(instruction_r1.value))
 				if (!g_specification->context.onEnter.count(ValueType::all))
 					goto error_no_context_onEnter;
 				else
-					lc_value = g_specification->context.onEnter[ValueType::all];
+					op = g_specification->context.onEnter[ValueType::all];
 			else
-				lc_value = g_specification->context.onEnter[instruction_r1.value];
+				op = g_specification->context.onEnter[instruction_r1.value];
 
-			lc_value();
+			if ((int32)op.modifier & (int32)OperationModifier::native)
+			{
+				switch (op.modifier)
+				{
+				case uMod_N(P):
+					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r1.shift));
+					break;
+				case uMod_N(oP):
+					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(1)));
+					break;
+				case uMod_N():
+					((void(*)())op.pointer)();
+					break;
+				}
+			}
+			else
+			{
+
+			}
 
 			goto parse;
 		}
 
 		eval_context_finish: {
+			Operation op;
 			if (g_specification->context.onExit.count(instruction_r1.value))
-				g_specification->context.onExit[instruction_r1.value]();
+				op = g_specification->context.onExit[instruction_r1.value];
 			else if(g_specification->context.onExit.count(ValueType::all))
-				g_specification->context.onExit[ValueType::all]();
+				op = g_specification->context.onExit[ValueType::all];
 			else
 				goto error_invalid_op;
-			
-			g_stack_context.max_index -= 1;
-			g_memory_delete_r(3);
+
+			if ((int32)op.modifier & (int32)OperationModifier::native)
+			{
+				switch (op.modifier)
+				{
+				case uMod_N(P):
+					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(g_stack_context.get_r(0).shift));
+					break;
+				case uMod_N(oP):
+					((void(*)(void*))op.pointer)((void*)(&g_stack_context.at_r(0)));
+					break;
+				case uMod_N():
+					((void(*)())op.pointer)();
+					break;
+				}
+			}
+			else
+			{
+
+			}
+
+			//g_stack_context.max_index -= 1;
+			//g_memory_delete_r(3);
 
 			goto eval_leave_r1;
 		}
 
 		eval_context_finish_empty: {
-			Procedure lc_value;
+			Operation op;
 
 			if (!g_specification->context.onExit.count(instruction_r2.value))
 				if (!g_specification->context.onExit.count(ValueType::all))
 					goto error_no_context_onExit;
 				else
-					lc_value = g_specification->context.onExit[ValueType::all];
+					op = g_specification->context.onExit[ValueType::all];
 			else
-				lc_value = g_specification->context.onExit[instruction_r2.value];
+				op = g_specification->context.onExit[instruction_r2.value];
 
-			lc_value();
+
+			if ((int32)op.modifier & (int32)OperationModifier::native)
+			{
+				switch (op.modifier)
+				{
+				case uMod_N(P):
+					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(g_stack_context.get_r(0).shift));
+					break;
+				case uMod_N(oP):
+					((void(*)(void*))op.pointer)((void*)(&g_stack_context.at_r(0)));
+					break;
+				case uMod_N():
+					((void(*)())op.pointer)();
+					break;
+				}
+			}
+			else
+			{
+
+			}
+
 
 			--g_stack_context.max_index;
 
 			g_stack_instruction.max_index -= 2;
-
+			
 			goto parse;
 		}
 
 		eval_tuple_start: {
-			g_stack_instruction.at_r(0) = Instruction::pos(InstructionType::start_array, g_memory.max_index);
-			g_memory.add<Array<Instruction>*>(new Array<Instruction>());
+			g_stack_instruction.at_r(0) = Instruction::pos(InstructionType::start_array, g_val_mem.max_index);
+			g_val_mem.add<Array<Instruction>*>(new Array<Instruction>());
 			goto parse;
 		}
 
 		eval_tuple_add: {
 			instruction_r1.shift -= instruction_r2.shift + 8;
-			g_memory.get<Array<Instruction>*>(instruction_r2.shift)->add(instruction_r1);
+			g_val_mem.get<Array<Instruction>*>(instruction_r2.shift)->add(instruction_r1);
 			g_stack_instruction.max_index -= 2;
 			goto parse;
 		}
@@ -760,15 +822,15 @@ Status run()
 
 		eval_tuple_empty: { //TODO: redo
 			Array<Instruction>* tuple = new Array<Instruction>();
-			g_memory.add<Array<Instruction>*>(tuple);
+			g_val_mem.add<Array<Instruction>*>(tuple);
 			--g_stack_instruction.max_index;
-			g_stack_instruction.add(Instruction::val(ValueType::tuple, g_memory.max_index));
+			g_stack_instruction.add(Instruction::val(ValueType::tuple, g_val_mem.max_index));
 			goto parse;
 		}
 
 		eval_tuple_end: {
 			instruction_r1.shift -= instruction_r2.shift + 8;
- 			g_memory.get<Array<Instruction>*>(instruction_r2.shift)->add(instruction_r1);	
+ 			g_val_mem.get<Array<Instruction>*>(instruction_r2.shift)->add(instruction_r1);	
 			instruction_r2.instr = InstructionType::value;
 			instruction_r2.value = ValueType::tuple;
 			g_stack_instruction.at_r(2) = instruction_r2; 
@@ -786,8 +848,9 @@ Status run()
 		}
 
 		eval_prefix: {
-			String opString = String((charT*)(g_memory.content + instruction_r1.shift), instruction_r1.modifier);
-			Table<ValueType, Procedure>* table;
+			String opString = String((charT*)(g_op_mem.content + instruction_r1.shift), instruction_r1.modifier);
+			Table<ValueType, Operation>* table;
+			Operation op;
 
 			if (!g_specification->op.prefixForward.count(opString))
 				goto eval_prefix_general_case;
@@ -796,13 +859,13 @@ Status run()
 
 			if (table->count(instruction_r0.value))	//By string concrete value
 			{
-				table->at(instruction_r0.value)();
-				goto evaluate;
+				op = table->at(instruction_r0.value);
+				goto eval_prefix_call;
 			}
 			else if (table->count(ValueType::all))	//By string general value
 			{
-				table->at(ValueType::all)();
-				goto evaluate;
+				op = table->at(ValueType::all);
+				goto eval_prefix_call;
 			}
 
 			eval_prefix_general_case:
@@ -811,23 +874,92 @@ Status run()
 
 			if (table->count(instruction_r0.value))	//By type concrete value
 			{
-				table->at(instruction_r0.value)();
-				goto evaluate;
+				op = table->at(instruction_r0.value);
+				goto eval_prefix_call;
 			}
 			else if (table->count(ValueType::all))	//By type general value
 			{
-				table->at(ValueType::all)();
-				goto evaluate;
+				op = table->at(ValueType::all);
+				goto eval_prefix_call;
 			}
 			else
 				goto error_invalid_op;
+		
+			eval_prefix_call:
+			if ((int32)op.modifier & (int32)OperationModifier::native)
+			{
+				switch (op.modifier)
+				{
+				case uMod_N(P):
+					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
+					break;
+				case uMod_N(oP):
+					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
+					break;
+				case uMod_N(D):
+					((void(*)())op.pointer)();
+					g_memory_delete_r(0);
+					break;
+				case uMod_N(PD):
+					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
+					g_memory_delete_r(0);
+					break;
+				case uMod_N(oPD):
+					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
+					g_memory_delete_r(0);
+					break;
+				case uMod_N():
+					((void(*)())op.pointer)();
+					break;
+				case uMod_N(Res(PD)):
+				{
+					void* res = ((void* (*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
+					g_memory_delete_r(0);
+
+					g_stack_instruction.add(Instruction::val(op.returnType, g_val_mem.max_index));
+
+					switch (op.returnType) {
+					case ValueType::int8:
+					case ValueType::uint8:
+						g_val_mem.add((int8)res);
+						break;
+					case ValueType::int16:
+					case ValueType::uint16:
+						g_val_mem.add((int16)res);
+						break;
+					case ValueType::int32:
+					case ValueType::uint32:
+					case ValueType::float32:
+						g_val_mem.add((int32)res);
+						break;
+					case ValueType::int64:
+					case ValueType::uint64:
+					case ValueType::float64:
+					case ValueType::pointer:
+					case ValueType::reference:
+					case ValueType::table:
+						g_val_mem.add((int64)res);
+						break;
+					default:break;
+					}
+				}
+					break;
+				default:
+					break;
+				}
+			}
+			else
+			{
+
+			}
 
 			goto evaluate;
 		}
 
 		eval_postfix: {
-			String opString = String((charT*)(g_memory.content + instruction_r1.shift), instruction_r1.modifier);
-			Table<ValueType, Procedure>* table;
+			String opString = String((charT*)(g_op_mem.content + instruction_r1.shift), instruction_r1.modifier);
+			Table<ValueType, Operation>* table;
+			Operation op;
 
 			if (!g_specification->op.postfixForward.count(opString))
 				goto eval_postfix_general_case;
@@ -836,13 +968,13 @@ Status run()
 
 			if (table->count(instruction_r2.value))	//By string concrete value
 			{
-				table->at(instruction_r2.value)();
-				goto evaluate;
+				op = table->at(instruction_r2.value);
+				goto eval_postfix_call;
 			}
 			else if (table->count(ValueType::all))	//By string general value
 			{
-				table->at(ValueType::all)();
-				goto evaluate;
+				op = table->at(ValueType::all);
+				goto eval_postfix_call;
 			}
 
 			eval_postfix_general_case:
@@ -851,23 +983,59 @@ Status run()
 
 			if (table->count(instruction_r2.value))	//By type concrete value
 			{
-				table->at(instruction_r2.value)();
-				goto evaluate;
+				op = table->at(instruction_r2.value);
+				goto eval_postfix_call;
 			}
 			else if (table->count(ValueType::all))	//By type general value
 			{
-				table->at(ValueType::all)();
-				goto evaluate;
+				op = table->at(ValueType::all);
+				goto eval_postfix_call;
 			}
 			else 
 				goto error_invalid_op;
 			
+			eval_postfix_call:
+			if ((int32)op.modifier & (int32)OperationModifier::native)
+			{
+				switch (op.modifier)
+				{
+				case uMod_N(P):
+					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
+					break;
+				case uMod_N(oP):
+					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
+					break;
+				case uMod_N(D):
+					((void(*)())op.pointer)();
+					g_memory_delete_r(0);
+					break;
+				case uMod_N(PD):
+					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
+					g_memory_delete_r(0);
+					break;
+				case uMod_N(oPD):
+					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
+					g_memory_delete_r(0);
+					break;
+				case uMod_N():
+					((void(*)())op.pointer)();
+					break;
+				default:
+					break;
+				}
+			}
+			else
+			{
+				
+			}
+
 			goto evaluate;
 		}
 
 		eval_binary: {
-			String opString = String((charT*)(g_memory.content + instruction_r1.shift), instruction_r1.modifier);
-			Table<ValueTypeBinary, Procedure>* table;
+			String opString = String((charT*)(g_op_mem.content + instruction_r1.shift), instruction_r1.modifier);
+			Table<ValueTypeBinary, Operation>* table;
+			Operation op;
 
 			if (!g_specification->op.binaryForward.count(opString))
 				goto eval_binary_general_case;
@@ -876,23 +1044,23 @@ Status run()
 
 			if (table->count(ValueTypeBinary(instruction_r2.value, instruction_r0.value)))	//By string concrete value
 			{
-				table->at(ValueTypeBinary(instruction_r2.value, instruction_r0.value))();
-				goto evaluate;
+				op = table->at(ValueTypeBinary(instruction_r2.value, instruction_r0.value));
+				goto eval_binary_call;
 			}
 			else if (table->count(ValueTypeBinary(instruction_r2.value, ValueType::all)))	//By string Lconcrete Rgeneral
 			{
-				table->at(ValueTypeBinary(instruction_r2.value, ValueType::all))();
-				goto evaluate;
+				op = table->at(ValueTypeBinary(instruction_r2.value, ValueType::all));
+				goto eval_binary_call;
 			}
 			else if (table->count(ValueTypeBinary(ValueType::all, instruction_r0.value)))	//By string Lgeneral Rconcrete
 			{
-				table->at(ValueTypeBinary(instruction_r2.value, ValueType::all))();
-				goto evaluate;
+				op = table->at(ValueTypeBinary(instruction_r2.value, ValueType::all));
+				goto eval_binary_call;
 			}
 			else if (table->count(ValueTypeBinary(ValueType::all, ValueType::all)))			//By string general
 			{
-				table->at(ValueTypeBinary(ValueType::all, ValueType::all))();
-				goto evaluate;
+				op = table->at(ValueTypeBinary(ValueType::all, ValueType::all));
+				goto eval_binary_call;
 			}
 
 			eval_binary_general_case:
@@ -901,27 +1069,100 @@ Status run()
 
 			if (table->count(ValueTypeBinary(instruction_r2.value, instruction_r0.value)))	//By type concrete value
 			{
-				table->at(ValueTypeBinary(instruction_r2.value, instruction_r0.value))();
-				goto evaluate;
+				op = table->at(ValueTypeBinary(instruction_r2.value, instruction_r0.value));
+				goto eval_binary_call;
 			}
 			else if (table->count(ValueTypeBinary(instruction_r2.value, ValueType::all)))	//By type Lconcrete Rgeneral
 			{
-				table->at(ValueTypeBinary(instruction_r2.value, ValueType::all))();
-				goto evaluate;
+				op = table->at(ValueTypeBinary(instruction_r2.value, ValueType::all));
+				goto eval_binary_call;
 			}
 			else if (table->count(ValueTypeBinary(ValueType::all, instruction_r0.value)))	//By type Lgeneral Rconcrete
 			{
-				table->at(ValueTypeBinary(instruction_r2.value, ValueType::all))();
-				goto evaluate;
+				op = table->at(ValueTypeBinary(instruction_r2.value, ValueType::all));
+				goto eval_binary_call;
 			}
 			else if (table->count(ValueTypeBinary(ValueType::all, ValueType::all)))			//By type general
 			{
-				table->at(ValueTypeBinary(ValueType::all, ValueType::all))();
-				goto evaluate;
+				op = table->at(ValueTypeBinary(ValueType::all, ValueType::all));
+				goto eval_binary_call;
 			}
 			else
 				goto error_invalid_op;
 			
+			eval_binary_call:
+			if ((int32)op.modifier & (int32)OperationModifier::native)
+			{
+				switch (op.modifier)
+				{
+				case bMod_N(Lp):
+					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift));
+					break;
+				case bMod_N(Lo):
+					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(2)));
+					break;
+				case bMod_N(Rp):
+					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
+					break;
+				case bMod_N(Ro):
+					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
+					break;
+				case bMod_N(M, Lp, Rp):
+					((void(*)(void*, void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift), g_val_mem.get<void*>(instruction_r0.shift));
+					break;
+				case bMod_N(M, Lo, Rp):
+					((void(*)(void*, void*))op.pointer)(&g_stack_instruction.at_r(2), g_val_mem.get<void*>(instruction_r0.shift));
+					break;
+				case bMod_N(M, Lp, Ro):
+					((void(*)(void*, void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift), &g_stack_instruction.at_r(0));
+					break;
+				case bMod_N(M, Lo, Ro):
+					((void(*)(void*, void*))op.pointer)(&g_stack_instruction.at_r(2), &g_stack_instruction.at_r(0));
+					break;
+
+
+				case bMod_N(Md, Lpd, Rpd):
+					{
+						void* res = ((void* (*)(void*, void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift), g_val_mem.get<void*>(instruction_r0.shift));
+						g_op_mem.max_index = instruction_r1.shift;
+						g_val_mem.max_index = instruction_r2.shift;
+						g_val_mem.add(res);
+						g_val_mem.max_index += -8 + g_specification->type.size[(int)op.returnType];
+						g_stack_instruction.max_index -= 2;
+					}
+					break;
+				case bMod_N(Md, Lod, Rod):
+					{
+						void* res = ((void* (*)(void*, void*))op.pointer)(&g_val_mem.at<void*>(instruction_r2.shift), &g_val_mem.at<void*>(instruction_r0.shift));
+						g_op_mem.max_index = instruction_r1.shift;
+						g_val_mem.max_index = instruction_r2.shift;
+						g_val_mem.add(res);
+						g_val_mem.max_index += -8 + g_specification->type.size[(int)op.returnType];
+						g_stack_instruction.max_index -= 2;
+					}
+					break;
+				case bMod_N(Md, Lrd, Rrd):
+					{
+						void* res = ((void* (*)(void*, void*))op.pointer)(&g_stack_instruction.at_r(2), &g_stack_instruction.at_r(0));
+						g_op_mem.max_index = instruction_r1.shift;
+						g_val_mem.max_index = instruction_r2.shift;
+						g_val_mem.add(res);
+						g_val_mem.max_index += -8 + g_specification->type.size[(int)op.returnType];
+						g_stack_instruction.max_index -= 2;
+					}
+					break;
+
+				case bMod_N():
+					((void(*)())op.pointer)();
+					break;
+				default:
+					break;
+				}
+			}
+			else
+			{
+
+			}
 
 			goto evaluate;
 		}
@@ -930,7 +1171,7 @@ Status run()
 			
 			instruction_r3 = g_stack_instruction.get_r(3);
 
-			--scriptIndex;
+			--g_script_index;
 
 			switch (instruction_r3.instr) {
 			//case InstructionType::skip_after_next:
@@ -975,7 +1216,7 @@ Status run()
 				goto eval_binary;
 
 			case InstructionType::call:
-				++scriptIndex;
+				++g_script_index;
 				goto parse;
 				/*g_stack_instruction.at_r(2) = g_stack_instruction.get_r(1);
 				g_stack_instruction.max_index -= 2;
@@ -996,7 +1237,7 @@ Status run()
 			//if(left != arr, right != arr)
 			//	right.shift, right>>
 			
-			Procedure lc_value;// = specification->binary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
+			Operation op;// = specification->binary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
 
 			if (!g_specification->op.coalescing.count(ValueTypeBinary(instruction_r1.value, instruction_r0.value)))
 				if (!g_specification->op.coalescing.count(ValueTypeBinary(instruction_r1.value, ValueType::all)))
@@ -1004,15 +1245,51 @@ Status run()
 						if (!g_specification->op.coalescing.count(ValueTypeBinary(ValueType::all, ValueType::all)))
 							goto error_invalid_op;
 						else
-							lc_value = g_specification->op.coalescing[ValueTypeBinary(ValueType::all, ValueType::all)];
+							op = g_specification->op.coalescing[ValueTypeBinary(ValueType::all, ValueType::all)];
 					else
-						lc_value = g_specification->op.coalescing[ValueTypeBinary(ValueType::all, instruction_r0.value)];
+						op = g_specification->op.coalescing[ValueTypeBinary(ValueType::all, instruction_r0.value)];
 				else
-					lc_value = g_specification->op.coalescing[ValueTypeBinary(instruction_r1.value, ValueType::all)];
+					op = g_specification->op.coalescing[ValueTypeBinary(instruction_r1.value, ValueType::all)];
 			else
-				lc_value = g_specification->op.coalescing[ValueTypeBinary(instruction_r1.value, instruction_r0.value)];
+				op = g_specification->op.coalescing[ValueTypeBinary(instruction_r1.value, instruction_r0.value)];
 
-			lc_value();
+			eval_coalescing_call:
+			if ((int32)op.modifier & (int32)OperationModifier::native)
+			{
+				switch (op.modifier)
+				{
+				case bMod_N(Lp):
+					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r1.shift));
+					break;
+				case bMod_N(Lo):
+					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
+					break;
+				case bMod_N(Rp):
+					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
+					break;
+				/*case bMod_N(LpRp):
+					((void(*)(void*, void*))op.pointer)(g_val_mem.get<void*>(instruction_r1.shift), g_val_mem.get<void*>(instruction_r0.shift));
+					break;
+				case bMod_N(LoRp):
+					((void(*)(void*, void*))op.pointer)(&g_stack_instruction.at_r(1), g_val_mem.get<void*>(instruction_r0.shift));
+					break;
+				case bMod_N(LpRo):
+					((void(*)(void*, void*))op.pointer)(g_val_mem.get<void*>(instruction_r1.shift), &g_stack_instruction.at_r(0));
+					break;
+				case bMod_N(LoRo):
+					((void(*)(void*, void*))op.pointer)(&g_stack_instruction.at_r(1), &g_stack_instruction.at_r(0));
+					break;*/
+				case bMod_N():
+					((void(*)())op.pointer)();
+					break;
+				default:
+					break;
+				}
+			}
+			else
+			{
+
+			}
 
 			goto evaluate;
 		}
@@ -1041,15 +1318,15 @@ Status run()
 			charT ch;
 			while (true) {
 				++index;
-				switch (ch = script[++scriptIndex])
+				switch (ch = g_script[++g_script_index])
 				{
 				case T('\0'):
 					goto error_syntax;
 				case T('\1'):
-					stream->read(script, string_buffer_init_size);
-					if (stream->eof())
-						script[stream->gcount()] = T('\0');
-					scriptIndex = -1;
+					g_stream->read(g_script, string_buffer_init_size);
+					if (g_stream->eof())
+						g_script[g_stream->gcount()] = T('\0');
+					g_script_index = -1;
 					break;
 				case T('{'):
 					++depth;
@@ -1058,8 +1335,8 @@ Status run()
 					if (depth == 0) {
 						function[index] = 0;
 						--g_stack_instruction.max_index;
-						g_stack_instruction.add(Instruction::val(ValueType::expression, g_memory.max_index));
-						g_memory.add(function);
+						g_stack_instruction.add(Instruction::val(ValueType::expression, g_val_mem.max_index));
+						g_val_mem.add(function);
 						goto evaluate;
 					}
 					else
@@ -1090,8 +1367,8 @@ Status run()
 		}
 
 		eval_finish_call: {
-			script = *(charT**)(g_memory.content + instruction_r2.shift);
-			scriptIndex = *(int*)(g_memory.content + instruction_r2.shift + sizeof(void*));
+			g_script = *(charT**)(g_val_mem.content + instruction_r2.shift);
+			g_script_index = *(int*)(g_val_mem.content + instruction_r2.shift + sizeof(void*));
 			g_stack_instruction.at_r(2) = g_stack_instruction.get_r(3);
 			g_stack_instruction.at_r(3) = g_stack_instruction.get_r(1);
 			g_stack_instruction.max_index -= 2;
@@ -1135,10 +1412,10 @@ void g_memory_delete_top() {
 	switch (instr.instr) {
 	case InstructionType::value:
 		if (g_specification->type.destructor.count(instr.value)) {
-			((Destructor)g_specification->type.destructor[instr.value])(g_memory.content + instr.shift);
+			((Destructor)g_specification->type.destructor[instr.value])(g_val_mem.content + instr.shift);
 		}
 		--g_stack_instruction.max_index;
-		g_memory.max_index = instr.shift;
+		g_val_mem.max_index = instr.shift;
 		break;
 	default:
 		--g_stack_instruction.max_index;
@@ -1153,7 +1430,7 @@ void g_memory_delete_r(size_t index) {
 	switch (instr.instr) {
 	case InstructionType::value:
 		if (g_specification->type.destructor.count(instr.value)) {
-			((Destructor)g_specification->type.destructor[instr.value])(g_memory.content + instr.shift);
+			((Destructor)g_specification->type.destructor[instr.value])(g_val_mem.content + instr.shift);
 		}
 	case InstructionType::op:
 		size_t size;
@@ -1161,11 +1438,11 @@ void g_memory_delete_r(size_t index) {
 		case ValueType::string:
 		case ValueType::name:
 			size = instr.modifier;
-			g_memory.erase(instr.shift, size);
+			g_val_mem.erase(instr.shift, size);
 			break;
 		default:
 			size = g_specification->type.size[(size_t)instr.value];
-			g_memory.erase(instr.shift,size);
+			g_val_mem.erase(instr.shift,size);
 			break;
 		}
 
@@ -1195,13 +1472,13 @@ void g_memory_delete_span_r(size_t index) {
 		switch (instr.instr) {
 		case InstructionType::value:
 			if (g_specification->type.destructor.count(instr.value)) {
-				((Destructor)g_specification->type.destructor[instr.value])(g_memory.content + instr.shift);
+				((Destructor)g_specification->type.destructor[instr.value])(g_val_mem.content + instr.shift);
 			}
-			g_memory.max_index = instr.shift;
+			g_val_mem.max_index = instr.shift;
 			--g_stack_instruction.max_index;
 			break;
 		case InstructionType::op:
-			g_memory.max_index = instr.modifier;
+			g_op_mem.max_index = instr.shift;
 			--g_stack_instruction.max_index;
 			break;
 		default:

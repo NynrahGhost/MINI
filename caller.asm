@@ -1,5 +1,5 @@
 .data
-extern g_memory:qword
+extern g_val_mem:qword
 extern g_stack_instruction:qword	; pointer to instruction stack's content
 
 .code
@@ -17,7 +17,7 @@ native_call proc
 	mov r9, g_stack_instruction
 	mov r10, [r9 + r10*8]							
 	mov r10, [r10 + 4]								; Get shift
-	mov r9, g_memory
+	mov r9, g_val_mem
 	mov r10, qword ptr [r9 + r10]					; Get function pointer
 
 	cmp rcx, 4
