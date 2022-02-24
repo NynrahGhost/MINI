@@ -94,7 +94,7 @@ namespace Core {
 		uint32 contextIndex = 0;
 		Instruction context = g_stack_context.get_r(contextIndex);
 		Instruction name = g_stack_instruction.get_r(0);
-		Instruction type = g_stack_instruction.get_r(1);
+		Instruction type = g_stack_instruction.get_r(2);
 
 		ValueType* pointer;
 
@@ -143,7 +143,7 @@ namespace Core {
 			name.value = ValueType::reference;
 			name.modifier = (int16)*pointer;
 
-			--g_stack_instruction.max_index;
+			g_stack_instruction.max_index -= 2;
 			g_stack_instruction.at_r(0) = name;
 			return;
 		case ValueType::autotable:
@@ -161,7 +161,7 @@ namespace Core {
 			name.value = ValueType::reference;
 			name.modifier = (int16)*pointer;
 
-			--g_stack_instruction.max_index;
+			g_stack_instruction.max_index -= 2;
 			g_stack_instruction.at_r(0) = name;
 			return;
 		default:
@@ -799,8 +799,9 @@ namespace Core {
 			case ValueType::int8:
 			case ValueType::uint8:
 			case ValueType::type:
-				//memcpy(g_memory.content + name.shift + sizeof(int8), g_memory.content + name.shift + name.modifier, g_memory.max_index - name.shift + name.modifier);
+				memcpy(g_val_mem.content + name.shift + sizeof(int8), g_val_mem.content + name.shift + name.modifier, g_val_mem.max_index - name.shift + name.modifier);
 				//g_val_mem.move_relative(right.shift, g_val_mem.max_index, -name.modifier + 1);
+				*(int8*)(g_val_mem.content + name.shift) = *(int8*)(ptr + 1);
 
 				*(int8*)(g_val_mem.content + name.shift) = *(int8*)(ptr + 1);
 				g_val_mem.max_index += sizeof(void*) - name.modifier;
@@ -933,6 +934,27 @@ namespace Core {
 		g_stack_instruction.at_r(0).instr = InstructionType::skip_next;
 		g_stack_instruction.at_r(0).modifier = 0;
 	}
+
+	/*void conditional() {
+		size_t size = g_specification->type.size[(uint8)g_stack_instruction.at_r(0).value];
+
+		uint8* ptr = (g_val_mem.content + g_stack_instruction.at_r(0).shift);
+
+		while (size)
+			if (*(ptr + --size) != 0)
+			{
+				g_val_mem.max_index = g_stack_instruction.at_r(1).shift;
+				g_stack_instruction.max_index -= 1;
+				g_stack_instruction.at_r(0).instr = InstructionType::skip_after_next;
+				g_stack_instruction.at_r(0).modifier = 0;
+				return;
+			}
+
+		g_val_mem.max_index = g_stack_instruction.at_r(1).shift;
+		g_stack_instruction.max_index -= 1;
+		g_stack_instruction.at_r(0).instr = InstructionType::skip_next;
+		g_stack_instruction.at_r(0).modifier = 0;
+	}*/
 
 	void conditionalTrue() {
 		g_val_mem.max_index = g_stack_instruction.at_r(1).shift;

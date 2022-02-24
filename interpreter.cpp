@@ -1119,8 +1119,6 @@ Status run()
 				case bMod_N(M, Lo, Ro):
 					((void(*)(void*, void*))op.pointer)(&g_stack_instruction.at_r(2), &g_stack_instruction.at_r(0));
 					break;
-
-
 				case bMod_N(Md, Lpd, Rpd):
 					{
 						void* res = ((void* (*)(void*, void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift), g_val_mem.get<void*>(instruction_r0.shift));
@@ -1228,70 +1226,14 @@ Status run()
 
 		eval_coalescing: {
 
-			//if(left == arr, right == arr)
-			//	max_index
-			//if(left == arr, right != arr)
-			//	max_index
-			//if(left != arr, right == arr)
-			//	right.shift
-			//if(left != arr, right != arr)
-			//	right.shift, right>>
-			
-			Operation op;// = specification->binary[(*(String*)tmpPtr)][ValueTypeBinary(instruction_r2.value, instruction_r0.value)];
+			g_stack_instruction.add(instruction_r0);
+			instruction_r2 = instruction_r1;
+			//instruction_r0 = instruction_r1;
+			instruction_r1 = Instruction::pos(InstructionType::op, g_op_mem.max_index);
+			g_stack_instruction.at_r(1) = instruction_r1;
 
-			if (!g_specification->op.coalescing.count(ValueTypeBinary(instruction_r1.value, instruction_r0.value)))
-				if (!g_specification->op.coalescing.count(ValueTypeBinary(instruction_r1.value, ValueType::all)))
-					if (!g_specification->op.coalescing.count(ValueTypeBinary(ValueType::all, instruction_r0.value)))
-						if (!g_specification->op.coalescing.count(ValueTypeBinary(ValueType::all, ValueType::all)))
-							goto error_invalid_op;
-						else
-							op = g_specification->op.coalescing[ValueTypeBinary(ValueType::all, ValueType::all)];
-					else
-						op = g_specification->op.coalescing[ValueTypeBinary(ValueType::all, instruction_r0.value)];
-				else
-					op = g_specification->op.coalescing[ValueTypeBinary(instruction_r1.value, ValueType::all)];
-			else
-				op = g_specification->op.coalescing[ValueTypeBinary(instruction_r1.value, instruction_r0.value)];
+			goto eval_binary;
 
-			eval_coalescing_call:
-			if ((int32)op.modifier & (int32)OperationModifier::native)
-			{
-				switch (op.modifier)
-				{
-				case bMod_N(Lp):
-					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r1.shift));
-					break;
-				case bMod_N(Lo):
-					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
-					break;
-				case bMod_N(Rp):
-					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
-					break;
-				/*case bMod_N(LpRp):
-					((void(*)(void*, void*))op.pointer)(g_val_mem.get<void*>(instruction_r1.shift), g_val_mem.get<void*>(instruction_r0.shift));
-					break;
-				case bMod_N(LoRp):
-					((void(*)(void*, void*))op.pointer)(&g_stack_instruction.at_r(1), g_val_mem.get<void*>(instruction_r0.shift));
-					break;
-				case bMod_N(LpRo):
-					((void(*)(void*, void*))op.pointer)(g_val_mem.get<void*>(instruction_r1.shift), &g_stack_instruction.at_r(0));
-					break;
-				case bMod_N(LoRo):
-					((void(*)(void*, void*))op.pointer)(&g_stack_instruction.at_r(1), &g_stack_instruction.at_r(0));
-					break;*/
-				case bMod_N():
-					((void(*)())op.pointer)();
-					break;
-				default:
-					break;
-				}
-			}
-			else
-			{
-
-			}
-
-			goto evaluate;
 		}
 
 		eval_coalescing_long: {

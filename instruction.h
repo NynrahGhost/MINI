@@ -71,7 +71,7 @@ enum class ValueType :
     object,
     table, autotable,
     pointer,
-    autoptr,           // Alike automatic storage, gets freeed when exits stack.
+    autoptr,           // Alike automatic storage, gets freed when exits stack.
     reference, autoref,
     specification,
     dll,

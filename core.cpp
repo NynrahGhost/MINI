@@ -275,8 +275,8 @@ namespace Core {
 			1,
 			1,
 			0, 0,
-			1, 2, 3, 4,
-			1, 2, 3, 4,
+			1, 2, 4, 8,
+			1, 2, 4, 8,
 			2, 4, 8, 16,
 			(uint8)-1, (uint8)-1, (uint8)-1, (uint8)-1,
 			(uint8)-1, (uint8)-1, (uint8)-1, (uint8)-1,
@@ -345,6 +345,7 @@ namespace Core {
 			table = &core->op.prefixForward[T("?")];
 			uFun(all, conditional, uMod_N(), all);
 			uFun(name, findValueR0, uMod_N(P), all);
+			uFun(string, conditionalTrue, uMod_N(P), all);
 			uFun(truth, conditionalTrue, uMod_N(), all);
 			uFun(lie, conditionalFalse, uMod_N(), all);
 
@@ -458,6 +459,22 @@ namespace Core {
 		{
 			Table<ValueTypeBinary, Operation>* table;
 
+			table = &core->op.binaryForward[T("")]; //Null coalesceing
+			bFun(name, all, (findValueR2), bMod_N(), all); //tuple
+			bFun(reference, tuple, (findValueR2), bMod_N(), all);
+			bFun(unprocedure, all, invokeProcedure, bMod_N(), all); //tuple
+			bFun(parameter_pattern, tuple, invokeFunction, bMod_N(), all);
+			bFun(unfunction, tuple, invokeNativeFunction, bMod_N(), all);
+
+			//bFun(type, all, cast, bMod_N(Md, Lrd, Rrd), all);
+
+			bFun(type, name, declareVariable, bMod_N(), all);
+
+			bFun(string, string, concatenate, bMod_N(), all);
+
+			//bFun(type, none, allocStack);
+
+
 			table = &core->op.binaryForward[T("?,")]; //Null coalesceing
 
 			table = &core->op.binaryForward[T("?=")]; //Null conditional assignment
@@ -469,47 +486,6 @@ namespace Core {
 
 			table = &core->op.binaryForward[T(",")];
 			bFun(all, all, commaBinary, bMod_N(), all);
-
-
-			/*table = &core->op.binaryForward[T("+")];
-			bFunInterfaceNameRefDowncastTricketry
-			bFunInterfaceMatch(int64, int64, int64, add, bMod_N());
-			bFunInterfaceMatch(float64, int64, float64, add, bMod_N());
-			bFunInterfaceMatch(int64, float64, float64, add, bMod_N());
-			bFunInterfaceMatch(float64, float64, float64, add, bMod_N());
-
-			table = &core->op.binaryForward[T("-")];
-			bFunInterfaceNameRefDowncastTricketry
-			bFunInterfaceMatch(int64, int64, int64, sub, bMod_N());
-			bFunInterfaceMatch(float64, int64, float64, sub, bMod_N());
-			bFunInterfaceMatch(int64, float64, float64, sub, bMod_N());
-			bFunInterfaceMatch(float64, float64, float64, sub, bMod_N());
-
-			table = &core->op.binaryForward[T("*")];
-			bFunInterfaceNameRefDowncastTricketry
-			bFunInterfaceMatch(int64, int64, int64, mul, bMod_N());
-			bFunInterfaceMatch(float64, int64, float64, mul, bMod_N());
-			bFunInterfaceMatch(int64, float64, float64, mul, bMod_N());
-			bFunInterfaceMatch(float64, float64, float64, mul, bMod_N());
-			//bFun(type, none, allocHeap);
-
-			table = &core->op.binaryForward[T("/")];
-			bFunInterfaceNameRefDowncastTricketry
-			bFunInterfaceMatch(int64, int64, float64, div, bMod_N());
-			bFunInterfaceMatch(float64, int64, float64, div, bMod_N());
-			bFunInterfaceMatch(int64, float64, float64, div, bMod_N());
-			bFunInterfaceMatch(float64, float64, float64, div, bMod_N());
-
-			table = &core->op.binaryForward[T("/.")];
-			bFunInterfaceNameRefDowncastTricketry
-			bFunInterfaceMatch(int64, int64, int64, div, bMod_N());
-			bFunInterfaceMatch(float64, int64, int64, div, bMod_N());
-			bFunInterfaceMatch(int64, float64, int64, div);
-			bFunInterfaceMatch(float64, float64, int64, div);
-
-			table = &core->op.binaryForward[T("%")];
-			bFunInterfaceNameRefDowncastTricketry
-			bFunInterfaceMatch(int64, int64, int64, mod);*/
 
 			table = &core->op.binaryForward[T("=")];
 			bFun(name, all, assignToName, bMod_N(), all);
@@ -578,7 +554,29 @@ namespace Core {
 
 			table = &core->op.binaryForward[T("/")];
 			bFunInterfaceNameRefDowncastTricketry;
-			bFunMath_all(div);
+			bFunMath_ii(div_ii);
+			bFunMath_iu(div_iu);
+			bFunMath_if(div_if);
+			bFunMath_id(div_id);
+			bFunMath_ui(div_ui);
+			bFunMath_uu(div_uu);
+			bFunMath_uf(div_uf);
+			bFunMath_ud(div_ud);
+			bFunMath_fi(div_fi);
+			bFunMath_fu(div_fu);
+			bFunMath_ff(div_ff);
+			bFunMath_fd(div_fd);
+			bFunMath_di(div_di);
+			bFunMath_du(div_du);
+			bFunMath_df(div_df);
+			bFunMath_dd(div_dd);
+
+			table = &core->op.binaryForward[T("/.")];
+			bFunInterfaceNameRefDowncastTricketry;
+			bFunMath_ii(divi_ii);
+			bFunMath_iu(divi_iu);
+			bFunMath_ui(divi_ui);
+			bFunMath_uu(divi_uu);
 
 			table = &core->op.binaryForward[T("%")];
 			bFunMath_ii(mod_ii);
@@ -587,6 +585,22 @@ namespace Core {
 			bFunMath_uu(mod_uu);
 
 			table = &core->op.binaryForward[T("^")];
+			bFunMath_ii(bitOR);
+			bFunMath_iu(bitOR);
+			bFunMath_if(bitOR);
+			bFunMath_id(bitOR);
+			bFunMath_ui(bitOR);
+			bFunMath_uu(bitOR);
+			bFunMath_uf(bitOR);
+			bFunMath_ud(bitOR);
+			bFunMath_fi(bitOR);
+			bFunMath_fu(bitOR);
+			bFunMath_ff(bitOR);
+			bFunMath_fd(bitOR);
+			bFunMath_di(bitOR);
+			bFunMath_du(bitOR);
+			bFunMath_df(bitOR);
+			bFunMath_dd(bitOR);
 
 			table = &core->op.binaryForward[T("\\/")]; //bitwise 
 			bFunMath_ii(bitOR);
@@ -654,6 +668,8 @@ namespace Core {
 			bFun(unprocedure, all, invokeProcedure, bMod_N(), all); //tuple
 			bFun(parameter_pattern, tuple, invokeFunction, bMod_N(), all);
 			bFun(unfunction, tuple, invokeNativeFunction, bMod_N(), all);
+			
+			//bFun(type, all, cast, bMod_N(Md, Lrd, Rrd), all);
 
 			bFun(type, name, declareVariable, bMod_N(), all);
 

@@ -28,7 +28,28 @@ namespace Core {
 	commonTricketry(add);
 	commonTricketry(sub);
 	commonTricketry(mul);
-	commonTricketry(div);
+
+	float64 div_dd(float64 left, float64 right);
+	float64 div_df(float64 left, float32 right);
+	float64 div_di(float64 left, int64 right); 
+	float64 div_du(float64 left, uint64 right); 
+	float64 div_fd(float32 left, float64 right); 
+	float32 div_ff(float32 left, float32 right); 
+	float32 div_fi(float32 left, int64 right); 
+	float32 div_fu(float32 left, uint64 right);
+	float64 div_id(int64 left, float64 right); 
+	float32 div_if(int64 left, float32 right); 
+	float64 div_ii(int64 left, int64 right);
+	float64 div_iu(int64 left, uint64 right);
+	float64 div_ud(uint64 left, float64 right); 
+	float32 div_uf(uint64 left, float32 right); 
+	float64 div_ui(uint64 left, int64 right);
+	float64 div_uu(uint64 left, uint64 right);
+
+	uint64 divi_uu(uint64 left, uint64 right);
+	int64 divi_ui(uint64 left, int64 right);
+	int64 divi_iu(int64 left, uint64 right);
+	int64 divi_ii(int64 left, int64 right);
 
 	uint64 mod_uu(uint64 left, uint64 right);
 	int64 mod_ui(uint64 left, int64 right);

@@ -24,6 +24,27 @@
 #define uMod_ResOut(ARG) (OperationModifier)((int32)OperationModifier::r_out | (int32) uMod_Res(ARG))
 
 
+#define uMod_ 0
+#define uMod_A 0
+#define uMod_Ap OperationModifier::a_put
+#define uMod_Ao OperationModifier::a_out
+#define uMod_Ar (OperationModifier)((int32)uMod_Ao | (int32)uMod_Ap)
+#define uMod_Ad OperationModifier::a_del
+#define uMod_Apd (OperationModifier)((int32)OperationModifier::a_del | (int32)uMod_Ap)
+#define uMod_Aod (OperationModifier)((int32)OperationModifier::a_del | (int32)uMod_Ao)
+#define uMod_Ard (OperationModifier)((int32)OperationModifier::a_del | (int32)uMod_Ar)
+#define uMod_M 0
+#define uMod_Mp OperationModifier::m_put
+#define uMod_Mo OperationModifier::m_out
+#define uMod_Mr (OperationModifier)((int32)uMod_Mo | (int32)uMod_Mp)
+#define uMod_Md OperationModifier::m_del
+#define uMod_Mpd (OperationModifier)((int32)OperationModifier::m_del | (int32)uMod_Mp)
+#define uMod_Mod (OperationModifier)((int32)OperationModifier::m_del | (int32)uMod_Mo)
+#define uMod_Mrd (OperationModifier)((int32)OperationModifier::m_del | (int32)uMod_Mr)
+#define uMod_N(METHOD, ARG) (OperationModifier)((int32)OperationModifier::native | (int32)(uMod_ ## METHOD) | (int32)(uMod_ ## ARG))
+
+
+
 #define bMod_ 0
 #define bMod_M 0
 #define bMod_L 0

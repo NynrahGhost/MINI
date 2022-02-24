@@ -67,12 +67,17 @@ namespace Core {
 	float32 div_fu(float32 left, uint64 right) { return left / right; }
 	float64 div_id(int64 left, float64 right) { return left / right; }
 	float32 div_if(int64 left, float32 right) { return left / right; }
-	int64   div_ii(int64 left, int64 right) { return left / right; }
-	int64   div_iu(int64 left, uint64 right) { return left / right; }
+	float64 div_ii(int64 left, int64 right) { return (float64)left / right; }
+	float64 div_iu(int64 left, uint64 right) { return (float64)left / right; }
 	float64 div_ud(uint64 left, float64 right) { return left / right; }
 	float32 div_uf(uint64 left, float32 right) { return left / right; }
-	int64   div_ui(uint64 left, int64 right) { return left / right; }
-	uint64  div_uu(uint64 left, uint64 right) { return left / right; }
+	float64 div_ui(uint64 left, int64 right) { return (float64)left / right; }
+	float64 div_uu(uint64 left, uint64 right) { return (float64)left / right; }
+
+	uint64 divi_uu(uint64 left, uint64 right) { return left / right; }
+	int64 divi_ui(uint64 left, int64 right) { return left / right; }
+	int64 divi_iu(int64 left, uint64 right) { return left / right; }
+	int64 divi_ii(int64 left, int64 right) { return left / right; }
 
 	uint64 mod_uu(uint64 left, uint64 right) {return left % right;}
 	int64 mod_ui(uint64 left, int64 right) { return left % right; }
