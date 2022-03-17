@@ -425,7 +425,15 @@ Status run()
         case InstructionType::start: goto parse;                              //   |   |   |s t| :parse
 		case InstructionType::call: goto parse;                               //   |   |   |fun| :parse
 		case InstructionType::error: goto parse;                              //   |   |   |err| :error
-        case InstructionType::op: goto parse;                                 //   |   |   |o p| :parse //TODO: op val op :eval_prefix
+        case InstructionType::op:
+			switch (instruction_r1.instr) {                                   //   |   | x |o p|
+			case InstructionType::value:
+				switch (instruction_r1.instr) {                               //   | x |val|o p|
+				case InstructionType::op: goto eval_prefix;                   //   |o p|val|o p| :eval_prefix	//Should be unreachable
+				default: goto parse;}                                         //   |all|val|o p| :parse
+
+			default: goto parse;}                                             //   |   |all|o p| :parse
+
 		case InstructionType::skip_next: goto eval_skip_next;                 //   |   |   |s>-| :eval_skip_next
 		case InstructionType::skip_after_next: goto parse;                    //   |   |   |s->| :parse
 		case InstructionType::ignore_separator: goto parse;                   //   |   |   |/;/| :parse
@@ -493,7 +501,11 @@ Status run()
 				case InstructionType::start_array: goto eval_expr;            //   | [ | _ | { | :eval_expr
 				case InstructionType::start_context: goto eval_expr;          //   | { | _ | { | :eval_expr
 				default: goto error_syntax;}
-            case InstructionType::value: goto eval_context_start;             //   |   |val| { | :eval_context_start
+			case InstructionType::value:
+				switch (instruction_r2.instr) {                               //   | x |val| { |
+				case InstructionType::op: goto eval_prefix;                   //   |o p|val| { | :eval_prefix	//Should be unreachable
+				default: goto eval_context_start;}                            //   |all|val| { | :eval_context_start
+
 			case InstructionType::start: goto eval_expr;                      //   |   |s t| { | :eval_expr
 			case InstructionType::start_group: goto eval_expr;                //   |   | ( | { | :eval_expr
 			case InstructionType::op: goto eval_expr;                         //   |   |o p| { | :eval_expr
@@ -505,7 +517,7 @@ Status run()
 			case InstructionType::spacing: goto eval_erase_r1;                //   |   | _ | } | :eval_erase_r1
             case InstructionType::value:                                      //   | x |val| } |
                 switch (instruction_r2.instr) {
-                case InstructionType::op: goto eval_prefix;                   //   |o p|val| } | :eval_prefix
+                case InstructionType::op: goto eval_prefix;                   //   |o p|val| } | :eval_prefix	//Should be unreachable
 				case InstructionType::spacing: goto eval_erase_r2;            //   | _ |val| } | :eval_erase_r2
                 case InstructionType::start_context: goto eval_context_finish;//   | { |val| } | :eval_context_finish
                 default: goto error_syntax; }
@@ -529,7 +541,7 @@ Status run()
 				case InstructionType::start: goto ending;                     //   |s t|val|end| :ending
 				case InstructionType::call: goto eval_finish_call;            //   |fun|val|end| :eval_finish_call
 				case InstructionType::spacing: goto eval_binary_long;         //   | _ |val|end| :eval_binary_long
-				case InstructionType::op: goto eval_prefix;	}                 //   |o p|val|end| :eval_prefix	//Possibly unreachable
+				case InstructionType::op: goto eval_prefix;	}                 //   |o p|val|end| :eval_prefix	//Should be unreachable
 			default: goto error_syntax;
 			}
         case InstructionType::spacing:                                        //   |   | x | _ |
@@ -566,7 +578,7 @@ Status run()
 				case InstructionType::start_group: goto parse;                //   | ( |val| _ | :parse
 				case InstructionType::skip_after_next: goto parse;            //   |s->|val| _ | :parse
                 case InstructionType::spacing: goto eval_binary_long;         //   | _ |val| _ | :eval_binary_long
-                case InstructionType::op: goto eval_prefix;                   //   |o p|val| _ | :eval_prefix	//Possibly unreachable
+                case InstructionType::op: goto eval_prefix;                   //   |o p|val| _ | :eval_prefix		//Should be unreachable
 				case InstructionType::call: goto parse;                       //   |fun|val| _ | :parse
 				case InstructionType::value: goto eval_erase_r0;}             //   |val|val| _ | :eval_erase_r0
             default: goto error_syntax; 
@@ -590,8 +602,8 @@ Status run()
             case InstructionType::op:                                         //   | x |o p|val|
                 switch (instruction_r2.instr) {
                 case InstructionType::value: goto eval_binary;                //   |val|o p|val| :eval_binary
-				case InstructionType::op: goto eval_prefix;                   //   |o p|o p|val| :eval_prefix
-                case InstructionType::start: goto eval_prefix;                //   |s t|o p|val| :eval_prefix
+				case InstructionType::op: goto eval_prefix;                   //   |o p|o p|val| :eval_prefix	//TODO: Consider doing default 
+                case InstructionType::start: goto eval_prefix;                //   |s t|o p|val| :eval_prefix	//instead of each prefix case
 				case InstructionType::ignore_separator: goto eval_prefix;     //   |/;/|o p|val| :eval_prefix
 				case InstructionType::ignore_array_start: goto eval_prefix;   //   |/[/|o p|val| :eval_prefix
 				case InstructionType::skip_next: goto eval_prefix;            //   |s>-|o p|val| :eval_prefix
@@ -890,62 +902,137 @@ Status run()
 			{
 				switch (op.modifier)
 				{
-				case uMod_N(P):
-					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
-					break;
-				case uMod_N(oP):
-					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
-					break;
-				case uMod_N(D):
-					((void(*)())op.pointer)();
-					g_memory_delete_r(0);
-					break;
-				case uMod_N(PD):
-					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
-					g_memory_delete_r(0);
-					break;
-				case uMod_N(oPD):
-					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
-					g_memory_delete_r(0);
-					break;
 				case uMod_N():
 					((void(*)())op.pointer)();
 					break;
-				case uMod_N(Res(PD)):
-				{
-					void* res = ((void* (*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
-					g_memory_delete_r(0);
+				case uMod_N(M, Ap):
+					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
+					break;
+				case uMod_N(M, Ao):
+					((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r0.shift)));
+					break;
+				case uMod_N(M, Ar):
+					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
+					break;
+				case uMod_N(M, Ad):
+					((void(*)())op.pointer)();
+					goto eval_prefix_call_delete_A;
+				case uMod_N(M, Apd):
+					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
+					goto eval_prefix_call_delete_A;
+				case uMod_N(M, Aod):
+					((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r0.shift)));
+					goto eval_prefix_call_delete_A;
+				case uMod_N(M, Ard):
+					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
 
-					g_stack_instruction.add(Instruction::val(op.returnType, g_val_mem.max_index));
-
-					switch (op.returnType) {
-					case ValueType::int8:
-					case ValueType::uint8:
-						g_val_mem.add((int8)res);
-						break;
-					case ValueType::int16:
-					case ValueType::uint16:
-						g_val_mem.add((int16)res);
-						break;
-					case ValueType::int32:
-					case ValueType::uint32:
-					case ValueType::float32:
-						g_val_mem.add((int32)res);
-						break;
-					case ValueType::int64:
-					case ValueType::uint64:
-					case ValueType::float64:
-					case ValueType::pointer:
-					case ValueType::reference:
-					case ValueType::table:
-						g_val_mem.add((int64)res);
-						break;
-					default:break;
+				eval_prefix_call_delete_A:
+					if (g_specification->type.destructor.count(instruction_r1.value)) {
+						((Destructor)g_specification->type.destructor[instruction_r1.value])(g_val_mem.content + instruction_r1.shift);
 					}
-				}
+					g_val_mem.max_index = instruction_r0.shift;
+
+					g_stack_instruction.max_index -= 1;
+
+					break;
+				case uMod_N(Md, Ap):
+					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
+					goto eval_prefix_call_delete_M;
+				case uMod_N(Md, Ao):
+					((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r0.shift)));
+					goto eval_prefix_call_delete_M;
+				case uMod_N(Md, Ar):
+					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
+
+				eval_prefix_call_delete_M:
+					g_op_mem.max_index = instruction_r1.shift;
+
+					g_stack_instruction.at_r(1) = instruction_r0;
+					g_stack_instruction.max_index -= 1;
+
+					break;
+				case uMod_N(Md, Apd):
+					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
+					goto eval_prefix_call_delete_MA;
+				case uMod_N(Md, Aod):
+					((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r0.shift)));
+					goto eval_prefix_call_delete_MA;
+				case uMod_N(Md, Ard):
+					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
+
+				eval_prefix_call_delete_MA:
+
+					g_op_mem.max_index = instruction_r1.shift;
+
+					if (g_specification->type.destructor.count(instruction_r0.value)) {
+						((Destructor)g_specification->type.destructor[instruction_r0.value])(g_val_mem.content + instruction_r0.shift);
+					}
+					g_val_mem.max_index = instruction_r0.shift;
+
+					g_stack_instruction.max_index -= 2;
+
 					break;
 				default:
 					break;
+
+					/*
+					case uMod_N(P):
+						((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
+						break;
+					case uMod_N(oP):
+						((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
+						break;
+					case uMod_N(D):
+						((void(*)())op.pointer)();
+						g_memory_delete_r(0);
+						break;
+					case uMod_N(PD):
+						((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
+						g_memory_delete_r(0);
+						break;
+					case uMod_N(oPD):
+						((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
+						g_memory_delete_r(0);
+						break;
+					case uMod_N():
+						((void(*)())op.pointer)();
+						break;
+					case uMod_N(Res(PD)):
+					{
+						void* res = ((void* (*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
+						g_memory_delete_r(0);
+
+						g_stack_instruction.add(Instruction::val(op.returnType, g_val_mem.max_index));
+
+						switch (op.returnType) {
+						case ValueType::int8:
+						case ValueType::uint8:
+							g_val_mem.add((int8)res);
+							break;
+						case ValueType::int16:
+						case ValueType::uint16:
+							g_val_mem.add((int16)res);
+							break;
+						case ValueType::int32:
+						case ValueType::uint32:
+						case ValueType::float32:
+							g_val_mem.add((int32)res);
+							break;
+						case ValueType::int64:
+						case ValueType::uint64:
+						case ValueType::float64:
+						case ValueType::pointer:
+						case ValueType::reference:
+						case ValueType::table:
+							g_val_mem.add((int64)res);
+							break;
+						default:break;
+						}
+					}
+						break;
+					default:
+						break;
+					*/
 				}
 			}
 			else
@@ -999,26 +1086,80 @@ Status run()
 			{
 				switch (op.modifier)
 				{
-				case uMod_N(P):
-					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
-					break;
-				case uMod_N(oP):
-					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
-					break;
-				case uMod_N(D):
-					((void(*)())op.pointer)();
-					g_memory_delete_r(0);
-					break;
-				case uMod_N(PD):
-					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
-					g_memory_delete_r(0);
-					break;
-				case uMod_N(oPD):
-					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
-					g_memory_delete_r(0);
-					break;
 				case uMod_N():
 					((void(*)())op.pointer)();
+					break;
+				case uMod_N(M, Ap):
+					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift));
+					break;
+				case uMod_N(M, Ao):
+					((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r2.shift)));
+					break;
+				case uMod_N(M, Ar):
+					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(2)));
+					break;
+				case uMod_N(M, Ad):
+					((void(*)())op.pointer)();
+					goto eval_postfix_call_delete_A;
+				case uMod_N(M, Apd):
+					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift));
+					goto eval_postfix_call_delete_A;
+				case uMod_N(M, Aod):
+					((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r2.shift)));
+					goto eval_postfix_call_delete_A;
+				case uMod_N(M, Ard):
+					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(2)));
+
+					eval_postfix_call_delete_A:
+						if (g_specification->type.destructor.count(instruction_r2.value)) {
+							((Destructor)g_specification->type.destructor[instruction_r2.value])(g_val_mem.content + instruction_r2.shift);
+						}
+						--g_stack_instruction.max_index;
+						g_val_mem.max_index = instruction_r2.shift;
+
+						g_stack_instruction.at_r(2) = instruction_r1;
+						g_stack_instruction.at_r(1) = instruction_r0;
+						g_stack_instruction.max_index -= 1;
+
+					break;
+				case uMod_N(Md, Ap):
+					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift));
+					goto eval_postfix_call_delete_M;
+				case uMod_N(Md, Ao):
+					((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r2.shift)));
+					goto eval_postfix_call_delete_M;
+				case uMod_N(Md, Ar):
+					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(2)));
+
+					eval_postfix_call_delete_M:
+						g_op_mem.erase(instruction_r1.shift, instruction_r1.modifier);
+
+						g_stack_instruction.at_r(1) = instruction_r0;
+						g_stack_instruction.max_index -= 1;
+
+					break;
+				case uMod_N(Md, Apd):
+					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift));
+					goto eval_postfix_call_delete_MA;
+				case uMod_N(Md, Aod):
+					((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r2.shift)));
+					goto eval_postfix_call_delete_MA;
+				case uMod_N(Md, Ard):
+					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(2)));
+
+					eval_postfix_call_delete_MA:
+
+						g_op_mem.erase(instruction_r1.shift, instruction_r1.modifier);
+
+						if (g_specification->type.destructor.count(instruction_r2.value)) {
+							((Destructor)g_specification->type.destructor[instruction_r2.value])(g_val_mem.content + instruction_r2.shift);
+						}
+						--g_stack_instruction.max_index;
+						g_val_mem.max_index = instruction_r2.shift;
+
+						g_stack_instruction.at_r(2) = instruction_r0;
+						g_stack_instruction.max_index -= 2;
+
 					break;
 				default:
 					break;

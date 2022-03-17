@@ -1128,8 +1128,9 @@ namespace Core {
 			ValueType* value = table->at(str);
 			switch (*value)
 			{
-			case ValueType::unprocedure:
-				(*((Procedure*)(table->at(str) + 1)))();
+			case ValueType::native_operator:
+				Operation op = (*((Operation*)(table->at(str) + 1)));
+				//LAST
 				break;
 			//case ValueType::ufunction:
 
@@ -1192,6 +1193,10 @@ namespace Core {
 
 	}
 	void invokeNativeFunction() {
+
+	}
+
+	void invokeNativeFunctionUnary() {
 
 	}
 

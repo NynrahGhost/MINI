@@ -28,7 +28,7 @@ namespace Core
 	String toStringLocal(Instruction instruction);
 	String toStringLocalArray(Instruction instruction);
 	
-	void print();
+	void print(Instruction& instr);
 	void scan();
 
 	void instantiate();
@@ -64,6 +64,7 @@ namespace Core
 	void invokeProcedure();
 	void invokeFunction();
 	void invokeNativeFunction();
+	void invokeNativeFunctionUnary();
 
 	void callFunction();
 

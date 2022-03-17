@@ -367,7 +367,7 @@ namespace Core {
 
 			table = &core->op.prefixForward[T("!<<")];
 			uFun(name, getReferenceR0, uMod_N(), all);
-			uFun(all, print, uMod_N(), all);
+			uFun(all, print, uMod_N(Md, Ar), all);
 
 			table = &core->op.prefixForward[T("!>>")];
 			uFun(name, getReferenceR0, uMod_N(), all);
@@ -454,6 +454,15 @@ namespace Core {
 			uFun(name, findValueR2, uMod_N(), all);
 			uFun(reference, getValueR2, uMod_N(), all);
 			uFun(expression, callFunction, uMod_N(), all);
+
+
+			table = &core->op.postfixForward[T(">>!")];
+			uFun(name, getReferenceR0, uMod_N(), all);
+			uFun(all, print, uMod_N(Md, Ar), all);
+
+			table = &core->op.postfixForward[T("<<!")];
+			uFun(name, getReferenceR0, uMod_N(), all);
+			uFun(reference, scan, uMod_N(), all);
 		}
 		core->op.binaryForward = Table<String, Table<ValueTypeBinary, Operation>>();
 		{
@@ -462,10 +471,12 @@ namespace Core {
 			table = &core->op.binaryForward[T("")]; //Null coalesceing
 			bFun(name, all, (findValueR2), bMod_N(), all); //tuple
 			bFun(reference, tuple, (findValueR2), bMod_N(), all);
-			bFun(unprocedure, all, invokeProcedure, bMod_N(), all); //tuple
-			bFun(parameter_pattern, tuple, invokeFunction, bMod_N(), all);
-			bFun(unfunction, tuple, invokeNativeFunction, bMod_N(), all);
 
+			//bFun(unprocedure, all, invokeProcedure, bMod_N(), all); //tuple
+			//bFun(parameter_pattern, tuple, invokeFunction, bMod_N(), all);
+			//bFun(unfunction, tuple, invokeNativeFunction, bMod_N(), all);
+
+			bFun(native_function, tuple, invokeNativeFunction, bMod_N(), all);
 			//bFun(type, all, cast, bMod_N(Md, Lrd, Rrd), all);
 
 			bFun(type, name, declareVariable, bMod_N(), all);
@@ -481,8 +492,8 @@ namespace Core {
 
 			table = &core->op.binaryForward[T("?.")]; //Null conditional method call
 
-			table = &core->op.binaryForward[T("@")];
-			bFun(unfunction, tuple, callWithContext, bMod_N(), all);
+			//table = &core->op.binaryForward[T("@")];
+			//bFun(unfunction, tuple, callWithContext, bMod_N(), all);
 
 			table = &core->op.binaryForward[T(",")];
 			bFun(all, all, commaBinary, bMod_N(), all);
@@ -506,7 +517,7 @@ namespace Core {
 			table = &core->op.binaryForward[T(".")];
 			bFun(int64, int64, (createFloat<int64, int64, float64, ValueType::float64>), bMod_N(), all);
 			bFun(all, name, findValueR0, bMod_N(), all);
-			bFun(all, unprocedure, callThis, bMod_N(), all);
+			//bFun(all, unprocedure, callThis, bMod_N(), all);
 
 			table = &core->op.binaryForward[T("::")];
 			bFun(name, name, findValueR2, bMod_N(), all);
@@ -665,9 +676,10 @@ namespace Core {
 
 			bFun(name, all, (findValueR1), bMod_N(), all); //tuple
 			bFun(reference, tuple, (findValueR1), bMod_N(), all);
-			bFun(unprocedure, all, invokeProcedure, bMod_N(), all); //tuple
-			bFun(parameter_pattern, tuple, invokeFunction, bMod_N(), all);
-			bFun(unfunction, tuple, invokeNativeFunction, bMod_N(), all);
+			//bFun(unprocedure, all, invokeProcedure, bMod_N(), all); //tuple
+			//bFun(parameter_pattern, tuple, invokeFunction, bMod_N(), all);
+			bFun(native_function, all, invokeNativeFunctionUnary, bMod_N(), all);
+			bFun(native_function, tuple, invokeNativeFunction, bMod_N(), all);
 			
 			//bFun(type, all, cast, bMod_N(Md, Lrd, Rrd), all);
 

@@ -182,22 +182,17 @@ namespace Core {
 		return result;
 	}
 
-	void print() {
-		Instruction instruction_r0 = g_stack_instruction.get_r(0);
-		Instruction instruction_r1 = g_stack_instruction.get_r(1);
+	void print(Instruction& instr) {
 		ToStringLocal function = 0;
-		if (g_specification->type.stringLocal.count(instruction_r0.value))
-			function = g_specification->type.stringLocal.at(instruction_r0.value);
+		if (g_specification->type.stringLocal.count(instr.value))
+			function = g_specification->type.stringLocal.at(instr.value);
 		else if (g_specification->type.stringLocal.count(ValueType::all))
 			function = g_specification->type.stringLocal.at(ValueType::all);
 #if ENCODING == 8
-		std::cout << function(instruction_r0);
+		std::cout << function(instr);
 #elif ENCODING == 16
-		std::wcout << function(program, instruction_r0);
+		std::wcout << function(program, instr);
 #endif
-		//g_val_mem.move_absolute(instruction_r0.shift, g_val_mem.max_index, instruction_r1.shift);
-		g_stack_instruction.at_r(1) = instruction_r0;
-		--g_stack_instruction.max_index;
 	}
 
 	void scan() {
