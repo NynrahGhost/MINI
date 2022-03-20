@@ -57,7 +57,6 @@ namespace Core {
 			return fromUint(*(uint64*)(value + 1));
 		case ValueType::string:
 		case ValueType::name:
-		case ValueType::link:
 			return String((charT*)(value + 3), (*(uint16*)(value + 1)));
 		case ValueType::expression:
 			result.append(*(charT**)(value + 1));
@@ -112,7 +111,6 @@ namespace Core {
 			return fromUint(*(uint64*)(g_val_mem.content + instruction.shift));
 		case ValueType::string:
 		case ValueType::name:
-		case ValueType::link:
 			return String((charT*)(g_val_mem.content + instruction.shift), instruction.modifier);
 		case ValueType::table:
 		case ValueType::object:
@@ -154,7 +152,7 @@ namespace Core {
 			//result.append(toStringGlobal(**(ValueType***)(g_memory.content + instruction.shift)));
 			//result.append(")");
 			return result;
-		case ValueType::unprocedure:
+		case ValueType::native_operator:
 			result.append("Native procedure 0x");
 			result.append((charT*)(g_val_mem.content + instruction.shift), g_specification->type.size[(uint8)instruction.value]);
 			return result;

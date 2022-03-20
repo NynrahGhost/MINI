@@ -38,8 +38,8 @@ namespace Core {
 			//*(Table<String, ValueType*>**)(g_memory.content + instr.shift) = new Table<String, ValueType*>();
 			//g_memory.max_index += sizeof(void*);
 			break;
-		case ValueType::ufunction:
-			g_val_mem.max_index += sizeof(void*);
+		case ValueType::native_operator:
+			g_val_mem.max_index += sizeof(Operation*);
 			//g_memory.add(new Array<Instruction>());
 			//g_memory.add(new Span(512)); //Last;
 		default:
@@ -453,9 +453,9 @@ namespace Core {
 			return;
 		case ValueType::tuple:
 		case ValueType::table:
-		case ValueType::unprocedure:
+		case ValueType::native_operator:
 			g_val_mem.max_index = ref.shift;
-			g_val_mem.add<void*>(*(void**)(ptr + 1));
+			g_val_mem.add<void*>(*(Operation**)(ptr + 1));
 			ref.value = *ptr;
 			ref.modifier = 0;
 			g_stack_instruction.at_r(0) = ref;
@@ -523,8 +523,13 @@ namespace Core {
 			return;
 		case ValueType::tuple:
 		case ValueType::table:
-		case ValueType::unprocedure:
 			*(Procedure*)(g_val_mem.content + ref.shift) = *(Procedure*)(ptr + 1);
+			ref.value = *ptr;
+			ref.modifier = 0;
+			g_stack_instruction.at_r(1) = ref;
+			return;
+		case ValueType::native_operator:
+			*(Operation*)(g_val_mem.content + ref.shift) = *(Operation*)(ptr + 1);
 			ref.value = *ptr;
 			ref.modifier = 0;
 			g_stack_instruction.at_r(1) = ref;
@@ -606,10 +611,15 @@ namespace Core {
 			return;
 		case ValueType::tuple:
 		case ValueType::table:
-		case ValueType::unprocedure:
 		case ValueType::expression:
 			*(Procedure*)(g_val_mem.content + ref.shift) = *(Procedure*)(ptr + 1);
 
+			ref.value = *ptr;
+			ref.modifier = 0;
+			g_stack_instruction.at_r(2) = ref;
+			return;
+		case ValueType::native_operator:
+			*(Operation*)(g_val_mem.content + ref.shift) = *(Operation*)(ptr + 1);
 			ref.value = *ptr;
 			ref.modifier = 0;
 			g_stack_instruction.at_r(2) = ref;
@@ -675,10 +685,16 @@ namespace Core {
 				return;
 			case ValueType::tuple:
 			case ValueType::table:
-			case ValueType::unprocedure:
 				g_val_mem.max_index = name.shift;
 				g_val_mem.add<void*>(*(void**)(ptr + 1));
 				//g_memory.add<uintptr_t>((uintptr_t)(ptr + 1));
+				name.value = *ptr;
+				name.modifier = 0;
+				g_stack_instruction.at_r(0) = name;
+				return;
+			case ValueType::native_operator:
+				g_val_mem.max_index = name.shift;
+				g_val_mem.add<Operation*>(*(Operation**)(ptr + 1));
 				name.value = *ptr;
 				name.modifier = 0;
 				g_stack_instruction.at_r(0) = name;
@@ -760,7 +776,6 @@ namespace Core {
 				return;
 			case ValueType::tuple:
 			case ValueType::table:
-			case ValueType::unprocedure:
 				memcpy(g_val_mem.content + name.shift + sizeof(void*), g_val_mem.content + name.shift + name.modifier, g_val_mem.max_index - name.shift + name.modifier);
 				*(Procedure*)(g_val_mem.content + name.shift) = *(Procedure*)(ptr + 1);
 				g_val_mem.max_index += sizeof(void*) - name.modifier;
@@ -769,6 +784,7 @@ namespace Core {
 				name.modifier = 0;
 				g_stack_instruction.at_r(1) = name;
 				return;
+				//case ValueType::native_operator:
 			default:
 				g_val_mem.replace(ptr + 1, g_specification->type.size[(uint8)*ptr], name.shift, sizeof(void*));
 				name.value = *ptr;
@@ -862,7 +878,7 @@ namespace Core {
 				return;
 			case ValueType::tuple:
 			case ValueType::table:
-			case ValueType::unprocedure:
+			//case ValueType::native_operator:
 			case ValueType::expression:
 				memcpy(g_val_mem.content + name.shift + sizeof(void*), g_val_mem.content + name.shift + name.modifier, g_val_mem.max_index - name.shift + name.modifier);
 				*(Procedure*)(g_val_mem.content + name.shift) = *(Procedure*)(ptr + 1);
@@ -1115,13 +1131,11 @@ namespace Core {
 		getNamespaceEntryLiteral(str);
 	}
 
-	void callObjectPrefix() {
-		Table<String, ValueType*>* table = g_val_mem.get<Table<String, ValueType*>*>(g_stack_instruction.get_r(0).shift);
-		//Table<String, ValueType*>* table = (*(Table<String, ValueType*>**)(g_memory.content + g_stack_instruction.get_r(0).shift));
-		Instruction instr_str = g_stack_instruction.get_r(1);
+	void callObjectPrefix(Instruction& obj, Instruction& method) {
+		Table<String, ValueType*>* table = g_val_mem.get<Table<String, ValueType*>*>(obj.shift);
 		String str = String();
 		str += ((charT)EntryPrefix::prefix);
-		str.append((charT*)(g_op_mem.content + instr_str.shift), instr_str.modifier);
+		str.append((charT*)(g_op_mem.content + method.shift), method.modifier);
 
 		if (table->count(str))
 		{
@@ -1130,10 +1144,10 @@ namespace Core {
 			{
 			case ValueType::native_operator:
 				Operation op = (*((Operation*)(table->at(str) + 1)));
-				//LAST
+				eval_prefix(op, obj, method);
 				break;
 			//case ValueType::ufunction:
-
+			
 			}
 		}
 		else

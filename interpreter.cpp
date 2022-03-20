@@ -900,140 +900,7 @@ Status run()
 			eval_prefix_call:
 			if ((int32)op.modifier & (int32)OperationModifier::native)
 			{
-				switch (op.modifier)
-				{
-				case uMod_N():
-					((void(*)())op.pointer)();
-					break;
-				case uMod_N(M, Ap):
-					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
-					break;
-				case uMod_N(M, Ao):
-					((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r0.shift)));
-					break;
-				case uMod_N(M, Ar):
-					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
-					break;
-				case uMod_N(M, Ad):
-					((void(*)())op.pointer)();
-					goto eval_prefix_call_delete_A;
-				case uMod_N(M, Apd):
-					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
-					goto eval_prefix_call_delete_A;
-				case uMod_N(M, Aod):
-					((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r0.shift)));
-					goto eval_prefix_call_delete_A;
-				case uMod_N(M, Ard):
-					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
-
-				eval_prefix_call_delete_A:
-					if (g_specification->type.destructor.count(instruction_r1.value)) {
-						((Destructor)g_specification->type.destructor[instruction_r1.value])(g_val_mem.content + instruction_r1.shift);
-					}
-					g_val_mem.max_index = instruction_r0.shift;
-
-					g_stack_instruction.max_index -= 1;
-
-					break;
-				case uMod_N(Md, Ap):
-					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
-					goto eval_prefix_call_delete_M;
-				case uMod_N(Md, Ao):
-					((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r0.shift)));
-					goto eval_prefix_call_delete_M;
-				case uMod_N(Md, Ar):
-					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
-
-				eval_prefix_call_delete_M:
-					g_op_mem.max_index = instruction_r1.shift;
-
-					g_stack_instruction.at_r(1) = instruction_r0;
-					g_stack_instruction.max_index -= 1;
-
-					break;
-				case uMod_N(Md, Apd):
-					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
-					goto eval_prefix_call_delete_MA;
-				case uMod_N(Md, Aod):
-					((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r0.shift)));
-					goto eval_prefix_call_delete_MA;
-				case uMod_N(Md, Ard):
-					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
-
-				eval_prefix_call_delete_MA:
-
-					g_op_mem.max_index = instruction_r1.shift;
-
-					if (g_specification->type.destructor.count(instruction_r0.value)) {
-						((Destructor)g_specification->type.destructor[instruction_r0.value])(g_val_mem.content + instruction_r0.shift);
-					}
-					g_val_mem.max_index = instruction_r0.shift;
-
-					g_stack_instruction.max_index -= 2;
-
-					break;
-				default:
-					break;
-
-					/*
-					case uMod_N(P):
-						((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
-						break;
-					case uMod_N(oP):
-						((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
-						break;
-					case uMod_N(D):
-						((void(*)())op.pointer)();
-						g_memory_delete_r(0);
-						break;
-					case uMod_N(PD):
-						((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
-						g_memory_delete_r(0);
-						break;
-					case uMod_N(oPD):
-						((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
-						g_memory_delete_r(0);
-						break;
-					case uMod_N():
-						((void(*)())op.pointer)();
-						break;
-					case uMod_N(Res(PD)):
-					{
-						void* res = ((void* (*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
-						g_memory_delete_r(0);
-
-						g_stack_instruction.add(Instruction::val(op.returnType, g_val_mem.max_index));
-
-						switch (op.returnType) {
-						case ValueType::int8:
-						case ValueType::uint8:
-							g_val_mem.add((int8)res);
-							break;
-						case ValueType::int16:
-						case ValueType::uint16:
-							g_val_mem.add((int16)res);
-							break;
-						case ValueType::int32:
-						case ValueType::uint32:
-						case ValueType::float32:
-							g_val_mem.add((int32)res);
-							break;
-						case ValueType::int64:
-						case ValueType::uint64:
-						case ValueType::float64:
-						case ValueType::pointer:
-						case ValueType::reference:
-						case ValueType::table:
-							g_val_mem.add((int64)res);
-							break;
-						default:break;
-						}
-					}
-						break;
-					default:
-						break;
-					*/
-				}
+				eval_prefix(op, instruction_r0, instruction_r1);
 			}
 			else
 			{
@@ -1084,86 +951,7 @@ Status run()
 			eval_postfix_call:
 			if ((int32)op.modifier & (int32)OperationModifier::native)
 			{
-				switch (op.modifier)
-				{
-				case uMod_N():
-					((void(*)())op.pointer)();
-					break;
-				case uMod_N(M, Ap):
-					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift));
-					break;
-				case uMod_N(M, Ao):
-					((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r2.shift)));
-					break;
-				case uMod_N(M, Ar):
-					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(2)));
-					break;
-				case uMod_N(M, Ad):
-					((void(*)())op.pointer)();
-					goto eval_postfix_call_delete_A;
-				case uMod_N(M, Apd):
-					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift));
-					goto eval_postfix_call_delete_A;
-				case uMod_N(M, Aod):
-					((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r2.shift)));
-					goto eval_postfix_call_delete_A;
-				case uMod_N(M, Ard):
-					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(2)));
-
-					eval_postfix_call_delete_A:
-						if (g_specification->type.destructor.count(instruction_r2.value)) {
-							((Destructor)g_specification->type.destructor[instruction_r2.value])(g_val_mem.content + instruction_r2.shift);
-						}
-						--g_stack_instruction.max_index;
-						g_val_mem.max_index = instruction_r2.shift;
-
-						g_stack_instruction.at_r(2) = instruction_r1;
-						g_stack_instruction.at_r(1) = instruction_r0;
-						g_stack_instruction.max_index -= 1;
-
-					break;
-				case uMod_N(Md, Ap):
-					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift));
-					goto eval_postfix_call_delete_M;
-				case uMod_N(Md, Ao):
-					((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r2.shift)));
-					goto eval_postfix_call_delete_M;
-				case uMod_N(Md, Ar):
-					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(2)));
-
-					eval_postfix_call_delete_M:
-						g_op_mem.erase(instruction_r1.shift, instruction_r1.modifier);
-
-						g_stack_instruction.at_r(1) = instruction_r0;
-						g_stack_instruction.max_index -= 1;
-
-					break;
-				case uMod_N(Md, Apd):
-					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift));
-					goto eval_postfix_call_delete_MA;
-				case uMod_N(Md, Aod):
-					((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r2.shift)));
-					goto eval_postfix_call_delete_MA;
-				case uMod_N(Md, Ard):
-					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(2)));
-
-					eval_postfix_call_delete_MA:
-
-						g_op_mem.erase(instruction_r1.shift, instruction_r1.modifier);
-
-						if (g_specification->type.destructor.count(instruction_r2.value)) {
-							((Destructor)g_specification->type.destructor[instruction_r2.value])(g_val_mem.content + instruction_r2.shift);
-						}
-						--g_stack_instruction.max_index;
-						g_val_mem.max_index = instruction_r2.shift;
-
-						g_stack_instruction.at_r(2) = instruction_r0;
-						g_stack_instruction.max_index -= 2;
-
-					break;
-				default:
-					break;
-				}
+				eval_postfix(op, instruction_r0, instruction_r1, instruction_r2);
 			}
 			else
 			{
@@ -1234,69 +1022,7 @@ Status run()
 			eval_binary_call:
 			if ((int32)op.modifier & (int32)OperationModifier::native)
 			{
-				switch (op.modifier)
-				{
-				case bMod_N(Lp):
-					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift));
-					break;
-				case bMod_N(Lo):
-					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(2)));
-					break;
-				case bMod_N(Rp):
-					((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
-					break;
-				case bMod_N(Ro):
-					((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
-					break;
-				case bMod_N(M, Lp, Rp):
-					((void(*)(void*, void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift), g_val_mem.get<void*>(instruction_r0.shift));
-					break;
-				case bMod_N(M, Lo, Rp):
-					((void(*)(void*, void*))op.pointer)(&g_stack_instruction.at_r(2), g_val_mem.get<void*>(instruction_r0.shift));
-					break;
-				case bMod_N(M, Lp, Ro):
-					((void(*)(void*, void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift), &g_stack_instruction.at_r(0));
-					break;
-				case bMod_N(M, Lo, Ro):
-					((void(*)(void*, void*))op.pointer)(&g_stack_instruction.at_r(2), &g_stack_instruction.at_r(0));
-					break;
-				case bMod_N(Md, Lpd, Rpd):
-					{
-						void* res = ((void* (*)(void*, void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift), g_val_mem.get<void*>(instruction_r0.shift));
-						g_op_mem.max_index = instruction_r1.shift;
-						g_val_mem.max_index = instruction_r2.shift;
-						g_val_mem.add(res);
-						g_val_mem.max_index += -8 + g_specification->type.size[(int)op.returnType];
-						g_stack_instruction.max_index -= 2;
-					}
-					break;
-				case bMod_N(Md, Lod, Rod):
-					{
-						void* res = ((void* (*)(void*, void*))op.pointer)(&g_val_mem.at<void*>(instruction_r2.shift), &g_val_mem.at<void*>(instruction_r0.shift));
-						g_op_mem.max_index = instruction_r1.shift;
-						g_val_mem.max_index = instruction_r2.shift;
-						g_val_mem.add(res);
-						g_val_mem.max_index += -8 + g_specification->type.size[(int)op.returnType];
-						g_stack_instruction.max_index -= 2;
-					}
-					break;
-				case bMod_N(Md, Lrd, Rrd):
-					{
-						void* res = ((void* (*)(void*, void*))op.pointer)(&g_stack_instruction.at_r(2), &g_stack_instruction.at_r(0));
-						g_op_mem.max_index = instruction_r1.shift;
-						g_val_mem.max_index = instruction_r2.shift;
-						g_val_mem.add(res);
-						g_val_mem.max_index += -8 + g_specification->type.size[(int)op.returnType];
-						g_stack_instruction.max_index -= 2;
-					}
-					break;
-
-				case bMod_N():
-					((void(*)())op.pointer)();
-					break;
-				default:
-					break;
-				}
+				eval_binary(op, instruction_r0, instruction_r1, instruction_r2);
 			}
 			else
 			{
@@ -1488,6 +1214,261 @@ Status run()
 
 ending:
 	return Status::success;
+}
+
+void inline eval_prefix(Operation op, Instruction instruction_r0, Instruction instruction_r1) {
+	switch (op.modifier)
+	{
+	case uMod_N():
+		((void(*)())op.pointer)();
+		break;
+	case uMod_N(M, Ap):
+		((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
+		break;
+	case uMod_N(M, Ao):
+		((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r0.shift)));
+		break;
+	case uMod_N(M, Ar):
+		((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
+		break;
+
+	case uMod_N(Mr, Ap):
+		((void(*)(void*, void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift), &g_stack_instruction.at_r(1));
+		break;
+	case uMod_N(Mr, Ao):
+		((void(*)(void*, void*))op.pointer)(g_val_mem.at<void*>(instruction_r0.shift), &g_stack_instruction.at_r(1));
+		break;
+	case uMod_N(Mr, Ar):
+		((void(*)(void*, void*))op.pointer)(&g_stack_instruction.at_r(0), &g_stack_instruction.at_r(1));
+		break;
+
+	case uMod_N(M, Ad):
+		((void(*)())op.pointer)();
+		goto eval_prefix_call_delete_A;
+	case uMod_N(M, Apd):
+		((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
+		goto eval_prefix_call_delete_A;
+	case uMod_N(M, Aod):
+		((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r0.shift)));
+		goto eval_prefix_call_delete_A;
+	case uMod_N(M, Ard):
+		((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
+
+	eval_prefix_call_delete_A:
+		if (g_specification->type.destructor.count(instruction_r1.value)) {
+			((Destructor)g_specification->type.destructor[instruction_r1.value])(g_val_mem.content + instruction_r1.shift);
+		}
+		g_val_mem.max_index = instruction_r0.shift;
+
+		g_stack_instruction.max_index -= 1;
+
+		break;
+	case uMod_N(Md, Ap):
+		((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
+		goto eval_prefix_call_delete_M;
+	case uMod_N(Md, Ao):
+		((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r0.shift)));
+		goto eval_prefix_call_delete_M;
+	case uMod_N(Md, Ar):
+		((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
+
+	eval_prefix_call_delete_M:
+		g_op_mem.max_index = instruction_r1.shift;
+
+		g_stack_instruction.at_r(1) = instruction_r0;
+		g_stack_instruction.max_index -= 1;
+
+		break;
+	case uMod_N(Md, Apd):
+		((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
+		goto eval_prefix_call_delete_MA;
+	case uMod_N(Md, Aod):
+		((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r0.shift)));
+		goto eval_prefix_call_delete_MA;
+	case uMod_N(Md, Ard):
+		((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
+
+	eval_prefix_call_delete_MA:
+
+		g_op_mem.max_index = instruction_r1.shift;
+
+		if (g_specification->type.destructor.count(instruction_r0.value)) {
+			((Destructor)g_specification->type.destructor[instruction_r0.value])(g_val_mem.content + instruction_r0.shift);
+		}
+		g_val_mem.max_index = instruction_r0.shift;
+
+		g_stack_instruction.max_index -= 2;
+
+		break;
+	default:
+		break;
+	}
+}
+
+void inline eval_postfix(Operation op, Instruction instruction_r0, Instruction instruction_r1, Instruction instruction_r2) {
+	switch (op.modifier)
+	{
+	case uMod_N():
+		((void(*)())op.pointer)();
+		break;
+	case uMod_N(M, Ap):
+		((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift));
+		break;
+	case uMod_N(M, Ao):
+		((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r2.shift)));
+		break;
+	case uMod_N(M, Ar):
+		((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(2)));
+		break;
+
+	case uMod_N(Mr, Ap):
+		((void(*)(void*, void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift), &g_stack_instruction.at_r(1));
+		break;
+	case uMod_N(Mr, Ao):
+		((void(*)(void*, void*))op.pointer)(g_val_mem.at<void*>(instruction_r0.shift), &g_stack_instruction.at_r(1));
+		break;
+	case uMod_N(Mr, Ar):
+		((void(*)(void*, void*))op.pointer)(&g_stack_instruction.at_r(0), &g_stack_instruction.at_r(1));
+		break;
+
+	case uMod_N(M, Ad):
+		((void(*)())op.pointer)();
+		goto eval_postfix_call_delete_A;
+	case uMod_N(M, Apd):
+		((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift));
+		goto eval_postfix_call_delete_A;
+	case uMod_N(M, Aod):
+		((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r2.shift)));
+		goto eval_postfix_call_delete_A;
+	case uMod_N(M, Ard):
+		((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(2)));
+
+	eval_postfix_call_delete_A:
+		if (g_specification->type.destructor.count(instruction_r2.value)) {
+			((Destructor)g_specification->type.destructor[instruction_r2.value])(g_val_mem.content + instruction_r2.shift);
+		}
+		--g_stack_instruction.max_index;
+		g_val_mem.max_index = instruction_r2.shift;
+
+		g_stack_instruction.at_r(2) = instruction_r1;
+		g_stack_instruction.at_r(1) = instruction_r0;
+		g_stack_instruction.max_index -= 1;
+
+		break;
+	case uMod_N(Md, Ap):
+		((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift));
+		goto eval_postfix_call_delete_M;
+	case uMod_N(Md, Ao):
+		((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r2.shift)));
+		goto eval_postfix_call_delete_M;
+	case uMod_N(Md, Ar):
+		((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(2)));
+
+	eval_postfix_call_delete_M:
+		g_op_mem.erase(instruction_r1.shift, instruction_r1.modifier);
+
+		g_stack_instruction.at_r(1) = instruction_r0;
+		g_stack_instruction.max_index -= 1;
+
+		break;
+	case uMod_N(Md, Apd):
+		((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift));
+		goto eval_postfix_call_delete_MA;
+	case uMod_N(Md, Aod):
+		((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r2.shift)));
+		goto eval_postfix_call_delete_MA;
+	case uMod_N(Md, Ard):
+		((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(2)));
+
+	eval_postfix_call_delete_MA:
+
+		g_op_mem.erase(instruction_r1.shift, instruction_r1.modifier);
+
+		if (g_specification->type.destructor.count(instruction_r2.value)) {
+			((Destructor)g_specification->type.destructor[instruction_r2.value])(g_val_mem.content + instruction_r2.shift);
+		}
+		--g_stack_instruction.max_index;
+		g_val_mem.max_index = instruction_r2.shift;
+
+		g_stack_instruction.at_r(2) = instruction_r0;
+		g_stack_instruction.max_index -= 2;
+
+		break;
+	default:
+		break;
+	}
+}
+
+void inline eval_binary(Operation op, Instruction instruction_r0, Instruction instruction_r1, Instruction instruction_r2) {
+	switch (op.modifier)
+	{
+	case bMod_N(Lp):
+		((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift));
+		break;
+	case bMod_N(Lo):
+		((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(2)));
+		break;
+	case bMod_N(Rp):
+		((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
+		break;
+	case bMod_N(Ro):
+		((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
+		break;
+	case bMod_N(M, Lp, Rp):
+		((void(*)(void*, void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift), g_val_mem.get<void*>(instruction_r0.shift));
+		break;
+	case bMod_N(M, Lo, Rp):
+		((void(*)(void*, void*))op.pointer)(&g_stack_instruction.at_r(2), g_val_mem.get<void*>(instruction_r0.shift));
+		break;
+	case bMod_N(M, Lp, Ro):
+		((void(*)(void*, void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift), &g_stack_instruction.at_r(0));
+		break;
+	case bMod_N(M, Lo, Ro):
+		((void(*)(void*, void*))op.pointer)(&g_stack_instruction.at_r(2), &g_stack_instruction.at_r(0));
+		break;
+
+
+	case bMod_N(Mr, Lr, Rr):
+		((void(*)(void*, void*, void*))op.pointer)(&g_stack_instruction.at_r(2), &g_stack_instruction.at_r(0), &g_stack_instruction.at_r(1));
+		break;
+
+	case bMod_N(Md, Lpd, Rpd):
+	{
+		void* res = ((void* (*)(void*, void*))op.pointer)(g_val_mem.get<void*>(instruction_r2.shift), g_val_mem.get<void*>(instruction_r0.shift));
+		g_op_mem.max_index = instruction_r1.shift;
+		g_val_mem.max_index = instruction_r2.shift;
+		g_val_mem.add(res);
+		g_val_mem.max_index += -8 + g_specification->type.size[(int)op.returnType];
+		g_stack_instruction.max_index -= 2;
+	}
+	break;
+	case bMod_N(Md, Lod, Rod):
+	{
+		void* res = ((void* (*)(void*, void*))op.pointer)(&g_val_mem.at<void*>(instruction_r2.shift), &g_val_mem.at<void*>(instruction_r0.shift));
+		g_op_mem.max_index = instruction_r1.shift;
+		g_val_mem.max_index = instruction_r2.shift;
+		g_val_mem.add(res);
+		g_val_mem.max_index += -8 + g_specification->type.size[(int)op.returnType];
+		g_stack_instruction.max_index -= 2;
+	}
+	break;
+	case bMod_N(Md, Lrd, Rrd):
+	{
+		void* res = ((void* (*)(void*, void*))op.pointer)(&g_stack_instruction.at_r(2), &g_stack_instruction.at_r(0));
+		g_op_mem.max_index = instruction_r1.shift;
+		g_val_mem.max_index = instruction_r2.shift;
+		g_val_mem.add(res);
+		g_val_mem.max_index += -8 + g_specification->type.size[(int)op.returnType];
+		g_stack_instruction.max_index -= 2;
+	}
+	break;
+
+	case bMod_N():
+		((void(*)())op.pointer)();
+		break;
+	default:
+		break;
+	}
 }
 
 void g_memory_delete_top() {

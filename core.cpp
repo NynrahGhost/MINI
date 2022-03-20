@@ -655,7 +655,7 @@ namespace Core {
 		{
 			Table<ValueType, Operation>* table = &core->op.prefixGeneral;
 
-			uFun(object, callObjectPrefix, uMod_N(), all);
+			uFun(object, callObjectPrefix, uMod_N(Mr, Ar), all);
 		}
 		core->op.postfixGeneral = Table<ValueType, Operation>();
 		{
@@ -713,6 +713,15 @@ namespace Core {
 	Table<String, ValueType*> initCoreData() {
 		Table<String, ValueType*> data = Table<String, ValueType*>();
 		ValueType* ptr;
+
+		auto allocOperator = [](ValueType valueType, void* ptr, OperationModifier mod, ValueType ret) {
+			auto valuePtr = (ValueType*)malloc(sizeof(ValueType) + sizeof(Operation));
+			if (!valuePtr)
+				throw std::bad_alloc();
+			*valuePtr = valueType;
+			*(Operation*)(valuePtr + 1) = Operation{ ptr, ret, mod };
+			return valuePtr;
+		};
 
 		auto allocPtr = [](ValueType valueType, void* ptr) {
 			auto valuePtr = (ValueType*)malloc(sizeof(ValueType) + sizeof(void*));
@@ -772,11 +781,11 @@ namespace Core {
 		data["auto"] = alloc1(ValueType::type, (uint8)ValueType::table);
 		
 
-		data["print"] = allocPtr(ValueType::unprocedure, print);
-		data["scan"] = allocPtr(ValueType::unprocedure, scan);
-		data["if"] = allocPtr(ValueType::unprocedure, conditional);
-		data["dll_load"] = allocPtr(ValueType::unprocedure, loadLibrary);
-		data["dll_free"] = allocPtr(ValueType::unprocedure, freeLibrary);
+		data["print"] = allocOperator(ValueType::native_operator, print, uMod_N(Md, Ar), ValueType::none);
+		//data["scan"] = allocPtr(ValueType::unprocedure, scan);
+		//data["if"] = allocPtr(ValueType::unprocedure, conditional);
+		//data["dll_load"] = allocPtr(ValueType::unprocedure, loadLibrary);
+		//data["dll_free"] = allocPtr(ValueType::unprocedure, freeLibrary);
 
 		//data_pointer(unprocedure, "print", print);
 		//data_pointer(unprocedure, "scan", scan);

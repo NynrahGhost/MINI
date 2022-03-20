@@ -46,7 +46,7 @@ namespace Core
 	void atContextByIndex();
 	void atContextByName();
 
-	void callObjectPrefix();
+	void callObjectPrefix(Instruction& obj, Instruction& method);
 	void callObjectPostfix();
 	void callObjectBinaryLeft();
 	void callObjectBinaryRight();

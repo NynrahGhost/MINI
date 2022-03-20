@@ -195,6 +195,10 @@ extern "C" thread_local Array<Instruction> g_stack_instruction;
 extern "C" thread_local Span g_val_mem;
 extern "C" thread_local Span g_op_mem;
 
+void inline eval_prefix(Operation op, Instruction instruction_r0, Instruction instruction_r1);
+void inline eval_postfix(Operation op, Instruction instruction_r0, Instruction instruction_r1, Instruction instruction_r2);
+void inline eval_binary(Operation op, Instruction instruction_r0, Instruction instruction_r1, Instruction instruction_r2);
+
 void g_memory_delete_top();
 void g_memory_delete_r(size_t index);
 void g_memory_delete_span_r(size_t index);
