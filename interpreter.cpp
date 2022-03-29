@@ -463,6 +463,7 @@ Status run()
         case InstructionType::start_group: goto parse;                        //   |   |   | ( | :parse
 		case InstructionType::end_group:                                      //   |   | x | ) |
 			switch (instruction_r1.instr) {
+			case InstructionType::start_group: goto eval_erase_r1;            //   |   | ( | ) | :eval_empty_operator
 			case InstructionType::spacing: goto eval_erase_r1;                //   |   | _ | ) | :eval_erase_r1
 			case InstructionType::op:  
 				switch (instruction_r2.instr) {                               //   | x |o p| ) |
@@ -859,6 +860,13 @@ Status run()
 			goto evaluate;
 		}
 
+		eval_empty_operator: {
+			g_stack_instruction.at_r(1) = Instruction{ InstructionType::op, ValueType::none, 0, 0 };
+			g_stack_instruction.max_index -= 1;
+
+			goto evaluate;
+		}
+
 		eval_prefix: {
 			String opString = String((charT*)(g_op_mem.content + instruction_r1.shift), instruction_r1.modifier);
 			Table<ValueType, Operation>* table;
@@ -1222,37 +1230,128 @@ void inline eval_prefix(Operation op, Instruction instruction_r0, Instruction in
 	case uMod_N():
 		((void(*)())op.pointer)();
 		break;
-	case uMod_N(M, Ap):
+
+	case uMod_N(M, Av):
 		((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
 		break;
-	case uMod_N(M, Ao):
+	case uMod_N(M, Avv):
 		((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r0.shift)));
 		break;
-	case uMod_N(M, Ar):
-		((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
+	case uMod_N(M, Ai):
+		((void(*)(Instruction))op.pointer)(instruction_r0);
+		break;
+	case uMod_N(M, Aii):
+		((void(*)(Instruction*))op.pointer)(&g_stack_instruction.at_r(0));
 		break;
 
-	case uMod_N(Mr, Ap):
-		((void(*)(void*, void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift), &g_stack_instruction.at_r(1));
+		// pass by value for method (Mv) is not decided on yet. In case it will be, it can be passed as array of 4/8 chars
+
+	case uMod_N(Mvv, Av):
+		((void(*)(void*, charT*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift), (charT*)g_op_mem.at<charT>(instruction_r1.shift));
 		break;
-	case uMod_N(Mr, Ao):
-		((void(*)(void*, void*))op.pointer)(g_val_mem.at<void*>(instruction_r0.shift), &g_stack_instruction.at_r(1));
+	case uMod_N(Mvv, Avv):
+		((void(*)(void*, charT*))op.pointer)(g_val_mem.at<void*>(instruction_r0.shift), (charT*)g_op_mem.at<charT>(instruction_r1.shift));
 		break;
-	case uMod_N(Mr, Ar):
-		((void(*)(void*, void*))op.pointer)(&g_stack_instruction.at_r(0), &g_stack_instruction.at_r(1));
+	case uMod_N(Mvv, Ai):
+		((void(*)(Instruction, charT*))op.pointer)(instruction_r0, (charT*)g_op_mem.at<charT>(instruction_r1.shift));
 		break;
+	case uMod_N(Mvv, Aii):
+		((void(*)(void*, charT*))op.pointer)(&g_stack_instruction.at_r(0), (charT*)g_op_mem.at<charT>(instruction_r1.shift));
+		break;
+
+	case uMod_N(Mi, Av):
+		((void(*)(void*, Instruction))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift), instruction_r1);
+		break;
+	case uMod_N(Mi, Avv):
+		((void(*)(void*, Instruction))op.pointer)(g_val_mem.at<void*>(instruction_r0.shift), instruction_r1);
+		break;
+	case uMod_N(Mi, Ai):
+		((void(*)(Instruction, Instruction))op.pointer)(instruction_r0, instruction_r1);
+		break;
+	case uMod_N(Mi, Aii):
+		((void(*)(Instruction*, Instruction))op.pointer)(&g_stack_instruction.at_r(0), instruction_r1);
+		break;
+
+	case uMod_N(Mii, Av):
+		((void(*)(void*, Instruction*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift), &g_stack_instruction.at_r(1));
+		break;
+	case uMod_N(Mii, Avv):
+		((void(*)(void*, Instruction*))op.pointer)(g_val_mem.at<void*>(instruction_r0.shift), &g_stack_instruction.at_r(1));
+		break;
+	case uMod_N(Mii, Ai):
+		((void(*)(Instruction, Instruction*))op.pointer)(instruction_r0, &g_stack_instruction.at_r(1));
+		break;
+	case uMod_N(Mii, Aii):
+		((void(*)(void*, Instruction*))op.pointer)(&g_stack_instruction.at_r(0), &g_stack_instruction.at_r(1));
+		break;
+
+
 
 	case uMod_N(M, Ad):
 		((void(*)())op.pointer)();
 		goto eval_prefix_call_delete_A;
-	case uMod_N(M, Apd):
+	case uMod_N(M, Avd):
 		((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
 		goto eval_prefix_call_delete_A;
-	case uMod_N(M, Aod):
+	case uMod_N(M, Avvd):
 		((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r0.shift)));
 		goto eval_prefix_call_delete_A;
-	case uMod_N(M, Ard):
-		((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
+	case uMod_N(M, Aid):
+		((void(*)(Instruction))op.pointer)(instruction_r0);
+		goto eval_prefix_call_delete_A;
+	case uMod_N(M, Aiid):
+		((void(*)(Instruction*))op.pointer)(&g_stack_instruction.at_r(0));
+		goto eval_prefix_call_delete_A;
+
+		// pass by value for method (Mv) is not decided on yet. In case it will be, it can be passed as array of 4/8 chars
+
+	case uMod_N(Mvv, Ad):
+		((void(*)(charT*))op.pointer)(g_op_mem.at<charT*>(instruction_r1.shift));
+		goto eval_prefix_call_delete_A;
+	case uMod_N(Mvv, Avd):
+		((void(*)(void*, charT*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift), (charT*)g_op_mem.at<charT>(instruction_r1.shift));
+		goto eval_prefix_call_delete_A;
+	case uMod_N(Mvv, Avvd):
+		((void(*)(void*, charT*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r0.shift)), (charT*)g_op_mem.at<charT>(instruction_r1.shift));
+		goto eval_prefix_call_delete_A;
+	case uMod_N(Mvv, Aid):
+		((void(*)(Instruction, charT*))op.pointer)(instruction_r0, (charT*)g_op_mem.at<charT>(instruction_r1.shift));
+		goto eval_prefix_call_delete_A;
+	case uMod_N(Mvv, Aiid):
+		((void(*)(Instruction*, charT*))op.pointer)(&g_stack_instruction.at_r(0), (charT*)g_op_mem.at<charT>(instruction_r1.shift));
+		goto eval_prefix_call_delete_A;
+
+	case uMod_N(Mi, Ad):
+		((void(*)(Instruction))op.pointer)(instruction_r1);
+		goto eval_prefix_call_delete_A;
+	case uMod_N(Mi, Avd):
+		((void(*)(void*, Instruction))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift), instruction_r1);
+		goto eval_prefix_call_delete_A;
+	case uMod_N(Mi, Avvd):
+		((void(*)(void*, Instruction))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r0.shift)), instruction_r1);
+		goto eval_prefix_call_delete_A;
+	case uMod_N(Mi, Aid):
+		((void(*)(Instruction, Instruction))op.pointer)(instruction_r0, instruction_r1);
+		goto eval_prefix_call_delete_A;
+	case uMod_N(Mi, Aiid):
+		((void(*)(Instruction*, Instruction))op.pointer)(&g_stack_instruction.at_r(0), instruction_r1);
+		goto eval_prefix_call_delete_A;
+
+	case uMod_N(Mii, Ad):
+		((void(*)(Instruction*))op.pointer)(&g_stack_instruction.at_r(1));
+		goto eval_prefix_call_delete_A;
+	case uMod_N(Mii, Avd):
+		((void(*)(void*, Instruction*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift), &g_stack_instruction.at_r(1));
+		goto eval_prefix_call_delete_A;
+	case uMod_N(Mii, Avvd):
+		((void(*)(void*, Instruction*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r0.shift)), &g_stack_instruction.at_r(1));
+		goto eval_prefix_call_delete_A;
+	case uMod_N(Mii, Aid):
+		((void(*)(Instruction, Instruction*))op.pointer)(instruction_r0, &g_stack_instruction.at_r(1));
+		goto eval_prefix_call_delete_A;
+	case uMod_N(Mii, Aiid):
+		((void(*)(Instruction*, Instruction*))op.pointer)(&g_stack_instruction.at_r(0), &g_stack_instruction.at_r(1));
+		goto eval_prefix_call_delete_A;
 
 	eval_prefix_call_delete_A:
 		if (g_specification->type.destructor.count(instruction_r1.value)) {
@@ -1263,14 +1362,17 @@ void inline eval_prefix(Operation op, Instruction instruction_r0, Instruction in
 		g_stack_instruction.max_index -= 1;
 
 		break;
-	case uMod_N(Md, Ap):
+
+	case uMod_N(Md, Av):
 		((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
 		goto eval_prefix_call_delete_M;
-	case uMod_N(Md, Ao):
+	case uMod_N(Md, Avv):
 		((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r0.shift)));
 		goto eval_prefix_call_delete_M;
-	case uMod_N(Md, Ar):
-		((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
+	case uMod_N(Md, Ai):
+		((void(*)(Instruction))op.pointer)(instruction_r0);
+	case uMod_N(Md, Aii):
+		((void(*)(Instruction*))op.pointer)(&g_stack_instruction.at_r(0));
 
 	eval_prefix_call_delete_M:
 		g_op_mem.max_index = instruction_r1.shift;
@@ -1279,14 +1381,16 @@ void inline eval_prefix(Operation op, Instruction instruction_r0, Instruction in
 		g_stack_instruction.max_index -= 1;
 
 		break;
-	case uMod_N(Md, Apd):
+	case uMod_N(Md, Avd):
 		((void(*)(void*))op.pointer)(g_val_mem.get<void*>(instruction_r0.shift));
 		goto eval_prefix_call_delete_MA;
-	case uMod_N(Md, Aod):
+	case uMod_N(Md, Avvd):
 		((void(*)(void*))op.pointer)((void*)(g_val_mem.at<void*>(instruction_r0.shift)));
 		goto eval_prefix_call_delete_MA;
-	case uMod_N(Md, Ard):
-		((void(*)(void*))op.pointer)((void*)(&g_stack_instruction.at_r(0)));
+	case uMod_N(Md, Aid):
+		((void(*)(Instruction))op.pointer)(instruction_r0);
+	case uMod_N(Md, Aiid):
+		((void(*)(Instruction*))op.pointer)(&g_stack_instruction.at_r(0));
 
 	eval_prefix_call_delete_MA:
 

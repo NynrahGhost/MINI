@@ -223,4 +223,8 @@ namespace Core {
 		g_stack_instruction.at_r(1) = instruction_r0;
 		--g_stack_instruction.max_index;
 	}
+
+	//std::ifstream getFile(Instruction& path) {
+
+	//}
 }
