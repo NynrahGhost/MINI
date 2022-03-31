@@ -262,8 +262,16 @@ struct Span : Array<uint8> {
 		memcpy(content + position + shift, content + position, size);
 	}
 
+	inline void move_relative(size_t position, int64 shift) {
+		memcpy(content + position + shift, content + position, max_index-position);
+	}
+
 	inline void move_absolute(size_t position, size_t size, size_t new_position) {
 		memcpy(content + new_position, content + position, size);
+	}
+
+	inline void move_absolute(size_t position, size_t new_position) {
+		memcpy(content + new_position, content + position, max_index-position);
 	}
 };
 

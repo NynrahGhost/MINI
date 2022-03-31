@@ -28,7 +28,7 @@ namespace Core
 	String toStringLocal(Instruction instruction);
 	String toStringLocalArray(Instruction instruction);
 	
-	void print(Instruction& instr);
+	void print(Instruction instr);
 	void scan();
 
 	void instantiate();
@@ -46,7 +46,7 @@ namespace Core
 	void atContextByIndex();
 	void atContextByName();
 
-	void callObjectPrefix(Instruction& obj, Instruction& method);
+	void callObjectPrefix(Instruction obj, Instruction method);
 	void callObjectPostfix();
 	void callObjectBinaryLeft();
 	void callObjectBinaryRight();
@@ -142,7 +142,7 @@ namespace Core
 	void contextAtIndex();
 	void contextAtName();
 
-	void concatenate();
+	void concatenate(Instruction& instruction_r2, Instruction instruction_r0, Instruction instruction_r1);
 	void concatenateStrings();
 	void concatenateStringsOp();
 

@@ -24,6 +24,7 @@
     d - delete after function have finished execution
 */
 #define uMod_ 0
+#define uMod_delete (OperationModifier)((int32)OperationModifier::m_del | (int32)OperationModifier::a_del)
 
 #define uMod_M 0
 #define uMod_Mv OperationModifier::m_put
@@ -47,43 +48,47 @@
 #define uMod_Aid (OperationModifier)((int32)OperationModifier::a_del | (int32)uMod_Ai)
 #define uMod_Aiid (OperationModifier)((int32)OperationModifier::a_del | (int32)uMod_Aii)
 
+#define uMod_N OperationModifier::native
+#define uMod_C(ARG) (OperationModifier)((int32)OperationModifier::concrete | (int32)(uMod_ ## ARG))
+#define uMod_N(ARG) (OperationModifier)((int32)OperationModifier::native | (int32)(uMod_ ## ARG))
 #define uMod_N(METHOD, ARG) (OperationModifier)((int32)OperationModifier::native | (int32)(uMod_ ## METHOD) | (int32)(uMod_ ## ARG))
 
 
 #define bMod_ 0
+#define bMod_delete (OperationModifier)((int32)OperationModifier::m_del | (int32)OperationModifier::l_del | (int32)OperationModifier::r_del)
 
 #define bMod_M 0
 #define bMod_Mv OperationModifier::m_put
-#define bMod_Mvv (OperationModifier)((int32)OperationModifier::m_out | (int32)uMod_Mv)
+#define bMod_Mvv (OperationModifier)((int32)OperationModifier::m_out | (int32)bMod_Mv)
 #define bMod_Mi OperationModifier::m_instr
-#define bMod_Mii (OperationModifier)((int32)OperationModifier::m_out | (int32)uMod_Mi)
+#define bMod_Mii (OperationModifier)((int32)OperationModifier::m_out | (int32)bMod_Mi)
 #define bMod_Md OperationModifier::m_del
-#define bMod_Mvd (OperationModifier)((int32)OperationModifier::m_del | (int32)uMod_Mv)
-#define bMod_Mvvd (OperationModifier)((int32)OperationModifier::m_del | (int32)uMod_Mvv)
-#define bMod_Mid (OperationModifier)((int32)OperationModifier::m_del | (int32)uMod_Mi)
-#define bMod_Miid (OperationModifier)((int32)OperationModifier::m_del | (int32)uMod_Mii)
+#define bMod_Mvd (OperationModifier)((int32)OperationModifier::m_del | (int32)bMod_Mv)
+#define bMod_Mvvd (OperationModifier)((int32)OperationModifier::m_del | (int32)bMod_Mvv)
+#define bMod_Mid (OperationModifier)((int32)OperationModifier::m_del | (int32)bMod_Mi)
+#define bMod_Miid (OperationModifier)((int32)OperationModifier::m_del | (int32)bMod_Mii)
 
 #define bMod_L 0
 #define bMod_Lv OperationModifier::l_put
-#define bMod_Lvv (OperationModifier)((int32)OperationModifier::l_out | (int32)uMod_Lv)
+#define bMod_Lvv (OperationModifier)((int32)OperationModifier::l_out | (int32)bMod_Lv)
 #define bMod_Li OperationModifier::l_instr
-#define bMod_Lii (OperationModifier)((int32)OperationModifier::l_out | (int32)uMod_Li)
+#define bMod_Lii (OperationModifier)((int32)OperationModifier::l_out | (int32)bMod_Li)
 #define bMod_Ld OperationModifier::l_del
-#define bMod_Lvd (OperationModifier)((int32)OperationModifier::l_del | (int32)uMod_Lv)
-#define bMod_Lvvd (OperationModifier)((int32)OperationModifier::l_del | (int32)uMod_Lvv)
-#define bMod_Lid (OperationModifier)((int32)OperationModifier::l_del | (int32)uMod_Li)
-#define bMod_Liid (OperationModifier)((int32)OperationModifier::l_del | (int32)uMod_Lii)
+#define bMod_Lvd (OperationModifier)((int32)OperationModifier::l_del | (int32)bMod_Lv)
+#define bMod_Lvvd (OperationModifier)((int32)OperationModifier::l_del | (int32)bMod_Lvv)
+#define bMod_Lid (OperationModifier)((int32)OperationModifier::l_del | (int32)bMod_Li)
+#define bMod_Liid (OperationModifier)((int32)OperationModifier::l_del | (int32)bMod_Lii)
 
 #define bMod_R 0
 #define bMod_Rv OperationModifier::r_put
-#define bMod_Rvv (OperationModifier)((int32)OperationModifier::r_out | (int32)uMod_Rv)
+#define bMod_Rvv (OperationModifier)((int32)OperationModifier::r_out | (int32)bMod_Rv)
 #define bMod_Ri OperationModifier::r_instr
-#define bMod_Rii (OperationModifier)((int32)OperationModifier::r_out | (int32)uMod_Ri)
+#define bMod_Rii (OperationModifier)((int32)OperationModifier::r_out | (int32)bMod_Ri)
 #define bMod_Rd OperationModifier::r_del
-#define bMod_Rvd (OperationModifier)((int32)OperationModifier::r_del | (int32)uMod_Rv)
-#define bMod_Rvvd (OperationModifier)((int32)OperationModifier::r_del | (int32)uMod_Rvv)
-#define bMod_Rid (OperationModifier)((int32)OperationModifier::r_del | (int32)uMod_Ri)
-#define bMod_Riid (OperationModifier)((int32)OperationModifier::r_del | (int32)uMod_Rii)
+#define bMod_Rvd (OperationModifier)((int32)OperationModifier::r_del | (int32)bMod_Rv)
+#define bMod_Rvvd (OperationModifier)((int32)OperationModifier::r_del | (int32)bMod_Rvv)
+#define bMod_Rid (OperationModifier)((int32)OperationModifier::r_del | (int32)bMod_Ri)
+#define bMod_Riid (OperationModifier)((int32)OperationModifier::r_del | (int32)bMod_Rii)
 
 #define bMod(ARG) bMod_ ## ARG
 #define bMod_rev(ARG) (OperationModifier)((int32)OperationModifier::reverse | (int32) bMod_ ## ARG)
@@ -114,6 +119,7 @@ using ToStringLocal = String (*) (Instruction);
 
 
 enum class OperationModifier : int16 {
+    none = 0,
     native = 1,
     concrete = 1 << 1,
     m_put = 1 << 2,
@@ -206,6 +212,8 @@ extern "C" thread_local Span g_op_mem;
 void inline eval_prefix(Operation op, Instruction instruction_r0, Instruction instruction_r1);
 void inline eval_postfix(Operation op, Instruction instruction_r0, Instruction instruction_r1, Instruction instruction_r2);
 void inline eval_binary(Operation op, Instruction instruction_r0, Instruction instruction_r1, Instruction instruction_r2);
+void inline eval_operator_result(Operation op, void* res);
+void inline eval_context(Operation op, Instruction instruction_r1, int32 index);
 
 void g_memory_delete_top();
 void g_memory_delete_r(size_t index);

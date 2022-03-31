@@ -149,6 +149,34 @@ struct Instruction {
 #endif
     int32 shift;
 
+    inline static Instruction ivms(InstructionType instr, ValueType value, int16 modifier, int32 shift) {
+        return Instruction{
+            instr,
+            value,
+            modifier,
+            shift,
+        };
+    }
+
+    inline static Instruction vms(ValueType value, int16 modifier, int32 shift) {
+        return Instruction{
+            InstructionType::value,
+            value,
+            modifier,
+            shift,
+        };
+    }
+
+    inline static Instruction vs(ValueType value, int32 shift) {
+        return Instruction{
+            InstructionType::value,
+            value,
+            0,
+            shift,
+        };
+    }
+
+
     inline static Instruction atom(InstructionType type) {
         return Instruction{
             type

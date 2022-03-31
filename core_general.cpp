@@ -1131,7 +1131,7 @@ namespace Core {
 		getNamespaceEntryLiteral(str);
 	}
 
-	void callObjectPrefix(Instruction& obj, Instruction& method) {
+	void callObjectPrefix(Instruction obj, Instruction method) {
 		Table<String, ValueType*>* table = g_val_mem.get<Table<String, ValueType*>*>(obj.shift);
 		String str = String();
 		str += ((charT)EntryPrefix::prefix);

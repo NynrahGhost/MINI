@@ -180,7 +180,7 @@ namespace Core {
 		return result;
 	}
 
-	void print(Instruction& instr) {
+	void print(Instruction instr) {
 		ToStringLocal function = 0;
 		if (g_specification->type.stringLocal.count(instr.value))
 			function = g_specification->type.stringLocal.at(instr.value);
