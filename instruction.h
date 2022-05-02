@@ -235,6 +235,14 @@ struct Instruction {
         *(_Value*)(arr+1) = t_value;
         return arr;
     }
+
+    inline bool operator== (Instruction i) {
+        return *(uint64*)this == *(uint64*)(&i);
+    }
+
+    inline bool isEmpty() {
+        return *(uint64*)this == 0;
+    }
 };
 
 

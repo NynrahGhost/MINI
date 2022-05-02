@@ -96,6 +96,11 @@ namespace Core
 
 	ValueType* findName(String name);
 
+	ValueType* nameGet();
+	ValueType* nameAt();
+
+	ValueType* tableGet();
+	ValueType* tableAt();
 
 	template<typename _TypeLeft, typename _TypeRight, typename _TypeResult, ValueType type, _TypeResult(*function) (_TypeLeft, _TypeRight) >
 	void binaryFunctionInterface();

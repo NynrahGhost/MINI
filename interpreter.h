@@ -196,6 +196,7 @@ extern "C" thread_local Array<Table<String, ValueType*>*> g_stack_namespace;
 extern "C" thread_local Array<Table<String, ValueType*>> g_stack_local;
 extern "C" thread_local Array<Instruction> g_stack_context;
 extern "C" thread_local Array<Instruction> g_stack_instruction;
+extern "C" thread_local Instruction g_instr_slot;
 //extern "C" thread_local Array<Array<Instruction>*> g_stack_array;
 
 /*struct _context {

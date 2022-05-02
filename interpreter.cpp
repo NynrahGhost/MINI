@@ -22,6 +22,7 @@ thread_local Array<Table<String, ValueType*>> g_stack_local = Array<Table<String
 thread_local Array<Instruction> g_stack_context = Array<Instruction>(16);
 thread_local Span g_val_mem = Span(1024 * 1024);
 thread_local Span g_op_mem = Span(1024 * 256);
+thread_local Instruction g_instr_slot = Instruction::atom(InstructionType::start);
 
 Status run()
 {
@@ -428,9 +429,13 @@ Status run()
         case InstructionType::op:
 			switch (instruction_r1.instr) {                                   //   |   | x |o p|
 			case InstructionType::value:
-				switch (instruction_r1.instr) {                               //   | x |val|o p|
+				switch (instruction_r2.instr) {                               //   | x |val|o p|
 				case InstructionType::op: goto eval_prefix;                   //   |o p|val|o p| :eval_prefix	//Should be unreachable
 				default: goto parse;}                                         //   |all|val|o p| :parse
+			case InstructionType::op:
+				switch (instruction_r2.instr) {                               //   | x |o p|o p|
+				case InstructionType::value: goto eval_postfix;               //   |val|o p|o p| :eval_postfix
+				default: goto parse;}
 
 			default: goto parse;}                                             //   |   |all|o p| :parse
 
@@ -451,10 +456,11 @@ Status run()
 				switch (instruction_r2.instr) {                               //   | x |val| ; |
 				case InstructionType::start: goto eval_delete_r0r1;           //   |s t|val| ; | :eval_delete_r0r1
 				case InstructionType::start_context: goto eval_delete_r0r1;   //   | { |val| ; | :eval_delete_r0r1
+				case InstructionType::start_group: goto eval_delete_r0r1;     //   | ( |val| ; | :eval_delete_r0r1
 				case InstructionType::call: goto eval_delete_r0r1;            //   |fun|val| ; | :eval_delete_r0r1
 				case InstructionType::op: goto eval_prefix;                   //   |o p|val| ; | :eval_prefix		//TODO: shift to match signature.
 				case InstructionType::start_array: goto eval_tuple_add;       //   | [ |val| ; | :eval_tuple_add
-				case InstructionType::spacing: goto eval_binary_long;         //   | _ |val| ; | :eval_binary_long
+				case InstructionType::spacing: goto eval_long_op;             //   | _ |val| ; | :eval_long_op
 				case InstructionType::skip_after_next: goto eval_skip_after_next;//|s->|val| ; | :eval_skip_after_next
 				case InstructionType::ignore_separator: goto eval_leave_r1;   //   |/;/|val| ; | :eval_leave_r1
 				case InstructionType::ignore_array_start: goto parse;         //   |/[/|val| ; | :parse
@@ -472,7 +478,7 @@ Status run()
 			case InstructionType::value:                                      //   | x |val| ) |
 				switch (instruction_r2.instr) {
 				case InstructionType::start_group: goto eval_group;           //   | ( |val| ) | :eval_group
-				case InstructionType::spacing: goto eval_binary_long;         //   | _ |val| ) | :eval_binary_long
+				case InstructionType::spacing: goto eval_long_op;             //   | _ |val| ) | :eval_long_op
 				default: goto error_syntax; }
 			default: goto error_syntax; }
 		case InstructionType::start_array:                                    //   |   | x | [ | 
@@ -487,7 +493,7 @@ Status run()
 			case InstructionType::value:                                      //   | x |val| ] |
 				switch (instruction_r2.instr) {
 				case InstructionType::start_array: goto eval_tuple_end;       //   | [ |val| ] | :eval_tuple_end
-				case InstructionType::spacing: goto eval_binary_long;         //   | _ |val| ] | :eval_binary_long
+				case InstructionType::spacing: goto eval_long_op;             //   | _ |val| ] | :eval_long_op
 				default: goto error_syntax;}
 			default: goto error_syntax;}
 		case InstructionType::start_context:                                  
@@ -541,7 +547,7 @@ Status run()
 				switch (instruction_r2.instr) {
 				case InstructionType::start: goto ending;                     //   |s t|val|end| :ending
 				case InstructionType::call: goto eval_finish_call;            //   |fun|val|end| :eval_finish_call
-				case InstructionType::spacing: goto eval_binary_long;         //   | _ |val|end| :eval_binary_long
+				case InstructionType::spacing: goto eval_long_op;             //   | _ |val|end| :eval_long_op
 				case InstructionType::op: goto eval_prefix;	}                 //   |o p|val|end| :eval_prefix	//Should be unreachable
 			default: goto error_syntax;
 			}
@@ -557,6 +563,7 @@ Status run()
 			case InstructionType::spacing: goto eval_erase_r0;                //   |   | _ | _ | :eval_erase_r0
 			case InstructionType::call: goto eval_erase_r0;                   //   |   |fun| _ | :eval_erase_r0
             case InstructionType::op:                                         //   | x |o p| _ |
+				goto parse;
                 switch (instruction_r2.instr) {
 				case InstructionType::start: goto eval_erase_r0;              //   |s t|o p| _ | :eval_erase_r0
 				case InstructionType::skip_after_next: goto eval_erase_r0;    //   |s->|o p| _ | :eval_erase_r0
@@ -578,7 +585,7 @@ Status run()
 				case InstructionType::start_array: goto parse;                //   | [ |val| _ | :parse
 				case InstructionType::start_group: goto parse;                //   | ( |val| _ | :parse
 				case InstructionType::skip_after_next: goto parse;            //   |s->|val| _ | :parse
-                case InstructionType::spacing: goto eval_binary_long;         //   | _ |val| _ | :eval_binary_long
+                case InstructionType::spacing: goto eval_long_op;             //   | _ |val| _ | :eval_long_op
                 case InstructionType::op: goto eval_prefix;                   //   |o p|val| _ | :eval_prefix		//Should be unreachable
 				case InstructionType::call: goto parse;                       //   |fun|val| _ | :parse
 				case InstructionType::value: goto eval_erase_r0;}             //   |val|val| _ | :eval_erase_r0
@@ -857,6 +864,12 @@ Status run()
 
 			}
 
+			if (!g_instr_slot.isEmpty())
+			{
+				g_stack_instruction.add(g_instr_slot);
+				g_instr_slot = Instruction{ InstructionType::start, ValueType::none, 0, 0 };
+			}
+
 			goto evaluate;
 		}
 
@@ -908,6 +921,12 @@ Status run()
 				
 			}
 
+			if(!g_instr_slot.isEmpty())
+			{
+				g_stack_instruction.add(g_instr_slot);
+				g_instr_slot = Instruction{InstructionType::start, ValueType::none, 0, 0};
+			}
+
 			goto evaluate;
 		}
 
@@ -933,7 +952,7 @@ Status run()
 			}
 			else if (table->count(ValueTypeBinary(ValueType::all, instruction_r0.value)))	//By string Lgeneral Rconcrete
 			{
-				op = table->at(ValueTypeBinary(instruction_r2.value, ValueType::all));
+				op = table->at(ValueTypeBinary(ValueType::all, instruction_r2.value));
 				goto eval_binary_call;
 			}
 			else if (table->count(ValueTypeBinary(ValueType::all, ValueType::all)))			//By string general
@@ -979,14 +998,18 @@ Status run()
 
 			}
 
+			if (!g_instr_slot.isEmpty())
+			{
+				g_stack_instruction.add(g_instr_slot);
+				g_instr_slot = Instruction{ InstructionType::start, ValueType::none, 0, 0 };
+			}
+
 			goto evaluate;
 		}
 
-		eval_binary_long: {
+		eval_long_op: {
 			
 			instruction_r3 = g_stack_instruction.get_r(3);
-
-			--g_script_index;
 
 			switch (instruction_r3.instr) {
 			//case InstructionType::skip_after_next:
@@ -994,6 +1017,7 @@ Status run()
 
 			case InstructionType::value:
 
+				//TODO: probably unreachable, consider removing
 				// val sp val x
 				g_stack_instruction.at_r(2) = instruction_r1;
 				g_stack_instruction.max_index -= 2;
@@ -1008,27 +1032,30 @@ Status run()
 				if (g_stack_instruction.get_r(4).instr == InstructionType::spacing)
 				{
 					// [val sp] op sp val x
+					g_instr_slot = instruction_r0;
 					g_stack_instruction.at_r(4) = instruction_r3;
 					g_stack_instruction.at_r(3) = instruction_r1;
-					g_stack_instruction.max_index -= 3;
 
 					instruction_r0 = instruction_r1;
 					instruction_r1 = instruction_r3;
-					instruction_r2 = g_stack_instruction.get_r(2);
+					instruction_r2 = g_stack_instruction.get_r(5);
+
+					g_stack_instruction.max_index -= 3;
 
 					goto eval_binary;
 				}
 
 				// [st] op sp val x
+				g_instr_slot = instruction_r0;
 				g_stack_instruction.at_r(2) = instruction_r1;
-				g_stack_instruction.at_r(1) = instruction_r0;
-				g_stack_instruction.max_index -= 2;
 
 				instruction_r0 = instruction_r1;
-				instruction_r1 = instruction_r2;
-				//instruction_r2 = g_stack_instruction.at_r(2);
+				instruction_r1 = instruction_r3;
+				instruction_r2 = g_stack_instruction.get_r(4);
 
-				goto eval_binary;
+				g_stack_instruction.max_index -= 2;
+
+				goto eval_prefix;
 
 			case InstructionType::call:
 				++g_script_index;

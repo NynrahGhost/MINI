@@ -524,6 +524,7 @@ namespace Core {
 			table = &core->op.binaryForward[T(".")];
 			bFun(int64, int64, (createFloat<int64, int64, float64, ValueType::float64>), bMod_N(), none);
 			bFun(all, name, findValueR0, bMod_N(), none);
+			bFun(all, name, getTableEntry, bMod_N(), none);
 			//bFun(all, unprocedure, callThis, bMod_N(), none);
 
 			table = &core->op.binaryForward[T("::")];
