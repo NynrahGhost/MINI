@@ -15,11 +15,12 @@ Table<String, ValueType*> g_data = Table<String, ValueType*>();
 thread_local std::istream* g_stream;
 thread_local charT* g_script = new charT[string_buffer_init_size + 1];
 thread_local int g_script_index = -1;
-thread_local Array<Table<String, ValueType*>*> g_stack_namespace = Array<Table<String, ValueType*>*>(16);
 thread_local Module* g_specification = Core::initCore();
 thread_local Array<Instruction> g_stack_instruction = Array<Instruction>(16);
+thread_local Array<Table<String, ValueType*>*> g_stack_namespace = Array<Table<String, ValueType*>*>(16);
 thread_local Array<Table<String, ValueType*>> g_stack_local = Array<Table<String, ValueType*>>(16);
 thread_local Array<Instruction> g_stack_context = Array<Instruction>(16);
+thread_local Array<Instruction> g_stack_error_handler = Array<Instruction>(16);
 thread_local Span g_val_mem = Span(1024 * 1024);
 thread_local Span g_op_mem = Span(1024 * 256);
 thread_local Instruction g_instr_slot = Instruction::atom(InstructionType::start);
@@ -425,7 +426,7 @@ Status run()
         switch (instruction_r0.instr) {                                       //    ___________
         case InstructionType::start: goto parse;                              //   |   |   |s t| :parse
 		case InstructionType::call: goto parse;                               //   |   |   |fun| :parse
-		case InstructionType::error: goto parse;                              //   |   |   |err| :error
+		case InstructionType::error: goto eval_error;                         //   |   |   |err| :eval_error
         case InstructionType::op:
 			switch (instruction_r1.instr) {                                   //   |   | x |o p|
 			case InstructionType::value:
@@ -458,7 +459,7 @@ Status run()
 				case InstructionType::start_context: goto eval_delete_r0r1;   //   | { |val| ; | :eval_delete_r0r1
 				case InstructionType::start_group: goto eval_delete_r0r1;     //   | ( |val| ; | :eval_delete_r0r1
 				case InstructionType::call: goto eval_delete_r0r1;            //   |fun|val| ; | :eval_delete_r0r1
-				case InstructionType::op: goto eval_prefix;                   //   |o p|val| ; | :eval_prefix		//TODO: shift to match signature.
+				case InstructionType::op: goto eval_long_op;                  //   |o p|val| ; | :eval_long_op
 				case InstructionType::start_array: goto eval_tuple_add;       //   | [ |val| ; | :eval_tuple_add
 				case InstructionType::spacing: goto eval_long_op;             //   | _ |val| ; | :eval_long_op
 				case InstructionType::skip_after_next: goto eval_skip_after_next;//|s->|val| ; | :eval_skip_after_next
@@ -538,6 +539,7 @@ Status run()
 			case InstructionType::start: goto parse;                          //   |   |s t|end| :eval_add_none
 			case InstructionType::separator: goto eval_cleanup_separator;     //   |   | ; |end| :eval_cleanup_separator
 			case InstructionType::spacing: goto eval_erase_r1;                //   |   | _ |end| :eval_erase_r1
+			case InstructionType::call: goto eval_finish_call_empty;          //   |   |fun|end| :eval_finish_call_empty
 			case InstructionType::op:                                         //   | x |o p|end|
 				switch (instruction_r2.instr) {
 				case InstructionType::spacing: goto parse;                    //   | _ |o p|end| :parse
@@ -586,7 +588,7 @@ Status run()
 				case InstructionType::start_group: goto parse;                //   | ( |val| _ | :parse
 				case InstructionType::skip_after_next: goto parse;            //   |s->|val| _ | :parse
                 case InstructionType::spacing: goto eval_long_op;             //   | _ |val| _ | :eval_long_op
-                case InstructionType::op: goto eval_prefix;                   //   |o p|val| _ | :eval_prefix		//Should be unreachable
+                case InstructionType::op: goto eval_long_op;                  //   |o p|val| _ | :eval_long_op
 				case InstructionType::call: goto parse;                       //   |fun|val| _ | :parse
 				case InstructionType::value: goto eval_erase_r0;}             //   |val|val| _ | :eval_erase_r0
             default: goto error_syntax; 
@@ -1017,15 +1019,41 @@ Status run()
 
 			case InstructionType::value:
 
-				//TODO: probably unreachable, consider removing
-				// val sp val x
-				g_stack_instruction.at_r(2) = instruction_r1;
-				g_stack_instruction.max_index -= 2;
+				switch (instruction_r2.instr)
+				{
+					case InstructionType::spacing:
+						// val sp val x
+						g_instr_slot = instruction_r0;
+						instruction_r0 = instruction_r1;
+						instruction_r1 = Instruction::pos(InstructionType::op, g_op_mem.max_index);
+						g_stack_instruction.at_r(2) = instruction_r1;
+						g_stack_instruction.max_index -= 1;
 
+						instruction_r2 = instruction_r3;
+
+						goto eval_binary;
+
+					case InstructionType::op:
+						// val op val x
+						g_instr_slot = instruction_r0;
+						instruction_r0 = instruction_r1;
+						instruction_r1 = instruction_r2;
+						instruction_r2 = instruction_r3;
+						g_stack_instruction.max_index -= 1;
+
+						goto eval_binary;
+				}
+
+			case InstructionType::start:
+
+				// [st] op val x
+				g_instr_slot = instruction_r0;
+				g_stack_instruction.max_index -= 1;
 				instruction_r0 = instruction_r1;
-				instruction_r1 = instruction_r3;
+				instruction_r1 = instruction_r2;
+				instruction_r2 = instruction_r3;
 
-				goto eval_coalescing;
+				goto eval_prefix;
 
 			case InstructionType::op:
 
@@ -1152,13 +1180,52 @@ Status run()
 			*/
 		}
 
+		eval_finish_call_empty: {
+			g_stack_instruction.add(instruction_r0);
+			g_stack_instruction.at_r(1) = Instruction::vs(ValueType::none, 0);
+			//Fall-through is intentional
+		}
+
 		eval_finish_call: {
-			g_script = *(charT**)(g_val_mem.content + instruction_r2.shift);
-			g_script_index = *(int*)(g_val_mem.content + instruction_r2.shift + sizeof(void*));
-			g_stack_instruction.at_r(2) = g_stack_instruction.get_r(3);
-			g_stack_instruction.at_r(3) = g_stack_instruction.get_r(1);
-			g_stack_instruction.max_index -= 2;
-			goto evaluate;
+			switch((InstructionCallType)instruction_r1.value)
+			{
+			case InstructionCallType::no_return_no_push:
+				if (g_specification->type.destructor.count(instruction_r1.value)) {
+					((Destructor)g_specification->type.destructor[instruction_r1.value])(g_val_mem.content + instruction_r1.shift);
+				}
+				g_script = *(charT**)(g_val_mem.content + instruction_r2.shift);
+				g_script_index = *(int*)(g_val_mem.content + instruction_r2.shift + sizeof(void*));
+				g_stack_instruction.max_index -= 3;
+				goto evaluate;
+			case InstructionCallType::push_slot:	//TODO: Consider if user modifies stack so whatever was before call will be moved to the top of the stack
+				if (g_specification->type.destructor.count(instruction_r1.value)) {
+					((Destructor)g_specification->type.destructor[instruction_r1.value])(g_val_mem.content + instruction_r1.shift);
+				}
+				g_script = *(charT**)(g_val_mem.content + instruction_r2.shift);
+				g_script_index = *(int*)(g_val_mem.content + instruction_r2.shift + sizeof(void*));
+				g_stack_instruction.max_index -= 3;
+				goto evaluate;
+			case InstructionCallType::return_value:
+				if (g_specification->type.destructor.count(instruction_r1.value)) {
+					((Destructor)g_specification->type.destructor[instruction_r1.value])(g_val_mem.content + instruction_r1.shift);
+				}
+				g_script = *(charT**)(g_val_mem.content + instruction_r2.shift);
+				g_script_index = *(int*)(g_val_mem.content + instruction_r2.shift + sizeof(void*));
+				g_stack_instruction.at_r(2) = instruction_r1;
+				g_stack_instruction.max_index -= 2;
+				goto evaluate;
+			case InstructionCallType::return_value_and_push_slot:
+				g_script = *(charT**)(g_val_mem.content + instruction_r2.shift);
+				g_script_index = *(int*)(g_val_mem.content + instruction_r2.shift + sizeof(void*));
+				g_stack_instruction.at_r(2) = g_stack_instruction.get_r(3);
+				g_stack_instruction.at_r(3) = g_stack_instruction.get_r(1);
+				g_stack_instruction.max_index -= 2;
+				goto evaluate;
+			}
+		}
+
+		eval_error: {
+			
 		}
 	}
 

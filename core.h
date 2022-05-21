@@ -39,6 +39,11 @@ namespace Core
 	void conditionalTrue();
 	void conditionalFalse();
 
+	void loopWhilePrefix(Instruction arg, Instruction op);
+	//void loopWhilePostfix();
+	void loopWhile(Instruction condition, Instruction expr);
+	void loopWhileMoveValue(Instruction value);
+
 	void loadLibrary();
 	void freeLibrary();
 
@@ -66,7 +71,7 @@ namespace Core
 	void invokeNativeFunction();
 	void invokeNativeFunctionUnary();
 
-	void callFunction();
+	void callFunction(charT* function);
 
 	void assignToName();
 	void assignToReference();
@@ -74,6 +79,9 @@ namespace Core
 	void declareAssign();
 
 	void ignore();
+
+
+	void swapInstructionsRxRy();
 
 
 	void getPointerR0();
@@ -166,6 +174,14 @@ namespace Core
 	void getTablePostfix();
 	void getTableBinaryLeft();
 	void getTableBinaryRight();
+
+	void tableEntry(String);
+	//void tableGet();
+	//void tableAt();
+	void tablePrefix();
+	void tablePostfix();
+	void tableBinaryLeft();
+	void tableBinaryRight();
 
 	void getNamespaceEntryLiteral(String);
 	void getNamespaceEntry();

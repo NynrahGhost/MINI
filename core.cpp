@@ -353,7 +353,7 @@ namespace Core {
 			//uFun(all, conditionalShort);
 			
 			table = &core->op.prefixForward[T("?|")];
-			//uFun(all, loopWhile);
+			uFun(all, loopWhilePrefix, uMod_N(Mi, Ai), none);
 
 			table = &core->op.prefixForward[T("?:")];
 			//uFun(all, conditionalSwitch);
@@ -434,8 +434,14 @@ namespace Core {
 			table = &core->op.postfixForward[T("")];
 			uFun(name, findValueR2, uMod_N(), none);
 			uFun(reference, getValueR2, uMod_N(), none);
-			uFun(expression, callFunction, uMod_N(), none);
+			uFun(expression, callFunction, uMod_N(Md, Avv), none);
 
+			table = &core->op.prefixForward[T("?|")];
+			uFun(all, loopWhile, uMod_N(Mii, Aii), none);
+			//uFun(name, loopWhile, uMod_N(), none);
+			//uFun(ref, loopWhile, uMod_N(), none);
+			//uFun(int64, loopSequence, uMod_N(), none);
+			//uFun(all, loopWhile);
 
 			table = &core->op.postfixForward[T(",")];
 			uFun(all, commaPostfix, uMod_N(), none);
@@ -460,7 +466,7 @@ namespace Core {
 			table = &core->op.postfixForward[T(".")];
 			uFun(name, findValueR2, uMod_N(), none);
 			uFun(reference, getValueR2, uMod_N(), none);
-			uFun(expression, callFunction, uMod_N(), none);
+			uFun(expression, callFunction, uMod_N(M, Avv), none);
 
 
 			table = &core->op.postfixForward[T(">>!")];
@@ -492,6 +498,9 @@ namespace Core {
 
 			//bFun(type, none, allocStack);
 
+			table = &core->op.binaryForward[T("?|.")];
+			bFun(all, expression, loopWhile, bMod_N(M, Li, Ri), none);
+			bFun(all, all, loopWhileMoveValue, bMod_N(M, L, Ri), none);
 
 			table = &core->op.binaryForward[T("?,")]; //Null coalesceing
 
@@ -524,7 +533,7 @@ namespace Core {
 			table = &core->op.binaryForward[T(".")];
 			bFun(int64, int64, (createFloat<int64, int64, float64, ValueType::float64>), bMod_N(), none);
 			bFun(all, name, findValueR0, bMod_N(), none);
-			bFun(all, name, getTableEntry, bMod_N(), none);
+			bFun(table, name, getTableEntry, bMod_N(), none);
 			//bFun(all, unprocedure, callThis, bMod_N(), none);
 
 			table = &core->op.binaryForward[T("::")];

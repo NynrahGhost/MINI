@@ -31,12 +31,21 @@ enum class InstructionType : uint8 {
     context,
     call,
     error,
+
+    stub,
+    swap,
 };
 
 enum class InstructionErrorType : uint16 {
     invalid_type,
 };
 
+enum class InstructionCallType : uint8 {
+    no_return_no_push = 0,
+    return_value = 1,
+    push_slot = 2,
+    return_value_and_push_slot = 4
+};
 
 
 enum class ValueType : 
@@ -224,6 +233,15 @@ struct Instruction {
             InstructionType::call,
             value,
             0,
+            shift,
+        };
+    }
+
+    inline static Instruction call(ValueType value, int16 modifier, int32 shift) {
+        return Instruction{
+            InstructionType::call,
+            value,
+            modifier,
             shift,
         };
     }

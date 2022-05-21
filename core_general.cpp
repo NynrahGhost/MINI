@@ -315,6 +315,13 @@ namespace Core {
 	}
 
 
+	void swapInstructionsRxRy(Instruction* a, Instruction* b) {
+		Instruction* c = a;
+		*b = *a;
+		*a = *c;
+	}
+
+
 	void getPointerR0() {
 		Instruction& name = g_stack_instruction.at_r(0);
 		auto table = g_data;
@@ -987,20 +994,106 @@ namespace Core {
 	}
 
 
-	void loopWhile() { //TODO
-		size_t size = g_specification->type.size[(uint8)g_stack_instruction.at_r(0).value];
+	void loopWhilePrefix(Instruction arg, Instruction op) {
+		g_stack_instruction.add(arg);
+		g_stack_instruction.add(op);
+		g_op_mem.add(T('.'));
+		g_stack_instruction.at_r(3) = Instruction::atom(InstructionType::spacing);
+		g_stack_instruction.at_r(4) = Instruction::vs(ValueType::none, 0);
+	}
+	/*void loopWhilePostfix(Instruction arg, Instruction op) {
+		g_stack_instruction.add(arg);
+		g_stack_instruction.add(op);
+		g_stack_instruction.at_r(3) = Instruction::atom(InstructionType::spacing);
+		g_stack_instruction.at_r(4) = Instruction::vs(ValueType::none, 0);
+	}*/
+	void loopWhile(Instruction condition, Instruction expr) {
+		Instruction result = g_stack_instruction.at_r(4);
+		ValueType* value;
 
-		uint8* ptr = (g_val_mem.content + g_stack_instruction.at_r(0).shift);
-
-		while (size)
-			if (*(ptr + --size) != 0)
-			{
-				g_val_mem.max_index = g_stack_instruction.at_r(1).shift;
-				g_stack_instruction.max_index -= 1;
-				g_stack_instruction.at_r(0).instr = InstructionType::skip_after_next;
-				g_stack_instruction.at_r(0).modifier = 0;
-				return;
+		switch (condition.value) {
+		case ValueType::name:
+			value = findName(String((charT*)(g_val_mem.content + condition.shift), condition.modifier));
+			switch (g_specification->type.size[(uint32) * value]) {
+			case -1:
+			case 0:
+			case 1:
+				if (*(uint8*)(value + 1) == 0)
+					goto failed;
+				goto succeeded;
+			case 2:
+				if (*(uint16*)(value + 1) == 0)
+					goto failed;
+				goto succeeded;
+			case 4:
+				if (*(uint32*)(value + 1) == 0)
+					goto failed;
+				goto succeeded;
+			case 8:
+				if (*(uint64*)(value + 1) == 0)
+					goto failed;
+				goto succeeded;
 			}
+		case ValueType::reference:
+		case ValueType::object:
+			return; //TODO: looks up some overloaded op from base class
+		}
+
+	succeeded:
+
+		if (g_specification->type.destructor.count(result.value)) {
+			((Destructor)g_specification->type.destructor[result.value])(g_val_mem.content + result.shift);
+		}
+
+		g_val_mem.add(expr);
+
+		g_stack_instruction.at_r(0) = Instruction::ivms(InstructionType::call, (ValueType)InstructionCallType::return_value, 0, g_val_mem.max_index);
+		g_val_mem.add(g_script);
+		g_val_mem.add(g_script_index);
+		return;
+
+	failed:
+
+		if (g_specification->type.destructor.count(condition.value)) {
+			((Destructor)g_specification->type.destructor[condition.value])(g_val_mem.content + condition.shift);
+		}
+
+		g_val_mem.move_absolute(expr.shift, condition.shift);
+		g_val_mem.max_index -= result.shift - condition.shift;
+		result.shift = condition.shift;
+		g_stack_instruction.at_r(4) = result;
+		return;
+
+	}
+	void loopWhileMoveValue(Instruction value) {
+		g_stack_instruction.at_r(4) = value;
+		g_stack_instruction.at_r(0) = g_val_mem.get<Instruction>(value.shift - sizeof(Instruction));
+	}
+
+
+	/*void tableGet(Instruction& instr_table, charT* name) {
+		ValueType* res = (*g_val_mem.get<Table<String, ValueType*>*>(instr_table.shift))[String(name)];
+
+	}*/
+	ValueType* tableAt(Instruction& instr_table, charT* name) {
+		auto table = g_val_mem.get<Table<String, ValueType*>*>(instr_table.shift);
+		if (table->count(name)) {
+			return (*table)[name];
+		}
+		//table->insert(std::pair<String, ValueType*>(str, &Core::none));
+		//g_val_mem.at<void*>(instr_table.shift) = &Core::none;
+	}
+
+	void tablePrefix(Instruction& name, Instruction& operation) {
+		operation.modifier = 2;
+		name.modifier += 1;
+		*(g_val_mem.content + name.shift + 1) = ((charT)EntryPrefix::prefix);
+	}
+
+	void tablePostfix(Instruction& name, Instruction& operation) {
+		operation.modifier = 2;
+		name.modifier += 1;
+		*(g_val_mem.content + name.shift + 1) = ((charT)EntryPrefix::postfix);
 	}
 
 
@@ -1191,12 +1284,25 @@ namespace Core {
 	void invokeFunction() {
 		Instruction parameter = g_stack_instruction.get_r(0);
 		Instruction function = g_stack_instruction.get_r(2);
+		
+		g_stack_instruction.max_index -= 2;
+
+		g_stack_instruction.add(Instruction::call((ValueType)InstructionCallType::return_value_and_push_slot, parameter.shift));	//TODO: make a 'call' instruction that specifies change of executable string
+		g_stack_instruction.add(Instruction::context(parameter.value, parameter.shift));
+
+
+	}
+	/*
+	void invokeFunction() {
+		Instruction parameter = g_stack_instruction.get_r(0);
+		Instruction function = g_stack_instruction.get_r(2);
 
 		/*if (context.value == ValueType::dll)
 		{
 			GetProcAddress(memory.get<HMODULE>(context.shift), memory.get<String>(function.shift).c_str());
 			g_stack_array.get_r(parameter.modifier).content;
 		}*/
+		/*
 
 		g_stack_instruction.max_index -= 2;
 
@@ -1205,7 +1311,7 @@ namespace Core {
 		g_stack_instruction.add(Instruction::context(parameter.value, parameter.shift));
 
 
-	}
+	}*/
 	void invokeNativeFunction() {
 
 	}
@@ -1214,7 +1320,21 @@ namespace Core {
 
 	}
 
-	void callFunction() {
+	void callFunction(charT* function) {
+		Instruction val = g_stack_instruction.get_r(2);
+		*(void**)(g_val_mem.content + val.shift) = g_script;
+		*(int*)(g_val_mem.content + val.shift + sizeof(void*)) = g_script_index;
+		g_val_mem.max_index = val.shift + sizeof(void*) + 4;
+		g_script = function;
+		val.instr = InstructionType::call;
+		val.value = (ValueType)InstructionCallType::return_value_and_push_slot;
+		g_stack_instruction.at_r(1) = val;
+		g_stack_instruction.at_r(2) = g_stack_instruction.get_r(0);
+		g_stack_instruction.max_index -= 1;
+		g_script_index = -1;
+	}
+
+	/*void callFunction() {
 		Instruction val = g_stack_instruction.get_r(2);
 		charT* function = *(charT**)(g_val_mem.content + val.shift);
 		*(void**)(g_val_mem.content + val.shift) = g_script;
@@ -1226,7 +1346,7 @@ namespace Core {
 		g_stack_instruction.at_r(2) = g_stack_instruction.get_r(0);
 		g_stack_instruction.max_index -= 1;
 		g_script_index = -1;
-	}
+	}*/
 
 
 	void commaPrefix() { //TODO: redo or prohibit prefix comma.
