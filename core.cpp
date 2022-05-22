@@ -436,7 +436,7 @@ namespace Core {
 			uFun(reference, getValueR2, uMod_N(), none);
 			uFun(expression, callFunction, uMod_N(Md, Avv), none);
 
-			table = &core->op.prefixForward[T("?|")];
+			table = &core->op.postfixForward[T("?|")];
 			uFun(all, loopWhile, uMod_N(Mii, Aii), none);
 			//uFun(name, loopWhile, uMod_N(), none);
 			//uFun(ref, loopWhile, uMod_N(), none);

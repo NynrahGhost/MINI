@@ -996,10 +996,11 @@ namespace Core {
 
 	void loopWhilePrefix(Instruction arg, Instruction op) {
 		g_stack_instruction.add(arg);
+		op.modifier += 1;
 		g_stack_instruction.add(op);
 		g_op_mem.add(T('.'));
-		g_stack_instruction.at_r(3) = Instruction::atom(InstructionType::spacing);
-		g_stack_instruction.at_r(4) = Instruction::vs(ValueType::none, 0);
+		g_stack_instruction.at_r(2) = Instruction::atom(InstructionType::spacing);
+		g_stack_instruction.at_r(3) = Instruction::vs(ValueType::none, 0);
 	}
 	/*void loopWhilePostfix(Instruction arg, Instruction op) {
 		g_stack_instruction.add(arg);
@@ -1045,11 +1046,12 @@ namespace Core {
 			((Destructor)g_specification->type.destructor[result.value])(g_val_mem.content + result.shift);
 		}
 
-		g_val_mem.add(expr);
-
+		g_val_mem.max_index = expr.shift + sizeof(charT*);
 		g_stack_instruction.at_r(0) = Instruction::ivms(InstructionType::call, (ValueType)InstructionCallType::return_value, 0, g_val_mem.max_index);
 		g_val_mem.add(g_script);
 		g_val_mem.add(g_script_index);
+		g_script = *(charT**)(g_val_mem.content + expr.shift);
+		g_script_index = -1;
 		return;
 
 	failed:
@@ -1062,12 +1064,13 @@ namespace Core {
 		g_val_mem.max_index -= result.shift - condition.shift;
 		result.shift = condition.shift;
 		g_stack_instruction.at_r(4) = result;
+		g_stack_instruction.max_index -= 4;
 		return;
 
 	}
 	void loopWhileMoveValue(Instruction value) {
 		g_stack_instruction.at_r(4) = value;
-		g_stack_instruction.at_r(0) = g_val_mem.get<Instruction>(value.shift - sizeof(Instruction));
+		g_stack_instruction.at_r(0) = Instruction::vs(ValueType::expression, value.shift - sizeof(charT*) - sizeof(charT*) - sizeof(int32));
 	}
 
 

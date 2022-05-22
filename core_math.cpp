@@ -23,22 +23,22 @@ namespace Core {
 	int64   add_ui(uint64 left, int64 right) { return left + right; }
 	uint64  add_uu(uint64 left, uint64 right) { return left + right; }
 
-	float64 sub_dd(float64 left, float64 right) { return left + right; }
-	float64 sub_df(float64 left, float32 right) { return left + right; }
-	float64 sub_di(float64 left, int64 right) { return left + right; }
-	float64 sub_du(float64 left, uint64 right) { return left + right; }
-	float64 sub_fd(float32 left, float64 right) { return left + right; }
-	float32 sub_ff(float32 left, float32 right) { return left + right; }
-	float32 sub_fi(float32 left, int64 right) { return left + right; }
-	float32 sub_fu(float32 left, uint64 right) { return left + right; }
-	float64 sub_id(int64 left, float64 right) { return left + right; }
-	float32 sub_if(int64 left, float32 right) { return left + right; }
-	int64   sub_ii(int64 left, int64 right) { return left + right; }
-	int64   sub_iu(int64 left, uint64 right) { return left + right; }
-	float64 sub_ud(uint64 left, float64 right) { return left + right; }
-	float32 sub_uf(uint64 left, float32 right) { return left + right; }
-	int64   sub_ui(uint64 left, int64 right) { return left + right; }
-	uint64  sub_uu(uint64 left, uint64 right) { return left + right; }
+	float64 sub_dd(float64 left, float64 right) { return left - right; }
+	float64 sub_df(float64 left, float32 right) { return left - right; }
+	float64 sub_di(float64 left, int64 right) { return left - right; }
+	float64 sub_du(float64 left, uint64 right) { return left - right; }
+	float64 sub_fd(float32 left, float64 right) { return left - right; }
+	float32 sub_ff(float32 left, float32 right) { return left - right; }
+	float32 sub_fi(float32 left, int64 right) { return left - right; }
+	float32 sub_fu(float32 left, uint64 right) { return left - right; }
+	float64 sub_id(int64 left, float64 right) { return left - right; }
+	float32 sub_if(int64 left, float32 right) { return left - right; }
+	int64   sub_ii(int64 left, int64 right) { return left - right; }
+	int64   sub_iu(int64 left, uint64 right) { return left - right; }
+	float64 sub_ud(uint64 left, float64 right) { return left - right; }
+	float32 sub_uf(uint64 left, float32 right) { return left - right; }
+	int64   sub_ui(uint64 left, int64 right) { return left - right; }
+	uint64  sub_uu(uint64 left, uint64 right) { return left - right; }
 
 	float64 mul_dd(float64 left, float64 right) { return left * right; }
 	float64 mul_df(float64 left, float32 right) { return left * right; }

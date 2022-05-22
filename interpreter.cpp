@@ -954,7 +954,7 @@ Status run()
 			}
 			else if (table->count(ValueTypeBinary(ValueType::all, instruction_r0.value)))	//By string Lgeneral Rconcrete
 			{
-				op = table->at(ValueTypeBinary(ValueType::all, instruction_r2.value));
+				op = table->at(ValueTypeBinary(ValueType::all, instruction_r0.value));
 				goto eval_binary_call;
 			}
 			else if (table->count(ValueTypeBinary(ValueType::all, ValueType::all)))			//By string general
@@ -1044,6 +1044,7 @@ Status run()
 						goto eval_binary;
 				}
 
+			case InstructionType::call:
 			case InstructionType::start:
 
 				// [st] op val x
@@ -1085,9 +1086,10 @@ Status run()
 
 				goto eval_prefix;
 
-			case InstructionType::call:
+			/*case InstructionType::call:
 				++g_script_index;
-				goto parse;
+				goto parse;*/ //Have now idea what is was for
+
 				/*g_stack_instruction.at_r(2) = g_stack_instruction.get_r(1);
 				g_stack_instruction.max_index -= 2;
 				goto evaluate;*/
@@ -1182,12 +1184,15 @@ Status run()
 
 		eval_finish_call_empty: {
 			g_stack_instruction.add(instruction_r0);
-			g_stack_instruction.at_r(1) = Instruction::vs(ValueType::none, 0);
+			instruction_r1 = Instruction::vs(ValueType::none, g_val_mem.max_index);
+			g_stack_instruction.at_r(1) = instruction_r1;
+			instruction_r2 = instruction_r3; // g_stack_instruction.at_r(2); TODO: check why it works
+			
 			//Fall-through is intentional
 		}
 
 		eval_finish_call: {
-			switch((InstructionCallType)instruction_r1.value)
+			switch((InstructionCallType)instruction_r2.value)
 			{
 			case InstructionCallType::no_return_no_push:
 				if (g_specification->type.destructor.count(instruction_r1.value)) {
